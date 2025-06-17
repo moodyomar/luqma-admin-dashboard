@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import MealCard from '../src/components/MealCard';
+import NewMealForm from '../src/components/NewMealForm';
 import brand from '../constants/brandConfig';
 
 const MealsPage = () => {
@@ -11,7 +12,7 @@ const MealsPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const ref = doc(db, 'menus', brandId);
+      const ref = doc(db, 'menus', brand.id);
       const snap = await getDoc(ref);
       if (snap.exists()) {
         setMealsData(snap.data());
@@ -21,11 +22,25 @@ const MealsPage = () => {
     fetchData();
   }, []);
 
+  const updateMeal = (categoryId, index, updatedMeal) => {
+    const updatedItems = { ...mealsData.items };
+    updatedItems[categoryId][index] = updatedMeal;
+    setMealsData({ ...mealsData, items: updatedItems });
+  };
+
+  const deleteMeal = (categoryId, index) => {
+    if (!confirm('Are you sure you want to delete this meal?')) return;
+    const updatedItems = { ...mealsData.items };
+    updatedItems[categoryId].splice(index, 1);
+    setMealsData({ ...mealsData, items: updatedItems });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const ref = doc(db, 'menus', brand.id);
     await setDoc(ref, mealsData);
     setSaving(false);
+    alert('✅ Changes saved to Firebase');
   };
 
   if (loading) return <p>Loading...</p>;
@@ -34,103 +49,36 @@ const MealsPage = () => {
     <div style={{ padding: 40 }}>
       <h2>Meals Editor</h2>
 
-      <button onClick={handleSave} disabled={saving}>
-        {saving ? 'Saving...' : 'Save Changes'}
-      </button>
-      <button onClick={() => signOut(auth)}>Logout</button>
       {Object.entries(mealsData.items).map(([categoryId, meals]) => (
         <div key={categoryId} style={{ marginTop: 30 }}>
           <h3>Category: {categoryId}</h3>
+
           {meals.map((meal, index) => (
-            <div key={meal.id} style={{ marginBottom: 10, padding: 10, border: '1px solid #ccc' }}>
-              <input
-                type="text"
-                value={meal.name.ar}
-                onChange={(e) =>
-                  updateMeal(categoryId, index, {
-                    ...meal,
-                    name: { ...meal.name, ar: e.target.value },
-                  })
-                }
-                placeholder="Arabic name"
-              />
-              <input
-                type="text"
-                value={meal.name.he}
-                onChange={(e) =>
-                  updateMeal(categoryId, index, {
-                    ...meal,
-                    name: { ...meal.name, he: e.target.value },
-                  })
-                }
-                placeholder="Hebrew name"
-              />
-              <input
-                type="text"
-                value={meal.price}
-                onChange={(e) =>
-                  updateMeal(categoryId, index, {
-                    ...meal,
-                    price: e.target.value,
-                  })
-                }
-                placeholder="Price"
-              />
-              <input
-                type="text"
-                value={meal.description?.ar || ''}
-                onChange={(e) =>
-                  updateMeal(categoryId, index, {
-                    ...meal,
-                    description: { ...meal.description, ar: e.target.value },
-                  })
-                }
-                placeholder="Arabic description"
-              />
-
-              <input
-                type="text"
-                value={meal.description?.he || ''}
-                onChange={(e) =>
-                  updateMeal(categoryId, index, {
-                    ...meal,
-                    description: { ...meal.description, he: e.target.value },
-                  })
-                }
-                placeholder="Hebrew description"
-              />
-              {meal.image && (
-                <img src={meal.image} alt="" style={{ width: 100, marginTop: 8 }} />
-              )}
-              <input
-                type="text"
-                value={meal.image || ''}
-                onChange={(e) =>
-                  updateMeal(categoryId, index, {
-                    ...meal,
-                    image: e.target.value,
-                  })
-                }
-                placeholder="Image URL"
-              />
-
-            </div>
+            <MealCard
+              key={meal.id}
+              meal={meal}
+              onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
+              onDelete={() => deleteMeal(categoryId, index)}
+            />
           ))}
+
+          <NewMealForm
+            categoryId={categoryId}
+            onAdd={(catId, meal) => {
+              const updated = { ...mealsData.items };
+              updated[catId] = [...(updated[catId] || []), meal];
+              setMealsData({ ...mealsData, items: updated });
+            }}
+          />
+
         </div>
       ))}
 
-      <button onClick={handleSave} disabled={saving}>
+      <button onClick={handleSave} disabled={saving} style={{ marginTop: 40 }}>
         {saving ? 'Saving...' : 'Save Changes'}
       </button>
-      <button onClick={() => signOut(auth)}>Logout</button>
     </div>
   );
-
-  function updateMeal(categoryId, index, updatedMeal) {
-    const updatedItems = { ...mealsData.items };
-    updatedItems[categoryId][index] = updatedMeal;
-    setMealsData({ ...mealsData, items: updatedItems });
-  }
 };
 
 export default MealsPage;
