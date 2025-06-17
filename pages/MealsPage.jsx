@@ -9,13 +9,22 @@ const MealsPage = () => {
   const [mealsData, setMealsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
       const ref = doc(db, 'menus', brand.id);
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        setMealsData(snap.data());
+        const data = snap.data();
+        setMealsData(data);
+
+        // Initialize expanded state per category
+        const initialExpanded = {};
+        Object.keys(data.items).forEach((catId) => {
+          initialExpanded[catId] = true; // or false if you want collapsed by default
+        });
+        setExpandedCategories(initialExpanded);
       }
       setLoading(false);
     };
@@ -50,27 +59,40 @@ const MealsPage = () => {
       <h2>Meals Editor</h2>
 
       {Object.entries(mealsData.items).map(([categoryId, meals]) => (
-        <div key={categoryId} style={{ marginTop: 30 }}>
-          <h3>Category: {categoryId}</h3>
+        <div key={categoryId} style={{ marginTop: 30, borderBottom: '1px solid #ccc', paddingBottom: 20 }}>
+          <h3
+            onClick={() =>
+              setExpandedCategories((prev) => ({
+                ...prev,
+                [categoryId]: !prev[categoryId],
+              }))
+            }
+            style={{ cursor: 'pointer', color: '#007bff' }}
+          >
+            {expandedCategories[categoryId] ? '▾ ' : '▸ '}Category: {categoryId}
+          </h3>
 
-          {meals.map((meal, index) => (
-            <MealCard
-              key={meal.id}
-              meal={meal}
-              onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
-              onDelete={() => deleteMeal(categoryId, index)}
-            />
-          ))}
+          {expandedCategories[categoryId] && (
+            <>
+              {meals.map((meal, index) => (
+                <MealCard
+                  key={meal.id}
+                  meal={meal}
+                  onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
+                  onDelete={() => deleteMeal(categoryId, index)}
+                />
+              ))}
 
-          <NewMealForm
-            categoryId={categoryId}
-            onAdd={(catId, meal) => {
-              const updated = { ...mealsData.items };
-              updated[catId] = [...(updated[catId] || []), meal];
-              setMealsData({ ...mealsData, items: updated });
-            }}
-          />
-
+              <NewMealForm
+                categoryId={categoryId}
+                onAdd={(catId, meal) => {
+                  const updated = { ...mealsData.items };
+                  updated[catId] = [...(updated[catId] || []), meal];
+                  setMealsData({ ...mealsData, items: updated });
+                }}
+              />
+            </>
+          )}
         </div>
       ))}
 

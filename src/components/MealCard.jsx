@@ -20,14 +20,8 @@ const MealCard = ({ meal, onChange, onDelete, onSave }) => {
   };
 
   return (
-    <div style={{
-      padding: 12,
-      border: '1px solid #ccc',
-      borderRadius: 8,
-      marginBottom: 14,
-      backgroundColor: '#f9f9f9'
-    }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+    <div className="meal-card">
+      <div className="meal-header-row">
         <input
           type="text"
           placeholder="اسم المنتج بالعربي"
@@ -42,6 +36,7 @@ const MealCard = ({ meal, onChange, onDelete, onSave }) => {
         />
         <input
           type="text"
+          className="price-input"
           placeholder="המחיר | السعر"
           value={meal?.price || ''}
           onChange={(e) => handleFieldChange('price', null, e.target.value)}
@@ -65,31 +60,24 @@ const MealCard = ({ meal, onChange, onDelete, onSave }) => {
           onChange={(e) => handleFieldChange('image', null, e.target.value)}
         />
       </div>
-
-      {meal?.image && (
-        <img
-          src={meal.image}
-          alt="meal preview"
-          style={{ width: 100, height: 'auto', marginTop: 10, borderRadius: 6 }}
-        />
-      )}
+      <div className="meal-image-wrapper">
+        {meal?.image && (
+          <img
+            src={meal.image}
+            alt="meal preview"
+          />
+        )}
+      </div>
 
       <OptionsEditor
         options={meal?.options || []}
         onChange={handleOptionsChange}
       />
 
-      <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
+      <div className="meal-card-buttons">
         <button
           onClick={onDelete}
-          style={{
-            backgroundColor: '#ff4444',
-            color: '#fff',
-            border: 'none',
-            padding: '6px 14px',
-            borderRadius: 4,
-            cursor: 'pointer'
-          }}
+          className="delete-btn"
         >
           מחק | حذف
         </button>
@@ -97,14 +85,7 @@ const MealCard = ({ meal, onChange, onDelete, onSave }) => {
         {onSave && (
           <button
             onClick={onSave}
-            style={{
-              backgroundColor: '#007bff',
-              color: '#fff',
-              border: 'none',
-              padding: '6px 14px',
-              borderRadius: 4,
-              cursor: 'pointer'
-            }}
+            className="save-btn"
           >
             שמור | حفظ
           </button>

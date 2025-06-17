@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase/firebaseConfig';
+import '../src/styles/admin.css'
 
 function App() {
   const navigate = useNavigate();
