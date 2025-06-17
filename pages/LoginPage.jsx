@@ -22,7 +22,12 @@ const LoginPage = () => {
   return (
     <div style={{ padding: 40 }}>
       <h2>Login</h2>
-      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+      >
         <input
           type="email"
           placeholder="Email"
