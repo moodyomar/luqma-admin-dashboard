@@ -1,168 +1,205 @@
 body {
-  /* font-family: 'Segoe UI', Tahoma, sans-serif; */
-  direction: rtl;
-  background: #fafafa;
-  margin: 0;
-  padding: 20px;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    direction: rtl;
+    background: #fafafa;
+    margin: 0;
+    padding: 20px;
 }
 
 h4 {
-  margin: 16px 0 8px;
+    margin: 16px 0 8px;
 }
 
 .meal-card {
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 16px;
-  background-color: #fefefe;
-  margin-bottom: 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-   max-width: 800px;      /* 👈 Add this */
-  margin-inline: auto;   /* 👈 Center it */
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 16px;
+    background-color: #fefefe;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    max-width: 800px;
+    /* 👈 Add this */
+    margin-inline: auto;
+    /* 👈 Center it */
 }
 
 .meal-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
 }
+
 .meal-header-row input,
 .meal-grid input {
-  max-width: 100%;
-  width: 100%;
-  box-sizing: border-box;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
 }
+
 .meal-header-row {
-  display: grid;
-  grid-template-columns: 2fr 2fr 1fr;
-  gap: 10px;
-  margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
 input.price-input {
-  max-width: 80px;
-  text-align: center;
-  padding: 6px 6px;
+    max-width: 80px;
+    text-align: center;
+    padding: 6px 6px;
 }
 
 .meal-card img {
-  max-width: 80px;
-  height: auto;
-  border-radius: 6px;
-  margin: 35px 0;
-  display: block;
+    max-width: 80px;
+    height: auto;
+    border-radius: 6px;
+    margin: 35px 0;
+    display: block;
 }
 
 .meal-card-buttons {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
 }
 
 .meal-card-buttons button {
-  flex: 1;
-  padding: 8px 14px;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  border: none;
+    flex: 1;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
 }
 
 button.delete-btn {
-  background-color: #e74c3c;
-  color: white;
+    background-color: #e74c3c;
+    color: white;
 }
 
 button.save-btn {
-  background-color: #3498db;
-  color: white;
+    background-color: #3498db;
+    color: white;
 }
+
 input.price-input {
-  max-width: 150px;
+    max-width: 150px;
 }
+
 .meal-card img {
-  float: left;
-  margin-bottom: 8px;
-  max-width: 70px;
-  height: auto;
+    float: left;
+    margin-bottom: 8px;
+    max-width: 70px;
+    height: auto;
 }
+
 .meal-image-wrapper img {
-  max-width: 100px;      
-  height: auto;
+    max-width: 100px;
+    height: auto;
 }
-input, select, button {
-  font-family: inherit;
-  font-size: 14px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 8px;
-  outline: none;
-  box-sizing: border-box;
+
+input,
+select,
+button {
+    font-family: inherit;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px;
+    outline: none;
+    box-sizing: border-box;
 }
 
 button {
-  cursor: pointer;
-  transition: background-color 0.2s ease;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
 }
 
 button:active {
-  transform: scale(0.98);
+    transform: scale(0.98);
 }
-.optionsWrapper{
+
+.optionsWrapper {
     display: flex;
     width: 100%;
     justify-content: space-between;
     margin-top: 40px;
 }
+
 .option-card {
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 16px;
-  background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 16px;
+    background: #f9f9f9;
 }
 
 .option-header {
-  font-weight: bold;
-  margin-bottom: 8px;
+    font-weight: bold;
+    margin-bottom: 8px;
 }
 
 .option-labels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 
 .option-labels label {
-  flex: 1 1 45%;
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
+    flex: 1 1 45%;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
 }
 
 .option-values {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .value-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .value-row input {
-  flex: 1;
-  min-width: 80px;
+    flex: 1;
+    min-width: 80px;
 }
 
 .add-value-btn {
-  align-self: start;
-  margin-top: 6px;
-  background-color: #eee;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-weight: bold;
+    align-self: start;
+    margin-top: 6px;
+    background-color: #eee;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.loginButtons {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 40px;
+}
+
+.loginButton {
+    width: 130px;
+    height: 40px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.loginButton.primary {
+    background-color: #3498db;
+    color: white;
+}
+
+.loginButton.danger {
+    background-color: #e74c3c;
+    color: white;
 }

@@ -79,7 +79,7 @@ const MealCard = ({ meal, onChange, onDelete, onSave }) => {
           onClick={onDelete}
           className="delete-btn"
         >
-          מחק | حذف
+          حذف المنتج | מחק מוצר
         </button>
 
         {onSave && (

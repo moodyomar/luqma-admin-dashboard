@@ -1,15 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import MealCard from '../src/components/MealCard';
 import NewMealForm from '../src/components/NewMealForm';
 import brand from '../constants/brandConfig';
+import { auth } from '../firebase/firebaseConfig';
+import { signOut } from 'firebase/auth';
 
 const MealsPage = () => {
   const [mealsData, setMealsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
+  const navigate = useNavigate();
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -19,10 +24,10 @@ const MealsPage = () => {
         const data = snap.data();
         setMealsData(data);
 
-        // Initialize expanded state per category
+        // Initialize all categories to collapsed (false)
         const initialExpanded = {};
-        Object.keys(data.items).forEach((catId) => {
-          initialExpanded[catId] = true; // or false if you want collapsed by default
+        Object.keys(data.items).forEach((cat) => {
+          initialExpanded[cat] = false;
         });
         setExpandedCategories(initialExpanded);
       }
@@ -30,6 +35,11 @@ const MealsPage = () => {
     };
     fetchData();
   }, []);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate('/login'); // or wherever your login page is
+  };
 
   const updateMeal = (categoryId, index, updatedMeal) => {
     const updatedItems = { ...mealsData.items };
@@ -55,8 +65,8 @@ const MealsPage = () => {
   if (loading) return <p>Loading...</p>;
 
   return (
-    <div style={{ padding: 40 }}>
-      <h2>Meals Editor</h2>
+    <div style={{ padding: 5 }}>
+      <h2 style={{textAlign:'center'}}>ממשק עדכון מוצרים לאפלקציה</h2>
 
       {Object.entries(mealsData.items).map(([categoryId, meals]) => (
         <div key={categoryId} style={{ marginTop: 30, borderBottom: '1px solid #ccc', paddingBottom: 20 }}>
@@ -69,20 +79,11 @@ const MealsPage = () => {
             }
             style={{ cursor: 'pointer', color: '#007bff' }}
           >
-            {expandedCategories[categoryId] ? '▾ ' : '▸ '}Category: {categoryId}
+            {expandedCategories[categoryId] ? '▾ ' : '▸ '}القسم | הקטגוריה: {categoryId}
           </h3>
 
           {expandedCategories[categoryId] && (
             <>
-              {meals.map((meal, index) => (
-                <MealCard
-                  key={meal.id}
-                  meal={meal}
-                  onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
-                  onDelete={() => deleteMeal(categoryId, index)}
-                />
-              ))}
-
               <NewMealForm
                 categoryId={categoryId}
                 onAdd={(catId, meal) => {
@@ -91,14 +92,32 @@ const MealsPage = () => {
                   setMealsData({ ...mealsData, items: updated });
                 }}
               />
+              {meals.map((meal, index) => (
+                <MealCard
+                  key={meal.id}
+                  meal={meal}
+                  onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
+                  onDelete={() => deleteMeal(categoryId, index)}
+                />
+              ))}
             </>
           )}
         </div>
       ))}
 
-      <button onClick={handleSave} disabled={saving} style={{ marginTop: 40 }}>
-        {saving ? 'Saving...' : 'Save Changes'}
-      </button>
+      <div className="loginButtons">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="loginButton primary">
+          {saving ? 'שומר...' : 'שמור שינויים'}
+        </button>
+        <button
+          onClick={handleLogout}
+          className="loginButton danger">
+          התנתקות
+        </button>
+      </div>
     </div>
   );
 };

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { generateMealId, cleanText, isValidMeal } from '../../utils/menuUtils';
+import { useState } from 'react';
 
 const NewMealForm = ({ categoryId, onAdd }) => {
+    const [formVisible, setFormVisible] = useState(false);
     const [form, setForm] = useState({
         nameAr: '',
         nameHe: '',
@@ -12,60 +12,108 @@ const NewMealForm = ({ categoryId, onAdd }) => {
     });
 
     const handleChange = (field, value) => {
-        setForm((prev) => ({ ...prev, [field]: cleanText(value) }));
+        setForm((prev) => ({ ...prev, [field]: value.trimStart() }));
     };
 
     const handleSubmit = () => {
-        const minimalMeal = {
-            name: { ar: form.nameAr, he: form.nameHe },
-            price: form.price,
-        };
-
-        if (!isValidMeal(minimalMeal)) {
-            alert('Please fill at least Arabic name, Hebrew name, and price.');
+        if (!form.nameAr || !form.nameHe || !form.price) {
+            alert('Please fill at least name and price');
             return;
         }
 
         const newMeal = {
-            id: generateMealId(),
-            name: minimalMeal.name,
+            id: Date.now().toString(),
+            name: { ar: form.nameAr, he: form.nameHe },
             price: form.price,
             description: { ar: form.descAr || '', he: form.descHe || '' },
             image: form.image || '',
         };
 
         onAdd(categoryId, newMeal);
-
         setForm({
-            nameAr: '',
-            nameHe: '',
-            price: '',
-            descAr: '',
-            descHe: '',
-            image: '',
+            nameAr: '', nameHe: '', price: '',
+            descAr: '', descHe: '', image: '',
         });
+        setFormVisible(false);
     };
 
     return (
-        <div style={{ marginTop: 20, padding: 10, borderTop: '1px dashed #999' }}>
-            <h4>Add New Meal to <strong>{categoryId}</strong></h4>
+        <div style={{ marginBottom: 20 }}>
+            {!formVisible && (
+                <button
+                    onClick={() => setFormVisible(true)}
+                    style={{
+                        backgroundColor: 'rgb(40, 167, 69)',
+                        color: 'white',
+                        padding: '6px 12px',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        direction:'rtl'
+                    }}
+                >
+                    ➕ הוספת מוצר חדש ל: {categoryId}
+                </button>
+            )}
 
-            <input placeholder="Arabic Name" value={form.nameAr} onChange={(e) => handleChange('nameAr', e.target.value)} />
-            <input placeholder="Hebrew Name" value={form.nameHe} onChange={(e) => handleChange('nameHe', e.target.value)} />
-            <input placeholder="Price" value={form.price} onChange={(e) => handleChange('price', e.target.value)} />
-            <input placeholder="Arabic Description" value={form.descAr} onChange={(e) => handleChange('descAr', e.target.value)} />
-            <input placeholder="Hebrew Description" value={form.descHe} onChange={(e) => handleChange('descHe', e.target.value)} />
-            <input placeholder="Image URL" value={form.image} onChange={(e) => handleChange('image', e.target.value)} />
+            {formVisible && (
+                <div style={{
+                    border: '1px dashed #aaa',
+                    padding: 10,
+                    borderRadius: 10,
+                    backgroundColor: '#fafafa',
+                    maxWidth: 500
+                }}>
+                    <h4 style={{ marginBottom: 12, textAlign: 'center' }}>
+                        اضافه منتج جديد ל <strong>{categoryId}</strong>
+                    </h4>
 
-            <button
-                type="button"
-                onClick={handleSubmit}
-                style={{ marginTop: 8 }}
-            >
-                Add Meal
-            </button>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 5,
+                    }}>
+                        <input placeholder="اسم المنتج/وجبه" value={form.nameAr} onChange={(e) => handleChange('nameAr', e.target.value)} />
+                        <input placeholder="שם מוצר/מנה" value={form.nameHe} onChange={(e) => handleChange('nameHe', e.target.value)} />
+                        <input placeholder="سعر | מחיר" value={form.price} onChange={(e) => handleChange('price', e.target.value)} />
+                        <input placeholder="لينك صوره | לינק תמונה" value={form.image} onChange={(e) => handleChange('image', e.target.value)} />
+                        <input placeholder="وصف المنتج/وجبه" value={form.descAr} onChange={(e) => handleChange('descAr', e.target.value)} />
+                        <input placeholder="תיאור מוצר/מנה" value={form.descHe} onChange={(e) => handleChange('descHe', e.target.value)} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+                        <button
+                            onClick={handleSubmit}
+                            style={{
+                                backgroundColor: '#28a745',
+                                color: 'white',
+                                padding: '6px 18px',
+                                border: 'none',
+                                borderRadius: 6,
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            اضافه | הוספה
+                        </button>
+                        <button
+                            onClick={() => setFormVisible(false)}
+                            style={{
+                                backgroundColor: '#e74c3c',
+                                color: '#fff',
+                                padding: '6px 18px',
+                                border: 'none',
+                                borderRadius: 6,
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            الغاء | בטל
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
+
 };
 
 export default NewMealForm;
