@@ -13,6 +13,7 @@ const MealsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
 
@@ -62,48 +63,115 @@ const MealsPage = () => {
     alert('✅ Changes saved to Firebase');
   };
 
+  const getCategoryName = (id, lang) => {
+    const cat = mealsData.categories?.find((c) => c.id === id);
+    if (!cat) return id;
+    if (lang === 'ar') return cat.name.ar;
+    if (lang === 'he') return cat.name.he;
+    return `${cat.name.ar} | ${cat.name.he}`; // fallback
+  };
+
   if (loading) return <p>Loading...</p>;
 
   return (
     <div style={{ padding: 5 }}>
-      <h2 style={{textAlign:'center'}}>ממשק עדכון מוצרים לאפלקציה</h2>
+      <h2 style={{
+        textAlign: 'center',
+        fontSize: '24px',
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: '24px',
+      }}>
+        ממשק ניהול התפריט לאפליקציה
+      </h2>
 
-      {Object.entries(mealsData.items).map(([categoryId, meals]) => (
-        <div key={categoryId} style={{ marginTop: 30, borderBottom: '1px solid #ccc', paddingBottom: 20 }}>
-          <h3
-            onClick={() =>
-              setExpandedCategories((prev) => ({
-                ...prev,
-                [categoryId]: !prev[categoryId],
-              }))
-            }
-            style={{ cursor: 'pointer', color: '#007bff' }}
-          >
-            {expandedCategories[categoryId] ? '▾ ' : '▸ '}القسم | הקטגוריה: {categoryId}
-          </h3>
+      {Object.entries(mealsData.items).map(([categoryId, meals]) => {
+        const filteredMeals = meals.filter((meal) =>
+          meal.name.ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          meal.name.he.toLowerCase().includes(searchTerm.toLowerCase())
+        );
 
-          {expandedCategories[categoryId] && (
-            <>
-              <NewMealForm
-                categoryId={categoryId}
-                onAdd={(catId, meal) => {
-                  const updated = { ...mealsData.items };
-                  updated[catId] = [...(updated[catId] || []), meal];
-                  setMealsData({ ...mealsData, items: updated });
-                }}
-              />
-              {meals.map((meal, index) => (
-                <MealCard
-                  key={meal.id}
-                  meal={meal}
-                  onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
-                  onDelete={() => deleteMeal(categoryId, index)}
+        return (
+          <div key={categoryId} style={{ marginTop: 30, borderBottom: '1px solid #ccc', paddingBottom: 20, direction: 'ltr' }}>
+            <h3
+              onClick={() =>
+                setExpandedCategories((prev) => ({
+                  ...prev,
+                  [categoryId]: !prev[categoryId],
+                }))
+              }
+              style={{
+                cursor: 'pointer',
+                color: '#333',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 8,
+              }}
+            >
+              {/* Item count */}
+              <span style={{ color: '#666', fontWeight: 600 }}>({meals.length})</span>
+
+              {/* Text block */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <div style={{ fontWeight: 500 }}>
+                  הקטגוריה:{' '}
+                  <span style={{ color: '#007bff', fontWeight: 600 }}>
+                    {getCategoryName(categoryId, 'he')}
+                  </span>
+                </div>
+                <div style={{ fontWeight: 500 }}>
+                  القسم:{' '}
+                  <span style={{ color: '#007bff', fontWeight: 600 }}>
+                    {getCategoryName(categoryId, 'ar')}
+                  </span>
+                </div>
+              </div>
+            </h3>
+
+
+            {expandedCategories[categoryId] && (
+              <>
+                <input
+                  type="text"
+                  placeholder="ابحث عن منتج / חפש מנה"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    margin: '10px 0',
+                    borderRadius: 6,
+                    border: '1px solid #ccc',
+                    fontSize: '14px',
+                  }}
                 />
-              ))}
-            </>
-          )}
-        </div>
-      ))}
+
+                <NewMealForm
+                  categoryId={categoryId}
+                  onAdd={(catId, meal) => {
+                    const updated = { ...mealsData.items };
+                    updated[catId] = [...(updated[catId] || []), meal];
+                    setMealsData({ ...mealsData, items: updated });
+                  }}
+                />
+
+                {filteredMeals.map((meal, index) => (
+                  <MealCard
+                    key={meal.id}
+                    meal={meal}
+                    onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
+                    onDelete={() => deleteMeal(categoryId, index)}
+                  />
+                ))}
+              </>
+            )}
+          </div>
+        );
+      })}
+
 
       <div className="loginButtons">
         <button
