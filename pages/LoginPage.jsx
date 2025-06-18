@@ -18,70 +18,73 @@ const LoginPage = () => {
       setError('Login failed. Check your credentials.');
     }
   };
-return (
-<div style={{
-  height: '100vh',
-  background: '#f9f9f9',
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  alignItems: 'center',
-}}>
-  <div style={{
-    background: 'white',
-    padding: 30,
-    borderRadius: 10,
-    boxShadow: '0 0 12px rgba(0,0,0,0.05)',
-    width: 300,
-    textAlign: 'center',
-  }}>
-      <h2 style={{ marginBottom: 20 }}>
-        تسجيل الدخول | <strong>Login</strong>
-      </h2>
-
-      <form onSubmit={handleLogin}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ width: '100%', marginBottom: 10 }}
-        />
-        <input
-          type="password"
-          placeholder="Password | كلمة المرور"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ width: '100%', marginBottom: 10 }}
-        />
-        {error && <p style={{ color: 'red', fontSize: 14 }}>{error}</p>}
-        <button type="submit" style={{
-          width: '100%',
-          background: '#27ae60',
-          color: 'white',
-          border: 'none',
-          padding: '10px 0',
-          borderRadius: 5,
-          fontWeight: 'bold'
-        }}>
-          دخول | Login
-        </button>
-      </form>
-    </div>
-
-    {/* Footer */}
+  return (
     <div style={{
-      marginTop: 30,
-      fontSize: 12,
-      color: '#888',
-      textAlign: 'center',
+      height: '100vh',
+      background: '#f9f9f9',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
     }}>
-      Developed by <a href="https://qbmedia.co" target="_blank" rel="noreferrer" style={{ color: '#555', fontWeight: 500 }}>QB Media</a>
+      <div className="logo">
+        <img src="https://qbmedia.b-cdn.net/luqmaimages/logo.svg" alt="Luqma" />
+      </div>
+      <div style={{
+        background: 'white',
+        padding: 30,
+        borderRadius: 10,
+        boxShadow: '0 0 12px rgba(0,0,0,0.05)',
+        width: 300,
+        textAlign: 'center',
+      }}>
+        <h2 style={{ marginBottom: 20 }}>
+          تسجيل الدخول | <strong>Login</strong>
+        </h2>
+
+        <form onSubmit={handleLogin}>
+          <input
+            type="email"
+            placeholder="אימייל | الايميل"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{ width: '100%', marginBottom: 10 }}
+          />
+          <input
+            type="password"
+            placeholder="סיסמה | كلمة المرور"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{ width: '100%', marginBottom: 10 }}
+          />
+          {error && <p style={{ color: 'red', fontSize: 14 }}>{error}</p>}
+          <button type="submit" style={{
+            width: '100%',
+            background: '#27ae60',
+            color: 'white',
+            border: 'none',
+            padding: '10px 0',
+            borderRadius: 5,
+            fontWeight: 'bold'
+          }}>
+            دخول | Login
+          </button>
+        </form>
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        marginTop: 30,
+        fontSize: 12,
+        color: '#888',
+        textAlign: 'center',
+      }}>
+        Developed by <a href="https://qbmedia.co" target="_blank" rel="noreferrer" style={{ color: '#555', fontWeight: 500 }}>QB Media</a>
+      </div>
     </div>
-  </div>
-);
+  );
 
 };
 

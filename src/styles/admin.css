@@ -5,7 +5,12 @@ body {
     margin: 0;
     padding: 20px;
 }
-
+.logo{
+    margin-bottom: 50px;
+}
+.logo img{
+width: 50px;
+}
 input,
 textarea,
 select,
@@ -227,4 +232,13 @@ button:active {
 .buttonsWrapper button{
     width: 150px;
     height: 70px;
+}
+.categoriesControlsWrapper{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.categoriesBtnsControl{
+    display: flex;
+    
 }

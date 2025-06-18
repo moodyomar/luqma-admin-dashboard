@@ -179,6 +179,7 @@ const MealsPage = () => {
                       borderRadius: 6,
                       border: '1px solid #ccc',
                       fontSize: '14px',
+                      direction:'rtl'
                     }}
                   />
 

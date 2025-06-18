@@ -52,13 +52,13 @@ const CategoryManager = ({ categories, onChange }) => {
   return (
     <div style={{ padding: 20, border: '1px solid #ccc', borderRadius: 8, marginBottom: 30 }}>
       <h4>📂 ניהול קטגוריות</h4>
-      <input placeholder="Category ID" value={form.id} onChange={(e) => handleInput('id', e.target.value)} disabled={isEditing} />
-      <input placeholder="Arabic Name" value={form.nameAr} onChange={(e) => handleInput('nameAr', e.target.value)} />
-      <input placeholder="Hebrew Name" value={form.nameHe} onChange={(e) => handleInput('nameHe', e.target.value)} />
-      <input placeholder="Icon URL" value={form.icon} onChange={(e) => handleInput('icon', e.target.value)} />
+      <input placeholder="מזהה קטגוריה" value={form.id} onChange={(e) => handleInput('id', e.target.value)} disabled={isEditing} />
+      <input placeholder="اسم القسم بالعربي" value={form.nameAr} onChange={(e) => handleInput('nameAr', e.target.value)} />
+      <input placeholder="שם קטגוריה בעברית" value={form.nameHe} onChange={(e) => handleInput('nameHe', e.target.value)} />
+      <input placeholder="קישור תמונה" value={form.icon} onChange={(e) => handleInput('icon', e.target.value)} />
 
       <div style={{ marginTop: 10 }}>
-        <button onClick={handleAddOrUpdate}>{isEditing ? 'Update' : 'Add'} Category</button>
+        <button onClick={handleAddOrUpdate}>{isEditing ? 'עדכון' : 'הוספת'} קטגוריה</button>
         {isEditing && <button onClick={resetForm} style={{ marginLeft: 10 }}>Cancel</button>}
       </div>
 
@@ -66,9 +66,13 @@ const CategoryManager = ({ categories, onChange }) => {
 
       {safeCategories.map((cat) => (
         <div key={cat.id} style={{ marginBottom: 10 }}>
-          <strong>{cat.id}</strong> - {cat.name.ar} | {cat.name.he}
-          <button onClick={() => handleEdit(cat)} style={{ marginLeft: 10 }}>Edit</button>
-          <button onClick={() => handleDelete(cat.id)} style={{ marginLeft: 5, color: 'red' }}>Delete</button>
+          <div className='categoriesControlsWrapper'>
+            <strong>{cat.id}</strong> - {cat.name.ar} | {cat.name.he}
+            <div className="categoriesBtnsControl">
+              <button onClick={() => handleEdit(cat)} style={{ marginRight: 10 }}>עריכה</button>
+              <button onClick={() => handleDelete(cat.id)} style={{ marginRight: 5, color: 'red' }}>מחיקה</button>
+            </div>
+          </div>
         </div>
       ))}
     </div>
