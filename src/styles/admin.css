@@ -149,6 +149,7 @@ button:active {
 .option-header {
     font-weight: bold;
     margin-bottom: 8px;
+    direction: rtl;
 }
 
 .option-labels {
@@ -163,6 +164,7 @@ button:active {
     font-size: 14px;
     display: flex;
     flex-direction: column;
+    direction: rtl;
 }
 
 .option-values {
@@ -241,4 +243,11 @@ button:active {
 .categoriesBtnsControl{
     display: flex;
     
+}
+.option-add-section{
+direction: rtl;
+text-align: right;
+}
+.categoryAddWrapper input{
+margin: 4px;
 }

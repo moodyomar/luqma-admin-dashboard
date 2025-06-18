@@ -60,24 +60,22 @@ const OptionsEditor = ({ options = [], onChange }) => {
 
    return (
   <div className="options-section">
-    <h4>اضافات | אפשריות</h4>
-
     {options.map((option, index) => (
       <div key={index} className="option-card">
         <div className="option-header">
-          <strong>Type:</strong> {option.type}
+          <strong>نوع الاضافه:</strong> {option.type}
         </div>
 
         <div className="option-labels">
           <label>
-            Arabic Label:
+            اختر السؤال الي يبين للزبون
             <input
               value={option.label?.ar || defaultLabels[option.type]?.ar}
               onChange={(e) => handleLabelChange(index, 'ar', e.target.value)}
             />
           </label>
           <label>
-            Hebrew Label:
+            בחר את השאלה שתופיע ללקוח
             <input
               value={option.label?.he || defaultLabels[option.type]?.he}
               onChange={(e) => handleLabelChange(index, 'he', e.target.value)}
@@ -116,7 +114,7 @@ const OptionsEditor = ({ options = [], onChange }) => {
     ))}
 
     <div className="option-add-section">
-      <label><strong>הוסף אפשרות | زيد اضافه:</strong></label>
+      <label className='optionsLabel'>הוסף אפשרות | زيد اضافه:</label>
       <div className="optionsWrapper">
         <select
           value={newOptionType}

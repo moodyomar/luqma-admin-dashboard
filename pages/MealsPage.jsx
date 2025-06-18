@@ -64,7 +64,7 @@ const MealsPage = () => {
     const ref = doc(db, 'menus', brand.id);
     await setDoc(ref, mealsData);
     setSaving(false);
-    alert('✅ Changes saved to Firebase');
+    alert('✅ כל השינויים נשמרו בהצלחה');
   };
 
   const getCategoryName = (id, lang) => {
@@ -100,111 +100,116 @@ const MealsPage = () => {
         </button>
       </div>
       {showCategoryManager && <CategoryManager
-          categories={mealsData.categories}
-          onChange={(updatedCategories) => {
-            const updatedItems = { ...mealsData.items };
+        categories={mealsData.categories}
+        onChange={(updatedCategories) => {
+          const updatedItems = { ...mealsData.items };
 
-            // اضف مفتاح جديد إذا ما كان موجود
-            updatedCategories.forEach((cat) => {
-              if (!updatedItems[cat.id]) {
-                updatedItems[cat.id] = [];
-              }
-            });
-            setMealsData({
-              ...mealsData,
-              categories: updatedCategories,
-              items: updatedItems,
-            });
-          }}
-        />}
+          // اضف مفتاح جديد إذا ما كان موجود
+          updatedCategories.forEach((cat) => {
+            if (!updatedItems[cat.id]) {
+              updatedItems[cat.id] = [];
+            }
+          });
+          setMealsData({
+            ...mealsData,
+            categories: updatedCategories,
+            items: updatedItems,
+          });
+        }}
+      />}
       {showMeals && (
-        Object.entries(mealsData.items).map(([categoryId, meals]) => {
-          const filteredMeals = meals.filter((meal) =>
-            meal.name.ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            meal.name.he.toLowerCase().includes(searchTerm.toLowerCase())
-          );
+        Object.entries(mealsData.items)
+          .filter(([categoryId]) => {
+            const category = mealsData.categories.find((c) => c.id === categoryId);
+            return category && !category.hidden;
+          })
+          .map(([categoryId, meals]) => {
+            const filteredMeals = meals.filter((meal) =>
+              meal.name.ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              meal.name.he.toLowerCase().includes(searchTerm.toLowerCase())
+            );
 
-          return (
-            <div key={categoryId} style={{ marginTop: 30, borderBottom: '1px solid #ccc', paddingBottom: 20, direction: 'ltr' }}>
-              <h3
-                onClick={() =>
-                  setExpandedCategories((prev) => ({
-                    ...prev,
-                    [categoryId]: !prev[categoryId],
-                  }))
-                }
-                style={{
-                  cursor: 'pointer',
-                  color: '#333',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  gap: 8,
-                }}
-              >
-                {/* Item count */}
-                <span style={{ color: '#666', fontWeight: 600 }}>({meals.length})</span>
+            return (
+              <div key={categoryId} style={{ marginTop: 30, borderBottom: '1px solid #ccc', paddingBottom: 20, direction: 'ltr' }}>
+                <h3
+                  onClick={() =>
+                    setExpandedCategories((prev) => ({
+                      ...prev,
+                      [categoryId]: !prev[categoryId],
+                    }))
+                  }
+                  style={{
+                    cursor: 'pointer',
+                    color: '#333',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                  }}
+                >
+                  {/* Item count */}
+                  <span style={{ color: '#666', fontWeight: 600 }}>({meals.length})</span>
 
-                {/* Text block */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <div style={{ fontWeight: 500 }}>
-                    הקטגוריה:{' '}
-                    <span style={{ color: '#007bff', fontWeight: 600 }}>
-                      {getCategoryName(categoryId, 'he')}
-                    </span>
+                  {/* Text block */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <div style={{ fontWeight: 500 }}>
+                      הקטגוריה:{' '}
+                      <span style={{ color: '#007bff', fontWeight: 600 }}>
+                        {getCategoryName(categoryId, 'he')}
+                      </span>
+                    </div>
+                    <div style={{ fontWeight: 500 }}>
+                      القسم:{' '}
+                      <span style={{ color: '#007bff', fontWeight: 600 }}>
+                        {getCategoryName(categoryId, 'ar')}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ fontWeight: 500 }}>
-                    القسم:{' '}
-                    <span style={{ color: '#007bff', fontWeight: 600 }}>
-                      {getCategoryName(categoryId, 'ar')}
-                    </span>
-                  </div>
-                </div>
-              </h3>
+                </h3>
 
 
-              {expandedCategories[categoryId] && (
-                <>
-                  <input
-                    type="text"
-                    placeholder="ابحث عن منتج / חפש מנה"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      margin: '10px 0',
-                      borderRadius: 6,
-                      border: '1px solid #ccc',
-                      fontSize: '14px',
-                      direction:'rtl'
-                    }}
-                  />
-
-                  <NewMealForm
-                    categoryId={categoryId}
-                    onAdd={(catId, meal) => {
-                      const updated = { ...mealsData.items };
-                      updated[catId] = [...(updated[catId] || []), meal];
-                      setMealsData({ ...mealsData, items: updated });
-                    }}
-                  />
-
-                  {filteredMeals.map((meal, index) => (
-                    <MealCard
-                      key={meal.id}
-                      meal={meal}
-                      onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
-                      onDelete={() => deleteMeal(categoryId, index)}
+                {expandedCategories[categoryId] && (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="ابحث عن منتج / חפש מנה"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        margin: '10px 0',
+                        borderRadius: 6,
+                        border: '1px solid #ccc',
+                        fontSize: '14px',
+                        direction: 'rtl'
+                      }}
                     />
-                  ))}
-                </>
-              )}
-            </div>
-          );
-        })
+
+                    <NewMealForm
+                      categoryId={categoryId}
+                      onAdd={(catId, meal) => {
+                        const updated = { ...mealsData.items };
+                        updated[catId] = [...(updated[catId] || []), meal];
+                        setMealsData({ ...mealsData, items: updated });
+                      }}
+                    />
+
+                    {filteredMeals.map((meal, index) => (
+                      <MealCard
+                        key={meal.id}
+                        meal={meal}
+                        onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
+                        onDelete={() => deleteMeal(categoryId, index)}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            );
+          })
       )}
 
       <div className="loginButtons">
