@@ -38,7 +38,7 @@ const NewMealForm = ({ categoryId, onAdd }) => {
     };
 
     return (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 20,direction:'rtl' }}>
             {!formVisible && (
                 <button
                     onClick={() => setFormVisible(true)}
@@ -49,10 +49,10 @@ const NewMealForm = ({ categoryId, onAdd }) => {
                         border: 'none',
                         borderRadius: 8,
                         cursor: 'pointer',
-                        direction:'rtl'
+                        direction:'rtl',
                     }}
                 >
-                    ➕ הוספת מוצר חדש ל: {categoryId}
+                    ➕ اضافه منتج | הוספת מוצר
                 </button>
             )}
 

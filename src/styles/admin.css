@@ -218,3 +218,13 @@ button:active {
     background-color: #e74c3c;
     color: white;
 }
+
+.buttonsWrapper{
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+.buttonsWrapper button{
+    width: 150px;
+    height: 70px;
+}
