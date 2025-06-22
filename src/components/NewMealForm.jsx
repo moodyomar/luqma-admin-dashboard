@@ -37,23 +37,47 @@ const NewMealForm = ({ categoryId, onAdd }) => {
         setFormVisible(false);
     };
 
+    const handleToggleVisibility = (meal, categoryId, index) => {
+        const updatedItems = { ...mealsData.items };
+        const updatedMeal = { ...meal, hidden: !meal.hidden };
+        updatedItems[categoryId][index] = updatedMeal;
+        setMealsData({ ...mealsData, items: updatedItems });
+    };
+
     return (
-        <div style={{ marginBottom: 20,direction:'rtl' }}>
+        <div style={{ marginBottom: 20, direction: 'rtl' }}>
             {!formVisible && (
-                <button
-                    onClick={() => setFormVisible(true)}
-                    style={{
-                        backgroundColor: 'rgb(40, 167, 69)',
-                        color: 'white',
-                        padding: '6px 12px',
-                        border: 'none',
-                        borderRadius: 8,
-                        cursor: 'pointer',
-                        direction:'rtl',
-                    }}
-                >
-                    ➕ اضافه منتج | הוספת מוצר
-                </button>
+                <>
+                    <button
+                        onClick={() => setFormVisible(true)}
+                        style={{
+                            backgroundColor: 'rgb(40, 167, 69)',
+                            color: 'white',
+                            padding: '6px 12px',
+                            border: 'none',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            direction: 'rtl',
+                        }}
+                    >
+                        ➕ اضافه منتج | הוספת מוצר
+                    </button>
+                    <button
+                        onClick={() => alert('hide meal')}
+                        style={{
+                            // backgroundColor: meal.hidden ? 'green' : 'orange',
+                            color: 'white',
+                            padding: '6px 12px',
+                            border: 'none',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            direction: 'rtl',
+                            marginTop: '6px'
+                        }}
+                    >
+                        {/* {meal.hidden ? '👁️ عرض المنتج' : '⌛ إخفاء منتج مؤقت'} */}
+                    </button>
+                </>
             )}
 
             {formVisible && (

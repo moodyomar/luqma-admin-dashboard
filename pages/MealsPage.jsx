@@ -8,6 +8,7 @@ import CategoryManager from '../src/components/CategoryManager';
 import brand from '../constants/brandConfig';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
+import './styles.css'
 
 const MealsPage = () => {
   const [mealsData, setMealsData] = useState({ categories: [], items: {} });
@@ -212,7 +213,17 @@ const MealsPage = () => {
           })
       )}
 
-      <div className="loginButtons">
+      <div className="loginButtons" style={{ gap: '10px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <button
+          onClick={() => window.location.href = '/'}
+          className="loginButton secondary">
+          ניהול מנות
+        </button>
+        <button
+          onClick={() => window.location.href = '/orders'}
+          className="loginButton info">
+          הזמנות חדשות
+        </button>
         <button
           onClick={handleSave}
           disabled={saving}
@@ -225,6 +236,7 @@ const MealsPage = () => {
           התנתקות
         </button>
       </div>
+
     </div>
   );
 };

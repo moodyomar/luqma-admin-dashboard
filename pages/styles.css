@@ -1,0 +1,101 @@
+.loginButtons button{
+    width: 150px;
+}
+.orders-container {
+  padding: 24px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.orders-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 24px;
+}
+
+.orders-empty {
+  color: #888;
+  font-size: 18px;
+  text-align: center;
+}
+
+.orders-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.order-card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.3s ease;
+}
+
+.order-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.order-id {
+  font-weight: bold;
+  color: #444;
+  font-size: 16px;
+}
+
+.order-date {
+  font-size: 13px;
+  color: #aaa;
+}
+
+.order-details p {
+  margin: 6px 0;
+  color: #555;
+}
+
+.order-price {
+  color: #2e7d32;
+}
+.order-meals {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
+  font-size: 14px;
+  color: #444;
+}
+
+.meals-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.order-meals ul {
+  padding-right: 16px;
+  list-style-type: disc;
+}
+
+.order-meals li {
+  margin-bottom: 4px;
+}
+.meal-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #444;
+}
+
+.meal-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+}
