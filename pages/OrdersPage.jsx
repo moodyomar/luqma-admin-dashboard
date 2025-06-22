@@ -83,18 +83,18 @@ const OrderCard = React.memo(({ order }) => {
                     {item.name?.ar || item.name} × {item.quantity}
                     {item.optionsText && <span style={{ color: '#666' }}> – {item.optionsText}</span>}
                   </div>
-                  {item.selectedExtras?.length > 0 && (
+                  {Array.isArray(item.selectedExtras) && item.selectedExtras.length > 0 && (
                     <div style={{ fontSize: 13, color: '#999' }}>
-                      إضافات:
-                      {' '}
+                      إضافات:{' '}
                       {item.selectedExtras
-                        .map(extra =>
-                          typeof extra === 'string'
-                            ? extra.replace(/^opt_/, '') // fallback: just ID without prefix
-                            : extra.label?.ar || extra.label || extra.id || ''
-                        )
-                        .join('، ')
-                      }
+                        .map(extra => {
+                          if (typeof extra === 'object') {
+                            return extra.label?.ar || extra.label || '';
+                          }
+                          return '';
+                        })
+                        .filter(Boolean)
+                        .join('، ')}
                     </div>
                   )}
                 </div>
