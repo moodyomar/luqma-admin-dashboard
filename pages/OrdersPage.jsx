@@ -36,39 +36,56 @@ const OrderCard = React.memo(({ order }) => {
 
       <div class="divider"></div>
 
-      <p><span>👤 الإسم:</span> ${order.name}</p>
-      <p><span>📞 الهاتف:</span> ${order.phone}</p>
-      <p><span>🚚 التوصيل:</span> ${deliveryString}</p>
-      <p><span>💳 طريقة الدفع:</span> ${paymentString}</p>
-      <p><span>📦 عدد المنتجات:</span> ${order.cart?.length || 0}</p>
-      <p><span>💰 السعر:</span> ₪${order.total}</p>
+      <p>👤 <strong>${order.name || '—'}</strong></p>
+      <p>📞 <strong>${order.phone || '—'}</strong></p>
+      <p>🚚 التوصيل: <strong>${deliveryString || '—'}</strong></p>
+      <p>📍 العنوان: <strong>${order.address || '—'}</strong></p>
+
+      ${order.extraNotes
+        ? `<p style="color: #666; font-size: 13px;">📝 ملاحظات الموقع: ${order.extraNotes}</p>`
+        : ''
+      }
+
+      <p>💳 طريقة الدفع: <strong>${paymentString || '—'}</strong></p>
+      <p>📦 عدد المنتجات: <strong>${order.cart?.length || 0}</strong></p>
+      <p>💰 السعر: <strong>₪${order.total || order.price}</strong></p>
 
       <div class="divider"></div>
 
       <p class="meal-title">تفاصيل الوجبات:</p>
       <ul>
         ${order.cart.map(item => {
-      const name = item.name?.ar || item.name || '';
-      const qty = item.quantity || 1;
-      const size = item.optionsText ? ` – ${item.optionsText}` : '';
-      const extras = Array.isArray(item.selectedExtras)
-        ? item.selectedExtras
-          .map(extra => typeof extra === 'object' ? extra.label?.ar || '' : '')
-          .filter(Boolean)
-          .join('، ')
-        : '';
+        const name = item.name?.ar || item.name || '';
+        const qty = item.quantity || 1;
+        const size = item.optionsText ? ` – ${item.optionsText}` : '';
+        const extras = Array.isArray(item.selectedExtras)
+          ? item.selectedExtras
+            .map(extra =>
+              typeof extra === 'object' ? extra.label?.ar || '' : ''
+            )
+            .filter(Boolean)
+            .join('، ')
+          : '';
 
-      return `
+        return `
             <li>
               ${name} × ${qty}${size}
               ${extras ? `<div class="extras">إضافات: ${extras}</div>` : ''}
             </li>
           `;
-    }).join('')}
+      }).join('')}
       </ul>
+
+      ${order.note
+        ? `<div class="divider"></div>
+             <p class="meal-title">📌 ملاحظة الزبون:</p>
+             <p>${order.note}</p>`
+        : ''
+      }
     </body>
   </html>
 `);
+
 
     printWindow.document.close();
     printWindow.focus();
