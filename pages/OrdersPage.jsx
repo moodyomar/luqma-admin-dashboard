@@ -2,23 +2,64 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
+import AudioUnlocker, { getSharedAudio } from '../src/components/AudioUnlocker';
 import { Toaster, toast } from 'react-hot-toast';
 import './styles.css';
 
 const OrderCard = React.memo(({ order }) => {
 
+  const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 'استلام بالمحل'
+  const paymentString = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين'
+
+  const handlePrint = (order) => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+    <html>
+      <head>
+        <title>طباعة الطلب</title>
+        <style>
+          body { font-family: sans-serif; padding: 20px; }
+          h2 { margin-top: 0 }
+        </style>
+      </head>
+      <body>
+        <h2>طلب رقم #${order.uid?.slice(0, 6)}</h2>
+        <p><strong>الإسم:</strong> ${order.name}</p>
+        <p><strong>الهاتف:</strong> ${order.phone}</p>
+        <p><strong>المجموع:</strong> ₪${order.total}</p>
+        <p><strong>الطلب:</strong></p>
+        <ul>
+          ${order.cart.map(item => `<li>${item.name.ar} × ${item.quantity}</li>`).join('')}
+        </ul>
+        <p><strong>التوصيل:</strong> ${deliveryString}</p>
+        <p><strong>الطريقة:</strong> ${paymentString}</p>
+      </body>
+    </html>
+  `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
+
   return (
     <div className="order-card">
       <div className="order-header">
-        <span className="order-date">{order.date}</span>
-        <span className="order-id">#{order.uid || order.id}</span>
+        <div className="dateCol">
+          <span className="order-date">{order.date}</span>
+          <span className="order-id">#{(order.uid || order.id)?.slice(0, 6)}</span>
+        </div>
+        <div className="print-row">
+          <button className="printingBtn" onClick={() => handlePrint(order)}>🖨️</button>
+        </div>
       </div>
 
       <div className="order-details">
         <p>👤 <strong>{order.name || '—'}</strong></p>
         <p>📞 <strong>{order.phone || '—'}</strong></p>
-        <p>🚚 طريقة التوصيل: <strong>{order.deliveryMethod || '—'}</strong></p>
-        <p>💳 طريقة الدفع: <strong>{order.paymentMethod || '—'}</strong></p>
+        <p>🚚 التوصيل: <strong>{deliveryString || '—'}</strong></p>
+        <p>💳 طريقة الدفع: <strong>{paymentString || '—'}</strong></p>
         <p>📦 عدد المنتجات: <strong>{order.cart?.length || 0}</strong></p>
         <p>💰 السعر: <strong className="order-price">₪{order.total || order.price}</strong></p>
       </div>
@@ -28,7 +69,7 @@ const OrderCard = React.memo(({ order }) => {
           <p className="meals-title">تفاصيل الوجبات:</p>
           <ul>
             {order.cart.map((item, index) => (
-              <li key={item.uid || `${item.id}-${index}`} className="meal-item">
+              <li key={item.uid || `${item.id}-${index}`} className="meal-item" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
                 {item.image && (
                   <img
                     src={item.image}
@@ -37,12 +78,29 @@ const OrderCard = React.memo(({ order }) => {
                     loading="lazy"
                   />
                 )}
-                <span>
-                  {item.name?.ar || item.name} × {item.quantity}
-                  {item.optionsText && ` - ${item.optionsText}`}
-                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500 }}>
+                    {item.name?.ar || item.name} × {item.quantity}
+                    {item.optionsText && <span style={{ color: '#666' }}> – {item.optionsText}</span>}
+                  </div>
+                  {item.selectedExtras?.length > 0 && (
+                    <div style={{ fontSize: 13, color: '#999' }}>
+                      إضافات:
+                      {' '}
+                      {item.selectedExtras
+                        .map(extra =>
+                          typeof extra === 'string'
+                            ? extra.replace(/^opt_/, '') // fallback: just ID without prefix
+                            : extra.label?.ar || extra.label || extra.id || ''
+                        )
+                        .join('، ')
+                      }
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
+
           </ul>
         </div>
       )}
@@ -58,6 +116,11 @@ const OrdersPage = () => {
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'orders'), (snapshot) => {
+      const unlockedAudio = getSharedAudio();
+      if (unlockedAudio) {
+        unlockedAudio.currentTime = 0;
+        unlockedAudio.play();
+      }
       const updatedOrders = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -98,6 +161,7 @@ const OrdersPage = () => {
       }}>
         🔔 Enable Sound Alerts
       </button> */}
+      <AudioUnlocker />
       {sortedOrders.length === 0 ? (
         <p className="orders-empty">لا يوجد طلبات حالياً.</p>
       ) : (
