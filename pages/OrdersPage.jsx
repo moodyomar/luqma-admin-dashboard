@@ -14,28 +14,62 @@ const OrderCard = React.memo(({ order }) => {
   const handlePrint = (order) => {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
-    <html>
-      <head>
-        <title>طباعة الطلب</title>
-        <style>
-          body { font-family: sans-serif; padding: 20px; }
-          h2 { margin-top: 0 }
-        </style>
-      </head>
-      <body>
-        <h2>طلب رقم #${order.uid?.slice(0, 6)}</h2>
-        <p><strong>الإسم:</strong> ${order.name}</p>
-        <p><strong>الهاتف:</strong> ${order.phone}</p>
-        <p><strong>المجموع:</strong> ₪${order.total}</p>
-        <p><strong>الطلب:</strong></p>
-        <ul>
-          ${order.cart.map(item => `<li>${item.name.ar} × ${item.quantity}</li>`).join('')}
-        </ul>
-        <p><strong>التوصيل:</strong> ${deliveryString}</p>
-        <p><strong>الطريقة:</strong> ${paymentString}</p>
-      </body>
-    </html>
-  `);
+  <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8" />
+      <title>طباعة الطلب</title>
+      <style>
+        body { font-family: sans-serif; padding: 20px; direction: rtl; text-align: right; }
+        h2 { margin: 0 0 10px; }
+        p { margin: 4px 0; }
+        ul { padding: 0; list-style: none; }
+        li { margin-bottom: 10px; }
+        .extras { font-size: 13px; color: #555; }
+        .meal-title { font-weight: bold; margin-top: 16px; }
+        .gray { color: #777; font-size: 14px; }
+        .divider { border-top: 1px solid #ccc; margin: 12px 0; }
+      </style>
+    </head>
+    <body>
+      <h2>طلب رقم #${(order.uid || order.id)?.slice(0, 6)}</h2>
+      <p class="gray">${order.date || ''}</p>
+
+      <div class="divider"></div>
+
+      <p><span>👤 الإسم:</span> ${order.name}</p>
+      <p><span>📞 الهاتف:</span> ${order.phone}</p>
+      <p><span>🚚 التوصيل:</span> ${deliveryString}</p>
+      <p><span>💳 طريقة الدفع:</span> ${paymentString}</p>
+      <p><span>📦 عدد المنتجات:</span> ${order.cart?.length || 0}</p>
+      <p><span>💰 السعر:</span> ₪${order.total}</p>
+
+      <div class="divider"></div>
+
+      <p class="meal-title">تفاصيل الوجبات:</p>
+      <ul>
+        ${order.cart.map(item => {
+      const name = item.name?.ar || item.name || '';
+      const qty = item.quantity || 1;
+      const size = item.optionsText ? ` – ${item.optionsText}` : '';
+      const extras = Array.isArray(item.selectedExtras)
+        ? item.selectedExtras
+          .map(extra => typeof extra === 'object' ? extra.label?.ar || '' : '')
+          .filter(Boolean)
+          .join('، ')
+        : '';
+
+      return `
+            <li>
+              ${name} × ${qty}${size}
+              ${extras ? `<div class="extras">إضافات: ${extras}</div>` : ''}
+            </li>
+          `;
+    }).join('')}
+      </ul>
+    </body>
+  </html>
+`);
+
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
@@ -56,12 +90,19 @@ const OrderCard = React.memo(({ order }) => {
       </div>
 
       <div className="order-details">
-        <p>👤 <strong>{order.name || '—'}</strong></p>
-        <p>📞 <strong>{order.phone || '—'}</strong></p>
-        <p>🚚 التوصيل: <strong>{deliveryString || '—'}</strong></p>
-        <p>💳 طريقة الدفع: <strong>{paymentString || '—'}</strong></p>
-        <p>📦 عدد المنتجات: <strong>{order.cart?.length || 0}</strong></p>
-        <p>💰 السعر: <strong className="order-price">₪{order.total || order.price}</strong></p>
+        <span>👤 <p>{order.name || '—'}</p></span>
+        <span>📞 <p>{order.phone || '—'}</p></span>
+        <span>🚚 التوصيل: <p>{deliveryString || '—'}</p></span>
+        <span>📍 العنوان: <p>{order.address || '—'}</p></span>
+        {order.extraNotes && (
+          <p style={{ marginTop: -10, color: '#999', fontSize: 13 }}>
+            📝 ملاحظات الموقع: {order.extraNotes}
+          </p>
+        )}
+
+        <p>💳 طريقة الدفع: <span>{paymentString || '—'}</span></p>
+        <p>📦 عدد المنتجات: <span>{order.cart?.length || 0}</span></p>
+        <p>💰 السعر: <span className="order-price">₪{order.total || order.price}</span></p>
       </div>
 
       {order.cart?.length > 0 && (
@@ -100,10 +141,17 @@ const OrderCard = React.memo(({ order }) => {
                 </div>
               </li>
             ))}
-
           </ul>
         </div>
       )}
+
+      {order.note && (
+        <div style={{ marginTop: 20, padding: 12, background: '#f9f9f9', borderRadius: 6 }}>
+          <p style={{ margin: 0, fontWeight: 'bold' }}>📌 ملاحظة الزبون:</p>
+          <p style={{ margin: 0, color: '#444' }}>{order.note}</p>
+        </div>
+      )}
+
     </div>
   );
 });
