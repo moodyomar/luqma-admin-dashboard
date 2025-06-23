@@ -70,10 +70,76 @@ const MealsPage = () => {
   const handleSave = async () => {
     setSaving(true);
     const ref = doc(db, 'menus', brand.id);
-    await setDoc(ref, mealsData);
-    setSaving(false);
-    alert('✅ כל השינויים נשמרו בהצלחה');
+
+    const cleanedMealsData = {
+      ...mealsData,
+      items: Object.fromEntries(
+        Object.entries(mealsData.items).map(([catId, meals]) => [
+          catId,
+          meals.map((meal) => {
+            const cleanedOptions = (meal.options || []).map((opt) => {
+              const cleanedValues = opt.values.map((val) => {
+                const cleanVal = {
+                  label: {
+                    ar: val?.label?.ar || '',
+                    he: val?.label?.he || '',
+                  },
+                  value: val?.value || `opt_${Date.now()}`,
+                  extra: typeof val?.extra === 'number' ? val.extra : 0,
+                };
+
+
+                // ✅ فقط أضف extra إذا كان النوع 'select'
+                if (opt.type === 'select') {
+                  cleanVal.extra = typeof val?.extra === 'number' ? val.extra : 0;
+                }
+
+                return cleanVal;
+              });
+
+              return {
+                type: opt?.type || 'multi',
+                label: {
+                  ar: opt?.label?.ar || '',
+                  he: opt?.label?.he || '',
+                },
+                values: cleanedValues,
+              };
+            });
+
+            return {
+              ...meal,
+              available: typeof meal.available === 'boolean' ? meal.available : true,
+              name: {
+                ar: meal?.name?.ar || '',
+                he: meal?.name?.he || '',
+              },
+              description: {
+                ar: meal?.description?.ar || '',
+                he: meal?.description?.he || '',
+              },
+              price: !isNaN(Number(meal.price)) ? Number(meal.price) : 0,
+              image: meal?.image || '',
+              id: meal?.id || `id_${Date.now()}`,
+              options: cleanedOptions,
+            };
+          }),
+        ])
+      ),
+    };
+
+
+    try {
+      await setDoc(ref, cleanedMealsData);
+      alert('✅ كل الشيفات انبسطوا، تم الحفظ بنجاح!');
+    } catch (err) {
+      console.error('❌ Firebase Save Error:', err);
+      alert('❌ صار خطأ بالحفظ. راجع الكونسول.');
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   const getCategoryName = (id, lang) => {
     const cat = mealsData.categories?.find((c) => c.id === id);

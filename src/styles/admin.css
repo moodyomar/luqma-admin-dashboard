@@ -169,11 +169,12 @@ button:active {
     flex-direction: column;
     gap: 8px;
 }
-
+.option-values * input{
+font-size: 13px !important;
+}
 .value-row {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
 }
 
 .value-row input {

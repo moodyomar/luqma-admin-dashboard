@@ -1,5 +1,7 @@
 // File: src/components/OptionsEditor.jsx
 import React, { useState } from 'react';
+import { FiTrash2 } from 'react-icons/fi';
+
 
 const defaultLabels = {
   select: {
@@ -43,19 +45,58 @@ const OptionsEditor = ({ options = [], onChange }) => {
     onChange(updated);
   };
 
+  const handleDeleteValue = (optionIndex, valIndex) => {
+    const updatedOptions = [...options];
+    updatedOptions[optionIndex].values.splice(valIndex, 1);
+    onChange(updatedOptions);
+  };
+  const handleDeleteAllValues = (optionIndex) => {
+    const confirmed = window.confirm('هل أنت متأكد أنك تريد حذف هذا الخيار بالكامل؟');
+    if (!confirmed) return;
+
+    const updatedOptions = [...options];
+    updatedOptions.splice(optionIndex, 1); // نحذف الخيار كليًا
+    onChange(updatedOptions);
+  };
+
+
   const handleAddOption = () => {
+    const isSelect = newOptionType === 'select';
+
     const newOption = {
       type: newOptionType,
-      label: { ...defaultLabels[newOptionType] },
+      label: {
+        ar: '',
+        he: '',
+      },
       values: [
         {
           label: { ar: '', he: '' },
           value: `opt_${Date.now()}`,
-          ...(newOptionType === 'select' ? { extra: 0 } : {}),
+          extra: isSelect ? 0 : undefined, // يجعلها undefined بدل عدم الوجود إطلاقًا
         },
       ],
     };
+
+    // احذف الـ extra إذا مش من نوع select (تجنّب undefined في الفايربيس)
+    if (!isSelect) {
+      delete newOption.values[0].extra;
+    }
+
     onChange([...options, newOption]);
+  };
+
+
+  const handleDeleteOption = (index) => {
+    const updated = [...options];
+    updated.splice(index, 1);
+    onChange(updated);
+  };
+
+  const handleDeleteAllOptions = () => {
+    if (confirm('هل أنت متأكد من حذف كل الإضافات؟')) {
+      onChange([]);
+    }
   };
 
   const [showValues, setShowValues] = useState(false);
@@ -116,7 +157,7 @@ const OptionsEditor = ({ options = [], onChange }) => {
                 <strong style={{ direction: 'rtl' }}>الاضافات | האפשריות</strong>
 
                 {option.values.map((val, valIndex) => (
-                  <div key={valIndex} className="value-row">
+                  <div key={valIndex} className="value-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input
                       placeholder="مثلا: صغير/كبير"
                       value={val.label.ar}
@@ -129,16 +170,57 @@ const OptionsEditor = ({ options = [], onChange }) => {
                     />
                     <input
                       type="number"
-                      placeholder="كم زياده الدفع عليها ₪"
-                      value={val.extra || ''}
+                      placeholder="كم زياده؟"
+                      value={val.extra || 0}
                       onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
                     />
+
+                    <button
+                      onClick={() => handleDeleteValue(index, valIndex)}
+                      style={{
+                        backgroundColor: '#d9534f',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '4px 8px',
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <FiTrash2 size={16} />
+                    </button>
                   </div>
                 ))}
 
-                <button className="add-value-btn" onClick={() => handleAddValue(index)}>
-                  ضيف | הוסף
-                </button>
+                <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'center' }}>
+                  <button
+                    className="add-value-btn"
+                    onClick={() => handleAddValue(index)}
+                    style={{
+                      backgroundColor: 'rgb(40, 167, 69)',
+                      color: '#fff',
+                      border: 'none',
+                      width: 140,
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ضيف خيار
+                  </button>
+
+                  <button className="add-value-btn"
+                    onClick={() => handleDeleteAllValues(index)}
+                    style={{
+                      backgroundColor: '#dc3545',
+                      color: '#fff',
+                      border: 'none',
+                      width: 140,
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}>
+                    حذف كل الخيارات
+                  </button>
+                </div>
+
               </div>
             )}
 
