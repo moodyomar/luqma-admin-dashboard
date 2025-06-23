@@ -5,18 +5,21 @@ body {
     margin: 0;
     padding: 20px;
 }
-.logo{
+
+.logo {
     margin-bottom: 50px;
 }
-.logo img{
-width: 50px;
+
+.logo img {
+    width: 50px;
 }
+
 input,
 textarea,
 select,
 button {
-  font-size: 16px !important;
-  -webkit-text-size-adjust: 100%;
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100%;
 }
 
 h4 {
@@ -62,14 +65,6 @@ input.price-input {
     padding: 6px 6px;
 }
 
-.meal-card img {
-    max-width: 80px;
-    height: auto;
-    border-radius: 6px;
-    margin: 35px 0;
-    display: block;
-}
-
 .meal-card-buttons {
     display: flex;
     gap: 10px;
@@ -88,6 +83,7 @@ input.price-input {
 button.delete-btn {
     background-color: #e74c3c;
     color: white;
+
 }
 
 button.save-btn {
@@ -101,9 +97,10 @@ input.price-input {
 
 .meal-card img {
     float: left;
-    margin-bottom: 8px;
-    max-width: 70px;
     height: auto;
+    max-width: 80px;
+    border-radius: 6px;
+    margin: 35px 0;
 }
 
 .meal-image-wrapper img {
@@ -226,28 +223,33 @@ button:active {
     color: white;
 }
 
-.buttonsWrapper{
+.buttonsWrapper {
     display: flex;
     justify-content: center;
     gap: 10px;
 }
-.buttonsWrapper button{
+
+.buttonsWrapper button {
     width: 150px;
     height: 70px;
 }
-.categoriesControlsWrapper{
+
+.categoriesControlsWrapper {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
-.categoriesBtnsControl{
+
+.categoriesBtnsControl {
     display: flex;
-    
+
 }
-.option-add-section{
-direction: rtl;
-text-align: right;
+
+.option-add-section {
+    direction: rtl;
+    text-align: right;
 }
-.categoryAddWrapper input{
-margin: 4px;
+
+.categoryAddWrapper input {
+    margin: 4px;
 }

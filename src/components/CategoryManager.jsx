@@ -62,13 +62,17 @@ const CategoryManager = ({ categories = [], onChange }) => {
   const visibleCategories = showHidden ? categories : categories.filter((cat) => !cat.hidden);
 
   return (
-    <div style={{ padding: 20, border: '1px solid #ccc', borderRadius: 8, marginBottom: 30 }}>
+    <div style={{ padding: 20, border: '1px solid #ccc', borderRadius: 8, marginBottom: 130 }}>
       <div className="categoryAddWrapper">
         <h4>📂 הוספת קטגוריה חדשה</h4>
-        <input placeholder="שם קטגוריה בעברית" value={form.nameHe} onChange={(e) => handleInput('nameHe', e.target.value)} />
-        <input placeholder="اسم القسم بالعربي" value={form.nameAr} onChange={(e) => handleInput('nameAr', e.target.value)} />
-        <input placeholder="מזהה קטגוריה" value={form.id} onChange={(e) => handleInput('id', e.target.value)} disabled={isEditing} />
-        <input placeholder="קישור תמונה" value={form.icon} onChange={(e) => handleInput('icon', e.target.value)} />
+        <div className="row" >
+          <input placeholder="שם קטגוריה בעברית" value={form.nameHe} onChange={(e) => handleInput('nameHe', e.target.value)} />
+          <input placeholder="اسم القسم بالعربي" value={form.nameAr} onChange={(e) => handleInput('nameAr', e.target.value)} />
+        </div>
+        <div className="row" >
+          <input placeholder="מזהה קטגוריה" value={form.id} onChange={(e) => handleInput('id', e.target.value)} disabled={isEditing} />
+          <input placeholder="קישור תמונה" value={form.icon} onChange={(e) => handleInput('icon', e.target.value)} />
+        </div>
       </div>
 
       <div style={{ marginTop: 10 }}>

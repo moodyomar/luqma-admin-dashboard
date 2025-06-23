@@ -18,9 +18,16 @@ const MealsPage = () => {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showMeals, setShowMeals] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedMeals, setExpandedMeals] = useState({});
+
+  const toggleMeal = (mealId) => {
+    setExpandedMeals(prev => ({
+      ...prev,
+      [mealId]: !prev[mealId],
+    }));
+  };
 
   const navigate = useNavigate();
-
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,7 +61,7 @@ const MealsPage = () => {
   };
 
   const deleteMeal = (categoryId, index) => {
-    if (!confirm('Are you sure you want to delete this meal?')) return;
+    if (!confirm('متأكد ودك تمحى هاض المنتج؟')) return;
     const updatedItems = { ...mealsData.items };
     updatedItems[categoryId].splice(index, 1);
     setMealsData({ ...mealsData, items: updatedItems });
@@ -79,7 +86,7 @@ const MealsPage = () => {
   if (loading) return <p>Loading...</p>;
 
   return (
-    <div style={{ padding: 5 }}>
+    <div style={{ padding: 2, marginBottom: 85 }}>
       <h2 style={{
         textAlign: 'center',
         fontSize: '24px',
@@ -89,7 +96,6 @@ const MealsPage = () => {
       }}>
         ממשק ניהול התפריט לאפליקציה
       </h2>
-
       <div className="buttonsWrapper">
         <button
           onClick={() => setShowCategoryManager(prev => !prev)}
@@ -202,8 +208,12 @@ const MealsPage = () => {
                       <MealCard
                         key={meal.id}
                         meal={meal}
+                        categoryId={categoryId}
+                        index={index}
                         onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
                         onDelete={() => deleteMeal(categoryId, index)}
+                        expanded={expandedMeals[meal.id]}
+                        onToggle={() => toggleMeal(meal.id)}
                       />
                     ))}
                   </>
@@ -222,7 +232,7 @@ const MealsPage = () => {
         <button
           onClick={() => window.location.href = '/orders'}
           className="loginButton info">
-          הזמנות חדשות
+          הזמנות נכנסות
         </button>
         <button
           onClick={handleSave}

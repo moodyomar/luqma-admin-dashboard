@@ -9,6 +9,7 @@ const NewMealForm = ({ categoryId, onAdd }) => {
         descAr: '',
         descHe: '',
         image: '',
+        available: true,
     });
 
     const handleChange = (field, value) => {
@@ -27,22 +28,27 @@ const NewMealForm = ({ categoryId, onAdd }) => {
             price: form.price,
             description: { ar: form.descAr || '', he: form.descHe || '' },
             image: form.image || '',
+            available: form.available,
         };
 
         onAdd(categoryId, newMeal);
         setForm({
             nameAr: '', nameHe: '', price: '',
             descAr: '', descHe: '', image: '',
+            available: true
         });
         setFormVisible(false);
     };
 
-    const handleToggleVisibility = (meal, categoryId, index) => {
-        const updatedItems = { ...mealsData.items };
-        const updatedMeal = { ...meal, hidden: !meal.hidden };
-        updatedItems[categoryId][index] = updatedMeal;
-        setMealsData({ ...mealsData, items: updatedItems });
-    };
+const toggleAvailability = (meal, categoryId, index) => {
+  const updatedItems = { ...mealsData.items };
+  const updatedMeal = { ...meal, available: meal.available === false ? true : false };
+  updatedItems[categoryId][index] = updatedMeal;
+  setMealsData({ ...mealsData, items: updatedItems });
+
+  // 🔥 إذا بتستعمل Firebase، لازم تحدث هناك أيضًا
+  // saveMealToFirestore(categoryId, updatedItems[categoryId]); (اختياري)
+};
 
     return (
         <div style={{ marginBottom: 20, direction: 'rtl' }}>
@@ -61,21 +67,6 @@ const NewMealForm = ({ categoryId, onAdd }) => {
                         }}
                     >
                         ➕ اضافه منتج | הוספת מוצר
-                    </button>
-                    <button
-                        onClick={() => alert('hide meal')}
-                        style={{
-                            // backgroundColor: meal.hidden ? 'green' : 'orange',
-                            color: 'white',
-                            padding: '6px 12px',
-                            border: 'none',
-                            borderRadius: 8,
-                            cursor: 'pointer',
-                            direction: 'rtl',
-                            marginTop: '6px'
-                        }}
-                    >
-                        {/* {meal.hidden ? '👁️ عرض المنتج' : '⌛ إخفاء منتج مؤقت'} */}
                     </button>
                 </>
             )}
@@ -103,6 +94,7 @@ const NewMealForm = ({ categoryId, onAdd }) => {
                         <input placeholder="لينك صوره | לינק תמונה" value={form.image} onChange={(e) => handleChange('image', e.target.value)} />
                         <input placeholder="وصف المنتج/وجبه" value={form.descAr} onChange={(e) => handleChange('descAr', e.target.value)} />
                         <input placeholder="תיאור מוצר/מנה" value={form.descHe} onChange={(e) => handleChange('descHe', e.target.value)} />
+                      
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
@@ -115,8 +107,7 @@ const NewMealForm = ({ categoryId, onAdd }) => {
                                 border: 'none',
                                 borderRadius: 6,
                                 fontWeight: 'bold'
-                            }}
-                        >
+                            }}>
                             اضافه | הוספה
                         </button>
                         <button
@@ -128,8 +119,7 @@ const NewMealForm = ({ categoryId, onAdd }) => {
                                 border: 'none',
                                 borderRadius: 6,
                                 fontWeight: 'bold'
-                            }}
-                        >
+                            }}>
                             الغاء | בטל
                         </button>
                     </div>

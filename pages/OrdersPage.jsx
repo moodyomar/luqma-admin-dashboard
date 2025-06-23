@@ -45,8 +45,9 @@ const OrderCard = React.memo(({ order }) => {
         ? `<p style="color: #666; font-size: 13px;">📝 ملاحظات الموقع: ${order.extraNotes}</p>`
         : ''
       }
-
-      <p>💳 طريقة الدفع: <strong>${paymentString || '—'}</strong></p>
+${paymentString === 'اونلاين' ?
+        `<p>💳 وضع الطلب: <strong>مدفوع</strong></p>`
+        : `<p>💳 طريقة الدفع: <strong>${paymentString || '—'}</strong></p>`}
       <p>📦 عدد المنتجات: <strong>${order.cart?.length || 0}</strong></p>
       <p>💰 السعر: <strong>₪${order.total || order.price}</strong></p>
 
@@ -55,25 +56,25 @@ const OrderCard = React.memo(({ order }) => {
       <p class="meal-title">تفاصيل الوجبات:</p>
       <ul>
         ${order.cart.map(item => {
-        const name = item.name?.ar || item.name || '';
-        const qty = item.quantity || 1;
-        const size = item.optionsText ? ` – ${item.optionsText}` : '';
-        const extras = Array.isArray(item.selectedExtras)
-          ? item.selectedExtras
-            .map(extra =>
-              typeof extra === 'object' ? extra.label?.ar || '' : ''
-            )
-            .filter(Boolean)
-            .join('، ')
-          : '';
+          const name = item.name?.ar || item.name || '';
+          const qty = item.quantity || 1;
+          const size = item.optionsText ? ` – ${item.optionsText}` : '';
+          const extras = Array.isArray(item.selectedExtras)
+            ? item.selectedExtras
+              .map(extra =>
+                typeof extra === 'object' ? extra.label?.ar || '' : ''
+              )
+              .filter(Boolean)
+              .join('، ')
+            : '';
 
-        return `
+          return `
             <li>
               ${name} × ${qty}${size}
               ${extras ? `<div class="extras">إضافات: ${extras}</div>` : ''}
             </li>
           `;
-      }).join('')}
+        }).join('')}
       </ul>
 
       ${order.note
@@ -93,7 +94,6 @@ const OrderCard = React.memo(({ order }) => {
     printWindow.close();
   };
 
-
   return (
     <div className="order-card">
       <div className="order-header">
@@ -106,20 +106,47 @@ const OrderCard = React.memo(({ order }) => {
         </div>
       </div>
 
-      <div className="order-details">
-        <span>👤 <p>{order.name || '—'}</p></span>
-        <span>📞 <p>{order.phone || '—'}</p></span>
-        <span>🚚 التوصيل: <p>{deliveryString || '—'}</p></span>
-        <span>📍 العنوان: <p>{order.address || '—'}</p></span>
-        {order.extraNotes && (
-          <p style={{ marginTop: -10, color: '#999', fontSize: 13 }}>
-            📝 ملاحظات الموقع: {order.extraNotes}
-          </p>
-        )}
+      <div className="row">
+        <div>
+          <span className="label">👤</span>
+          <span className="value">{order.name || '—'}</span>
+        </div>
+        <div>
+          <span className="label">📞</span>
+          <span className="value">{order.phone || '—'}</span>
+        </div>
+      </div>
 
-        <p>💳 طريقة الدفع: <span>{paymentString || '—'}</span></p>
-        <p>📦 عدد المنتجات: <span>{order.cart?.length || 0}</span></p>
-        <p>💰 السعر: <span className="order-price">₪{order.total || order.price}</span></p>
+      <p>
+        <span className="label">🚚 التوصيل:</span>
+        <span className="value">{deliveryString || '—'}</span>
+      </p>
+
+      <p>
+        <span className="label">📍 العنوان:</span>
+        <span className="value">{order.address || '—'}</span>
+      </p>
+
+      {order.extraNotes && (
+        <p style={{ marginTop: -10, color: '#999', fontSize: 13 }}>
+          📝 ملاحظات الموقع: {order.extraNotes}
+        </p>
+      )}
+
+      <p>
+        <span className="label">💳 {paymentString === 'اونلاين' ? 'وضع الطلب:' : 'طريقة الدفع:'}</span>
+        <span className="value">{paymentString === 'اونلاين' ? 'مدفوع' : paymentString || '—'}</span>
+      </p>
+
+      <div className="row">
+        <div>
+          <span className="label">📦 عدد المنتجات:</span>
+          <span className="value">{order.cart?.length || 0}</span>
+        </div>
+        <div>
+          <span className="label">💰 السعر:</span>
+          <span className="value order-price">₪{order.total || order.price}</span>
+        </div>
       </div>
 
       {order.cart?.length > 0 && (
@@ -197,7 +224,23 @@ const OrdersPage = () => {
         isFirstLoad.current = false; // ✅ prevent first-time trigger
       } else if (updatedOrders.length > prevOrdersCount) {
         new Audio('/notify.mp3').play();
-        toast.success('📦 طلب جديد وصل!');
+        toast.custom(() => (
+          <div style={{
+            background: '#fff8c4',
+            padding: '14px 20px',
+            borderRadius: '10px',
+            fontWeight: 'bold',
+            fontSize: '16px',
+            color: '#222',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            direction: 'rtl'
+          }}>
+            📦 طلب جديد وصل!
+          </div>
+        ), {
+          duration: 7000 // or even longer like 10000 for 10s
+        });
+
       }
 
       setPrevOrdersCount(updatedOrders.length);
@@ -214,18 +257,6 @@ const OrdersPage = () => {
     <div className="orders-container">
       <h1 className="orders-title">الطلبات</h1>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
-      {/* <button onClick={() => {
-        const sound = document.getElementById('orderSound');
-        if (sound) {
-          sound.play().then(() => {
-            console.log('🔊 Sound enabled');
-          }).catch(err => {
-            console.warn('🔇 Cannot play yet:', err);
-          });
-        }
-      }}>
-        🔔 Enable Sound Alerts
-      </button> */}
       <AudioUnlocker />
       {sortedOrders.length === 0 ? (
         <p className="orders-empty">لا يوجد طلبات حالياً.</p>
