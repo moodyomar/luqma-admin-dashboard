@@ -104,6 +104,11 @@ const MealsPage = () => {
                   he: opt?.label?.he || '',
                 },
                 values: cleanedValues,
+
+                // ✅ الحقول الجديدة
+                max: typeof opt.max === 'number' ? opt.max : null,
+                allChecked: !!opt.allChecked,
+                limitsBySelectValue: opt?.limitsBySelectValue || {},
               };
             });
 

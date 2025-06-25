@@ -254,3 +254,24 @@ font-size: 13px !important;
 .categoryAddWrapper input {
     margin: 4px;
 }
+.max-options{
+    direction: rtl;
+}
+.advance-options{
+    direction: rtl;
+}
+.advance-options {
+  display: flex;
+  flex-direction: column; /* الوضع الافتراضي للموبايل */
+  gap: 10px;
+}
+
+/* على الشاشات الكبيرة (ديسكتوب) */
+@media (min-width: 768px) {
+  .advance-options {
+    flex-direction: row;
+    align-items: flex-end; /* علشان المربعات تصطف بشكل أنيق */
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+}

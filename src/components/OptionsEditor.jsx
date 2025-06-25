@@ -50,6 +50,7 @@ const OptionsEditor = ({ options = [], onChange }) => {
     updatedOptions[optionIndex].values.splice(valIndex, 1);
     onChange(updatedOptions);
   };
+
   const handleDeleteAllValues = (optionIndex) => {
     const confirmed = window.confirm('هل أنت متأكد أنك تريد حذف هذا الخيار بالكامل؟');
     if (!confirmed) return;
@@ -58,7 +59,6 @@ const OptionsEditor = ({ options = [], onChange }) => {
     updatedOptions.splice(optionIndex, 1); // نحذف الخيار كليًا
     onChange(updatedOptions);
   };
-
 
   const handleAddOption = () => {
     const isSelect = newOptionType === 'select';
@@ -86,18 +86,22 @@ const OptionsEditor = ({ options = [], onChange }) => {
     onChange([...options, newOption]);
   };
 
+const handleAdvancedChange = (optionIndex, field, value) => {
+  const updated = [...options];
 
-  const handleDeleteOption = (index) => {
-    const updated = [...options];
-    updated.splice(index, 1);
-    onChange(updated);
+  updated[optionIndex] = {
+    ...updated[optionIndex],
+    [field]: value,
   };
 
-  const handleDeleteAllOptions = () => {
-    if (confirm('هل أنت متأكد من حذف كل الإضافات؟')) {
-      onChange([]);
-    }
-  };
+  // 🧹 منطق إضافي: إذا اختار "الكل"، احذف max
+  if (field === 'allChecked' && value === true) {
+    delete updated[optionIndex].max;
+  }
+
+  onChange(updated);
+};
+
 
   const [showValues, setShowValues] = useState(false);
   const [expandedOptions, setExpandedOptions] = useState({});
@@ -190,6 +194,73 @@ const OptionsEditor = ({ options = [], onChange }) => {
                     </button>
                   </div>
                 ))}
+
+                {option.type === 'multi' && (
+                  <details style={{ marginTop: 10 }}>
+                    <summary style={{ cursor: 'pointer', fontWeight: 'bold', direction: 'rtl' }}>
+                      إعدادات متقدمة للإضافات المتعددة
+                    </summary>
+                    <div className="advance-options">
+
+                      {/* Set Max options to choose (limit user) */}
+                      <div className="max-options" style={{ marginTop: 10 }}>
+                        <label>
+                          الحد الأقصى للاختيارات:
+                          <input
+                            type="number"
+                            min="1"
+                            value={option.max || ''}
+                            onChange={(e) =>
+                              handleAdvancedChange(index, 'max', parseInt(e.target.value) || null)
+                            }
+                            placeholder="مثلاً 2 أو 3 ماكسيموم"
+                            disabled={option.allChecked} // ❌ Disable if allChecked is on
+                          />
+                        </label>
+
+                        {option.allChecked && (
+                          <div style={{ fontSize: 12, color: '#b33a3a', marginTop: 5 }}>
+                            لا يمكنك تحديد حد أقصى للاختيارات عند تفعيل "اختيار الكل".
+                          </div>
+                        )}
+                      </div>
+                      {/* allCheck - let user mark all options as checked */}
+                      <div className="all-checked-toggle" style={{ marginTop: 10 }}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={option.allChecked || false}
+                            onChange={(e) =>
+                              handleAdvancedChange(index, 'allChecked', e.target.checked)
+                            }
+                          />
+                          اختيار الكل افتراضياً
+                        </label>
+                      </div>
+                    </div>
+                    {/* limit option by size (like mansaf & salads limit) */}
+                    <div className="limits-per-size" style={{ marginTop: 10, direction: 'rtl' }}>
+                      <strong>حدد الحد الأقصى حسب الحجم:</strong>
+                      {options.find(o => o.type === 'select')?.values?.map((size, sIndex) => (
+                        <div key={sIndex} style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5 }}>
+                          <span>{size.label?.ar || 'غير معروف'}</span>
+                          <input style={{ width: 200 }}
+                            type="number"
+                            placeholder="كم خيار مسموح من فوق؟"
+                            value={option.limitsBySelectValue?.[size.value] || ''}
+                            onChange={(e) => {
+                              const updated = [...options];
+                              if (!updated[index].limitsBySelectValue) updated[index].limitsBySelectValue = {};
+                              updated[index].limitsBySelectValue[size.value] = parseInt(e.target.value) || null;
+                              onChange(updated);
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
 
                 <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'center' }}>
                   <button
