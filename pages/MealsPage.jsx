@@ -105,10 +105,11 @@ const MealsPage = () => {
                 },
                 values: cleanedValues,
 
-                // ✅ الحقول الجديدة
+                // ✅ New Fields
                 max: typeof opt.max === 'number' ? opt.max : null,
                 allChecked: !!opt.allChecked,
                 limitsBySelectValue: opt?.limitsBySelectValue || {},
+                required: !!opt.required,
               };
             });
 

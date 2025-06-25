@@ -9,8 +9,8 @@ const defaultLabels = {
     he: 'בחר גודל',
   },
   multi: {
-    ar: 'إضافات',
-    he: 'תוספות',
+    ar: 'اختار الإضافات',
+    he: 'בחר תוספות',
   },
 };
 
@@ -86,24 +86,22 @@ const OptionsEditor = ({ options = [], onChange }) => {
     onChange([...options, newOption]);
   };
 
-const handleAdvancedChange = (optionIndex, field, value) => {
-  const updated = [...options];
+  const handleAdvancedChange = (optionIndex, field, value) => {
+    const updated = [...options];
 
-  updated[optionIndex] = {
-    ...updated[optionIndex],
-    [field]: value,
+    updated[optionIndex] = {
+      ...updated[optionIndex],
+      [field]: value,
+    };
+
+    // 🧹 منطق إضافي: إذا اختار "الكل"، احذف max
+    if (field === 'allChecked' && value === true) {
+      delete updated[optionIndex].max;
+    }
+
+    onChange(updated);
   };
 
-  // 🧹 منطق إضافي: إذا اختار "الكل"، احذف max
-  if (field === 'allChecked' && value === true) {
-    delete updated[optionIndex].max;
-  }
-
-  onChange(updated);
-};
-
-
-  const [showValues, setShowValues] = useState(false);
   const [expandedOptions, setExpandedOptions] = useState({});
 
   const toggleOption = (index) => {
@@ -154,6 +152,21 @@ const handleAdvancedChange = (optionIndex, field, value) => {
               >
                 {expandedOptions[index] ? '🔽 إخفاء الإضافات' : '➕ عرض الإضافات'}
               </button>
+              <div style={{ marginTop: 8 }}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={option.required || false}
+                    onChange={(e) => {
+                      handleAdvancedChange(index, 'required', e.target.checked);
+                    }}
+                  />
+                  <span style={{ marginInlineStart: 6 }}>هل هذا الحقل مطلوب؟</span>
+                </label>
+              </div>
+
+
+
             </div>
 
             {expandedOptions[index] && (
