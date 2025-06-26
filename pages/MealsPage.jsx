@@ -1,7 +1,7 @@
 import { useEffect, useState, } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import MealCard from '../src/components/MealCard';
 import NewMealForm from '../src/components/NewMealForm';
 import CategoryManager from '../src/components/CategoryManager';
@@ -155,6 +155,19 @@ const MealsPage = () => {
     return `${cat.name.ar} | ${cat.name.he}`; // fallback
   };
 
+  const handleCategoriesChange = async (updatedCategories) => {
+    setMealsData((prev) => ({ ...prev, categories: updatedCategories }));
+
+    try {
+      await updateDoc(doc(db, 'menus', 'luqma'), {
+        categories: updatedCategories,
+      });
+    } catch (err) {
+      console.error('🔥 Error updating categories:', err);
+    }
+  };
+
+
   if (loading) return <p>Loading...</p>;
 
   return (
@@ -180,7 +193,7 @@ const MealsPage = () => {
       </div>
       {showCategoryManager && <CategoryManager
         categories={mealsData.categories}
-        onChange={(updatedCategories) => {
+        onChange={async (updatedCategories) => {
           const updatedItems = { ...mealsData.items };
 
           // اضف مفتاح جديد إذا ما كان موجود
@@ -189,11 +202,23 @@ const MealsPage = () => {
               updatedItems[cat.id] = [];
             }
           });
+
+          // Update local state
           setMealsData({
             ...mealsData,
             categories: updatedCategories,
             items: updatedItems,
           });
+
+          // 🔥 Update in Firestore (menus/luqma document)
+          try {
+            await updateDoc(doc(db, 'menus', 'luqma'), {
+              categories: updatedCategories,
+            });
+            console.log('✅ Categories order saved to Firestore');
+          } catch (err) {
+            console.error('🔥 Failed to update categories in Firestore:', err);
+          }
         }}
       />}
       {showMeals && (

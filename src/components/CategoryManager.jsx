@@ -1,9 +1,27 @@
 import React, { useState } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+} from '@dnd-kit/core';
+
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import SortableCategoryCard from '../components/SortableCategoryCard'
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebase/firebaseConfig';
+
 
 const CategoryManager = ({ categories = [], onChange }) => {
   const [form, setForm] = useState({ id: '', nameAr: '', nameHe: '', icon: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [showHidden, setShowHidden] = useState(true);
+  const [isOpen,setIsOpen] = useState(false);
 
   const handleInput = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -59,23 +77,66 @@ const CategoryManager = ({ categories = [], onChange }) => {
     onChange(updated);
   };
 
-  const visibleCategories = showHidden ? categories : categories.filter((cat) => !cat.hidden);
+const handleDragEnd = async (event) => {
+  const { active, over } = event;
+
+  if (!over || active.id === over.id) return;
+
+  const oldIndex = categories.findIndex((cat) => cat.id === active.id);
+  const newIndex = categories.findIndex((cat) => cat.id === over.id);
+
+  const reordered = arrayMove(categories, oldIndex, newIndex)
+    .map((cat, index) => ({ ...cat, order: index }));
+
+  // Update in parent state
+  onChange(reordered);
+};
+
+
+  const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
+  const visibleCategories = showHidden
+    ? sortedCategories
+    : sortedCategories.filter((cat) => !cat.hidden);
 
   return (
     <div style={{ padding: 20, border: '1px solid #ccc', borderRadius: 8, marginBottom: 130 }}>
-      <div className="categoryAddWrapper">
-        <h4>📂 הוספת קטגוריה חדשה</h4>
-        <div className="row" >
-          <input placeholder="שם קטגוריה בעברית" value={form.nameHe} onChange={(e) => handleInput('nameHe', e.target.value)} />
-          <input placeholder="اسم القسم بالعربي" value={form.nameAr} onChange={(e) => handleInput('nameAr', e.target.value)} />
-        </div>
-        <div className="row" >
-          <input placeholder="מזהה קטגוריה" value={form.id} onChange={(e) => handleInput('id', e.target.value)} disabled={isEditing} />
-          <input placeholder="קישור תמונה" value={form.icon} onChange={(e) => handleInput('icon', e.target.value)} />
-        </div>
-      </div>
+         <div className="categoryAddWrapper">
+      <h4
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        📂 הוספת קטגוריה חדשה
+        <span style={{ fontSize: 18 }}>{isOpen ? '▲' : '▼'}</span>
+      </h4>
 
-      <div style={{ marginTop: 10 }}>
+      {isOpen && (
+        <>
+          <div className="row">
+            <input
+              placeholder="שם קטגוריה בעברית"
+              value={form.nameHe}
+              onChange={(e) => handleInput('nameHe', e.target.value)}
+            />
+            <input
+              placeholder="اسم القسم بالعربي"
+              value={form.nameAr}
+              onChange={(e) => handleInput('nameAr', e.target.value)}
+            />
+          </div>
+          <div className="row">
+            <input
+              placeholder="מזהה קטגוריה"
+              value={form.id}
+              onChange={(e) => handleInput('id', e.target.value)}
+              disabled={isEditing}
+            />
+            <input
+              placeholder="كישור תמונה"
+              value={form.icon}
+              onChange={(e) => handleInput('icon', e.target.value)}
+            />
+          </div>
+                <div style={{ marginTop: 10 }}>
         <button onClick={handleAddOrUpdate}>
           {isEditing ? 'עדכון' : 'הוספת'} קטגוריה
         </button>
@@ -85,6 +146,12 @@ const CategoryManager = ({ categories = [], onChange }) => {
           </button>
         )}
       </div>
+        </>
+        
+      )}
+      
+    </div>
+
 
       <div style={{ marginTop: 20 }}>
         <label>
@@ -100,27 +167,27 @@ const CategoryManager = ({ categories = [], onChange }) => {
 
       <hr style={{ margin: '20px 0' }} />
 
-      {visibleCategories.map((cat) => (
-        <div key={cat.id} style={{ marginBottom: 10 }}>
-          <div className="categoriesControlsWrapper">
-            {cat.name.ar} | {cat.name.he}
-            {cat.hidden && (
-              <span style={{ marginRight: 8, color: 'gray', fontSize: 12 }}>מוסתרת</span>
-            )}
-            <div className="categoriesBtnsControl">
-              <button onClick={() => handleEdit(cat)} style={{ marginRight: 10 }}>
-                עריכה
-              </button>
-              <button onClick={() => handleHide(cat.id)} style={{ marginRight: 5, color: 'blue' }}>
-                {cat.hidden ? 'הצג' : 'הסתר'}
-              </button>
-              <button onClick={() => handleDelete(cat.id)} style={{ marginRight: 5, color: 'red' }}>
-                מחק
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
+      <DndContext
+        sensors={useSensors(useSensor(PointerSensor))}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={visibleCategories.map(cat => cat.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {visibleCategories.map((cat) => (
+            <SortableCategoryCard
+              key={cat.id}
+              id={cat.id}
+              cat={cat}
+              onEdit={() => handleEdit(cat)}
+              onHide={() => handleHide(cat.id)}
+              onDelete={() => handleDelete(cat.id)}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
     </div>
   );
 };
