@@ -1,5 +1,6 @@
 // pages/OrdersPage.jsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import brand from '../constants/brandConfig'
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
 import AudioUnlocker, { getSharedAudio } from '../src/components/AudioUnlocker';
@@ -207,44 +208,45 @@ const OrdersPage = () => {
 
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'orders'), (snapshot) => {
-      const unlockedAudio = getSharedAudio();
-      if (unlockedAudio) {
-        unlockedAudio.currentTime = 0;
-        unlockedAudio.play();
-      }
-      const updatedOrders = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+    const unsubscribe = onSnapshot(
+      collection(db, 'menus', brand.id, 'orders'), (snapshot) => {
+        const unlockedAudio = getSharedAudio();
+        if (unlockedAudio) {
+          unlockedAudio.currentTime = 0;
+          unlockedAudio.play();
+        }
+        const updatedOrders = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
-      setOrders(updatedOrders);
+        setOrders(updatedOrders);
 
-      if (isFirstLoad.current) {
-        isFirstLoad.current = false; // ✅ prevent first-time trigger
-      } else if (updatedOrders.length > prevOrdersCount) {
-        new Audio('/notify.mp3').play();
-        toast.custom(() => (
-          <div style={{
-            background: '#fff8c4',
-            padding: '14px 20px',
-            borderRadius: '10px',
-            fontWeight: 'bold',
-            fontSize: '16px',
-            color: '#222',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            direction: 'rtl'
-          }}>
-            📦 طلب جديد وصل!
-          </div>
-        ), {
-          duration: 7000 // or even longer like 10000 for 10s
-        });
+        if (isFirstLoad.current) {
+          isFirstLoad.current = false; // ✅ prevent first-time trigger
+        } else if (updatedOrders.length > prevOrdersCount) {
+          new Audio('/notify.mp3').play();
+          toast.custom(() => (
+            <div style={{
+              background: '#fff8c4',
+              padding: '14px 20px',
+              borderRadius: '10px',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              color: '#222',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              direction: 'rtl'
+            }}>
+              📦 طلب جديد وصل!
+            </div>
+          ), {
+            duration: 7000 // or even longer like 10000 for 10s
+          });
 
-      }
+        }
 
-      setPrevOrdersCount(updatedOrders.length);
-    });
+        setPrevOrdersCount(updatedOrders.length);
+      });
 
     return () => unsubscribe();
   }, [prevOrdersCount]);
