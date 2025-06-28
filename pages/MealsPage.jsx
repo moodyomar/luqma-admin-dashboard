@@ -323,9 +323,9 @@ const MealsPage = () => {
 
       <div className="loginButtons" style={{ gap: '10px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
         <button
-          onClick={() => window.location.href = '/'}
+          onClick={() => window.location.href = '/manage'}
           className="loginButton secondary">
-          ניהול מנות
+          ניהול זמינות
         </button>
         <button
           onClick={() => window.location.href = '/orders'}
