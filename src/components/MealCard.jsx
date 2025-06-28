@@ -33,7 +33,7 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           <span style={{ color: '#666', fontSize: 13 }}>₪{meal.price || '0'}</span>
         </div>
         {meal.image && (
-          <img src={meal.image} alt="meal" style={{ width: 65, height: 65, borderRadius: 6, objectFit: 'cover' }} />
+          <img src={meal.image} alt="meal" style={{ width: 50, height: 50, borderRadius: 6, objectFit: 'cover' }} />
         )}
       </div>
 

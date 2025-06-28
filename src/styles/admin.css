@@ -3,7 +3,7 @@ body {
     direction: rtl;
     background: #fafafa;
     margin: 0;
-    padding: 20px;
+    padding: 10px;
 }
 
 .logo {
@@ -29,7 +29,7 @@ h4 {
 .meal-card {
     border: 1px solid #ccc;
     border-radius: 8px;
-    padding: 16px;
+    padding: 5px;
     background-color: #fefefe;
     margin-bottom: 20px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -175,11 +175,25 @@ font-size: 13px !important;
 .value-row {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.value-row-bottom {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
 }
 
-.value-row input {
-    flex: 1;
-    min-width: 80px;
+.value-row input.price-input {
+    max-width: 60px;
+    min-width: 0;
+    text-align: center;
+}
+
+.value-row input[type="url"] {
+    flex: 2;
+    min-width: 120px;
 }
 
 .add-value-btn {
@@ -273,5 +287,42 @@ font-size: 13px !important;
     align-items: flex-end; /* علشان المربعات تصطف بشكل أنيق */
     justify-content: space-between;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .value-row {
+    flex-wrap: nowrap;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .value-row input:not(.price-input):not([type="url"]) {
+    flex: 1 1 40%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .value-row input.price-input {
+    max-width: 55px;
+    min-width: 40px;
+    width: 55px;
+    flex: 0 0 55px;
+    text-align: center;
+  }
+  .value-row-bottom {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .value-row-bottom input[type="url"] {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .value-row-bottom button {
+    flex: 0 0 auto;
   }
 }

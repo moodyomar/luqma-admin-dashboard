@@ -166,3 +166,6 @@ justify-content: flex-end;
 .meal-header-collapsed{
   height: 50px;
 }
+.required-extra-label{
+  text-align: right;
+}

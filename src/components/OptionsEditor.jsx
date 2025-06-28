@@ -35,12 +35,19 @@ const OptionsEditor = ({ options = [], onChange }) => {
     onChange(updated);
   };
 
+  const handleImageChange = (optionIndex, valueIndex, value) => {
+    const updated = [...options];
+    updated[optionIndex].values[valueIndex].image = value;
+    onChange(updated);
+  };
+
   const handleAddValue = (optionIndex) => {
     const updated = [...options];
     updated[optionIndex].values.push({
       label: { ar: '', he: '' },
       value: `opt_${Date.now()}`,
       extra: updated[optionIndex].type === 'select' ? 0 : undefined,
+      image: '',
     });
     onChange(updated);
   };
@@ -152,16 +159,15 @@ const OptionsEditor = ({ options = [], onChange }) => {
               >
                 {expandedOptions[index] ? '🔽 إخفاء الإضافات' : '➕ عرض الإضافات'}
               </button>
-              <div style={{ marginTop: 8 }}>
+              <div className="required-extra-label" style={{ marginTop: 8 }}>
                 <label>
+                <span style={{ marginInlineStart: 6 }}>الحقل مطلوب؟</span>
                   <input
                     type="checkbox"
                     checked={option.required || false}
                     onChange={(e) => {
                       handleAdvancedChange(index, 'required', e.target.checked);
-                    }}
-                  />
-                  <span style={{ marginInlineStart: 6 }}>هل هذا الحقل مطلوب؟</span>
+                    }}/>
                 </label>
               </div>
 
@@ -175,21 +181,29 @@ const OptionsEditor = ({ options = [], onChange }) => {
 
                 {option.values.map((val, valIndex) => (
                   <div key={valIndex} className="value-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
+                    <input style={{minWidth:70}}
                       placeholder="مثلا: صغير/كبير"
                       value={val.label.ar}
                       onChange={(e) => handleValueChange(index, valIndex, 'ar', e.target.value)}
                     />
-                    <input
+                    <input style={{minWidth:70}}
                       placeholder="דוגמה: קטן/גדול"
                       value={val.label.he}
                       onChange={(e) => handleValueChange(index, valIndex, 'he', e.target.value)}
                     />
                     <input
+                    style={{minWidth:20}}
                       type="number"
                       placeholder="كم زياده؟"
                       value={val.extra || 0}
                       onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
+                    />
+                    <input
+                    style={{minWidth:80}}
+                      type="url"
+                      placeholder="رابط الصورة"
+                      value={val.image || ''}
+                      onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
                     />
 
                     <button

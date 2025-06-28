@@ -86,6 +86,7 @@ const MealsPage = () => {
                   },
                   value: val?.value || `opt_${Date.now()}`,
                   extra: typeof val?.extra === 'number' ? val.extra : 0,
+                  image: val?.image || '',
                 };
 
 
