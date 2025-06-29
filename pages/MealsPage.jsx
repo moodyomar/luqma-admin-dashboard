@@ -351,7 +351,11 @@ const MealsPage = () => {
                         categoryId={categoryId}
                         onAdd={(catId, meal) => {
                           const updated = { ...mealsData.items };
-                          updated[catId] = [...(updated[catId] || []), meal];
+                          // Insert new meal at the start
+                          const newMeals = [meal, ...(updated[catId] || [])];
+                          // Reassign order for all meals
+                          const orderedMeals = newMeals.map((m, idx) => ({ ...m, order: idx }));
+                          updated[catId] = orderedMeals;
                           setMealsData({ ...mealsData, items: updated });
                         }}
                         visible={openFormCategory === categoryId}

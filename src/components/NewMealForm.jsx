@@ -22,7 +22,7 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
         }
 
         const newMeal = {
-            id: Date.now().toString(),
+            id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}_${Math.random()}`,
             name: { ar: form.nameAr, he: form.nameHe },
             price: form.price,
             description: { ar: form.descAr || '', he: form.descHe || '' },

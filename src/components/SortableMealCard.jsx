@@ -41,7 +41,8 @@ export default function SortableMealCard({ id, meal, categoryId, index, onChange
     return (
         <div ref={setNodeRef} style={style}>
             <MealCard
-                meal={{ ...meal, dragHandle }}
+                meal={meal}
+                dragHandle={dragHandle}
                 categoryId={categoryId}
                 index={index}
                 onChange={onChange}

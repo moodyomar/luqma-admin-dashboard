@@ -1,6 +1,6 @@
 import OptionsEditor from './OptionsEditor';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle }) => {
   const handleFieldChange = (field, lang, value) => {
     const updated = { ...meal };
     if (field === 'name' || field === 'description') {
@@ -23,16 +23,16 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
         flexDirection: 'row',
         alignItems: 'center',
         direction: 'rtl',
-        textAlign: 'right',
+        textAlign: 'center',
         justifyContent: 'space-between',
         padding: '0 8px',
         minHeight: 56,
         position: 'relative',
       }}>
         {/* Drag handle (if present) */}
-        {typeof meal.dragHandle === 'function' ? (
+        {dragHandle ? (
           <div style={{ width: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {meal.dragHandle()}
+            {dragHandle()}
           </div>
         ) : null}
         {/* Main content (clickable to toggle) */}
