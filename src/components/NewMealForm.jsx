@@ -28,6 +28,7 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
             description: { ar: form.descAr || '', he: form.descHe || '' },
             image: form.image || '',
             available: form.available,
+            order: 0,
         };
 
         onAdd(categoryId, newMeal);

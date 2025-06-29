@@ -9,6 +9,7 @@ import brand from '../constants/brandConfig';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
 import './styles.css'
+import SortableMealsList from '../src/components/SortableMealsList';
 
 const MealsPage = () => {
   const [mealsData, setMealsData] = useState({ categories: [], items: {} });
@@ -232,7 +233,9 @@ const MealsPage = () => {
             return category && !category.hidden;
           })
           .map(([categoryId, meals]) => {
-            const filteredMeals = meals.filter((meal) =>
+            // Sort meals by order (lowest first), fallback to Infinity if missing
+            const sortedMeals = [...meals].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
+            const filteredMeals = sortedMeals.filter((meal) =>
               meal.name.ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
               meal.name.he.toLowerCase().includes(searchTerm.toLowerCase())
             );
@@ -355,19 +358,31 @@ const MealsPage = () => {
                         setVisible={() => setOpenFormCategory(null)}
                       />
                     </div>
-                    {filteredMeals.map((meal, index) => (
-                      <MealCard
-                        key={meal.id}
-                        meal={meal}
-                        categoryId={categoryId}
-                        index={index}
-                        onChange={(updatedMeal) => updateMeal(categoryId, index, updatedMeal)}
-                        onDelete={() => deleteMeal(categoryId, index)}
-                        expanded={expandedMeals[meal.id]}
-                        onToggle={() => toggleMeal(meal.id)}
-                        allMealsInCategory={meals}
-                      />
-                    ))}
+                    <SortableMealsList
+                      meals={filteredMeals}
+                      categoryId={categoryId}
+                      onChangeMeal={(updatedMeal, idx) => {
+                        const updated = [...mealsData.items[categoryId]];
+                        updated[idx] = updatedMeal;
+                        setMealsData({ ...mealsData, items: { ...mealsData.items, [categoryId]: updated } });
+                      }}
+                      onDeleteMeal={(idx) => deleteMeal(categoryId, idx)}
+                      expandedMeals={expandedMeals}
+                      onToggleMeal={toggleMeal}
+                      allMealsInCategory={mealsData.items[categoryId]}
+                      onReorder={async (reorderedMeals) => {
+                        // Save new order to state and Firestore
+                        const updated = { ...mealsData.items, [categoryId]: reorderedMeals };
+                        setMealsData({ ...mealsData, items: updated });
+                        try {
+                          await updateDoc(doc(db, 'menus', brand.id), {
+                            [`items.${categoryId}`]: reorderedMeals
+                          });
+                        } catch (err) {
+                          alert('שגיאה בשמירת סדר המנות');
+                        }
+                      }}
+                    />
                   </>
                 )}
               </div>

@@ -18,22 +18,46 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
   return (
     <div className="meal-card" style={{ border: '1px solid #ddd', borderRadius: 8, marginBottom: 8 }}>
       {/* Collapsed Header */}
-      <div className="meal-header-collapsed" onClick={onToggle} style={{
-        cursor: 'pointer',
+      <div className="meal-header-collapsed" style={{
         display: 'flex',
-        direction:'rtl',
-        textAlign:'center',
-        justifyContent: 'space-between',
+        flexDirection: 'row',
         alignItems: 'center',
-        // borderBottom: expanded ? '1px solid #ccc' : 'none',
+        direction: 'rtl',
+        textAlign: 'right',
+        justifyContent: 'space-between',
+        padding: '0 8px',
+        minHeight: 56,
+        position: 'relative',
       }}>
-        <span style={{ fontSize: 18 }}>{expanded ? '🔼' : '🔽'}</span>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <strong>{meal.name?.ar || '—'}</strong>
+        {/* Drag handle (if present) */}
+        {typeof meal.dragHandle === 'function' ? (
+          <div style={{ width: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {meal.dragHandle()}
+          </div>
+        ) : null}
+        {/* Main content (clickable to toggle) */}
+        <div
+          onClick={onToggle}
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            margin: '0 8px',
+            cursor: 'pointer',
+            userSelect: 'none',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <strong style={{ fontSize: 17 }}>{meal.name?.ar || '—'}</strong>
+            <span style={{ fontSize: 18, color: '#888' }}>{expanded ? '⌃' : '⌄'}</span>
+          </div>
           <span style={{ color: '#666', fontSize: 13 }}>₪{meal.price || '0'}</span>
         </div>
+        {/* Image */}
         {meal.image && (
-          <img src={meal.image} alt="meal" style={{ width: 50, height: 50, borderRadius: 6, objectFit: 'cover' }} />
+          <img src={meal.image} alt="meal" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', margin: '0 8px' }} />
         )}
       </div>
 
