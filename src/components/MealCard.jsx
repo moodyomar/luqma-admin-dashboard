@@ -1,6 +1,6 @@
 import OptionsEditor from './OptionsEditor';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory }) => {
   const handleFieldChange = (field, lang, value) => {
     const updated = { ...meal };
     if (field === 'name' || field === 'description') {
@@ -83,6 +83,8 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           <OptionsEditor
             options={meal?.options || []}
             onChange={handleOptionsChange}
+            categoryId={categoryId}
+            allMealsInCategory={allMealsInCategory}
           />
 
           <div className="meal-card-buttons" style={{ marginTop: 12 }}>

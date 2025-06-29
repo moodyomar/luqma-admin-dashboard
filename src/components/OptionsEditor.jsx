@@ -14,8 +14,15 @@ const defaultLabels = {
   },
 };
 
-const OptionsEditor = ({ options = [], onChange }) => {
+const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory }) => {
   const [newOptionType, setNewOptionType] = useState('select');
+  const [expandedOptions, setExpandedOptions] = useState({});
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [showAddOptionModal, setShowAddOptionModal] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState(null);
+  const [selectedOptions, setSelectedOptions] = useState([]);
+  const [isOptionsExpanded, setIsOptionsExpanded] = useState(false);
 
   const handleLabelChange = (index, lang, value) => {
     const updated = [...options];
@@ -67,30 +74,21 @@ const OptionsEditor = ({ options = [], onChange }) => {
     onChange(updatedOptions);
   };
 
-  const handleAddOption = () => {
-    const isSelect = newOptionType === 'select';
-
+  const handleAddOption = (type) => {
     const newOption = {
-      type: newOptionType,
+      type: type,
       label: {
         ar: '',
         he: '',
       },
-      values: [
-        {
-          label: { ar: '', he: '' },
-          value: `opt_${Date.now()}`,
-          extra: isSelect ? 0 : undefined, // يجعلها undefined بدل عدم الوجود إطلاقًا
-        },
-      ],
+      values: [],
+      required: false,
+      max: null,
+      allChecked: false,
+      limitsBySelectValue: {}
     };
-
-    // احذف الـ extra إذا مش من نوع select (تجنّب undefined في الفايربيس)
-    if (!isSelect) {
-      delete newOption.values[0].extra;
-    }
-
     onChange([...options, newOption]);
+    setShowAddOptionModal(false);
   };
 
   const handleAdvancedChange = (optionIndex, field, value) => {
@@ -109,8 +107,6 @@ const OptionsEditor = ({ options = [], onChange }) => {
     onChange(updated);
   };
 
-  const [expandedOptions, setExpandedOptions] = useState({});
-
   const toggleOption = (index) => {
     setExpandedOptions(prev => ({
       ...prev,
@@ -118,231 +114,717 @@ const OptionsEditor = ({ options = [], onChange }) => {
     }));
   };
 
+  const toggleAllOptions = () => {
+    setIsOptionsExpanded(!isOptionsExpanded);
+  };
+
+  const handleCopyFromMeal = (sourceMeal) => {
+    if (sourceMeal.options && sourceMeal.options.length > 0) {
+      onChange([...sourceMeal.options]);
+      setShowCopyModal(false);
+    }
+  };
+
+  const handleSelectMeal = (meal) => {
+    setSelectedMeal(meal);
+    setSelectedOptions([]); // Reset selection
+    setShowCopyModal(false);
+    setShowOptionsModal(true);
+  };
+
+  const handleOptionToggle = (optionIndex) => {
+    setSelectedOptions(prev => {
+      if (prev.includes(optionIndex)) {
+        return prev.filter(i => i !== optionIndex);
+      } else {
+        return [...prev, optionIndex];
+      }
+    });
+  };
+
+  const handleCopySelectedOptions = () => {
+    if (selectedOptions.length > 0 && selectedMeal) {
+      const optionsToCopy = selectedOptions.map(index => selectedMeal.options[index]);
+      const newOptions = [...options, ...optionsToCopy];
+      onChange(newOptions);
+      setShowOptionsModal(false);
+      setSelectedMeal(null);
+      setSelectedOptions([]);
+    }
+  };
+
+  const handleSelectAllOptions = () => {
+    if (selectedMeal && selectedMeal.options) {
+      setSelectedOptions(selectedMeal.options.map((_, index) => index));
+    }
+  };
+
+  const handleDeselectAllOptions = () => {
+    setSelectedOptions([]);
+  };
+
   return (
-    <div className="options-section">
-      {options.map((option, index) => (
-        <div key={index} className="option-card">
-          <div className="option-header">
-            <strong>نوع الاضافه:</strong> <span style={{ color: 'green', fontWeight: '700' }}>{option.type === 'multi' ? 'خيارات متعدده' : 'خيار واحد'}</span>
+    <div className="options-editor">
+      <hr style={{ 
+        border: 'none', 
+        height: '1px', 
+        background: 'linear-gradient(to right, transparent, #ddd, transparent)', 
+        margin: '16px 0' 
+      }} />
+      
+      <div style={{ marginBottom: 16 }}>
+        <h3 
+          style={{ 
+            direction: 'rtl', 
+            margin: 0, 
+            marginBottom: 12,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}
+          onClick={toggleAllOptions}
+        >
+          <span>{isOptionsExpanded ? '🔽' : '➕'}</span>
+          الإضافات والخيارات
+        </h3>
+        
+        {isOptionsExpanded && (
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setShowCopyModal(true)}
+              style={{
+                backgroundColor: '#17a2b8',
+                color: '#fff',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 14
+              }}
+            >
+              نسخ اضافات
+            </button>
+            <button
+              onClick={() => setShowAddOptionModal(true)}
+              style={{
+                backgroundColor: '#28a745',
+                color: '#fff',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: 6,
+                cursor: 'pointer'
+              }}
+            >
+              إضافة خيار جديد
+            </button>
           </div>
+        )}
+      </div>
 
-          <div className="option-labels">
-            <label>
-              اختر السؤال الي يبين للزبون
-              <input
-                value={option.label?.ar || defaultLabels[option.type]?.ar}
-                onChange={(e) => handleLabelChange(index, 'ar', e.target.value)}
-              />
-            </label>
-            <label>
-              בחר את השאלה שתופיע ללקוח
-              <input
-                value={option.label?.he || defaultLabels[option.type]?.he}
-                onChange={(e) => handleLabelChange(index, 'he', e.target.value)}
-              />
-            </label>
-          </div>
-
-          <div className="option-wrapper" style={{ marginBottom: 16 }}>
-            <div className="btn-row-right">
-              <button
-                onClick={() => toggleOption(index)}
+      {isOptionsExpanded && (
+        <>
+          {/* Copy Modal - Select Meal */}
+          {showCopyModal && (
+            <div 
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 1000
+              }}
+              onClick={() => setShowCopyModal(false)}
+            >
+              <div 
                 style={{
-                  direction: 'rtl',
-                  backgroundColor: '#f4f4f4',
-                  padding: '6px 12px',
-                  border: '1px solid #ccc',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  marginBottom: 8
+                  background: '#fff',
+                  padding: 24,
+                  borderRadius: 12,
+                  maxWidth: 500,
+                  maxHeight: 400,
+                  overflow: 'auto',
+                  direction: 'rtl'
                 }}
+                onClick={(e) => e.stopPropagation()}
               >
-                {expandedOptions[index] ? '🔽 إخفاء الإضافات' : '➕ عرض الإضافات'}
-              </button>
-              <div className="required-extra-label" style={{ marginTop: 8 }}>
-                <label>
-                <span style={{ marginInlineStart: 6 }}>الحقل مطلوب؟</span>
-                  <input
-                    type="checkbox"
-                    checked={option.required || false}
-                    onChange={(e) => {
-                      handleAdvancedChange(index, 'required', e.target.checked);
-                    }}/>
-                </label>
-              </div>
-
-
-
-            </div>
-
-            {expandedOptions[index] && (
-              <div className="option-values">
-                <strong style={{ direction: 'rtl' }}>الاضافات | האפשריות</strong>
-
-                {option.values.map((val, valIndex) => (
-                  <div key={valIndex} className="value-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input style={{minWidth:70}}
-                      placeholder="مثلا: صغير/كبير"
-                      value={val.label.ar}
-                      onChange={(e) => handleValueChange(index, valIndex, 'ar', e.target.value)}
-                    />
-                    <input style={{minWidth:70}}
-                      placeholder="דוגמה: קטן/גדול"
-                      value={val.label.he}
-                      onChange={(e) => handleValueChange(index, valIndex, 'he', e.target.value)}
-                    />
-                    <input
-                    style={{minWidth:20}}
-                      type="number"
-                      placeholder="كم زياده؟"
-                      value={val.extra || 0}
-                      onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
-                    />
-                    <input
-                    style={{minWidth:80}}
-                      type="url"
-                      placeholder="رابط الصورة"
-                      value={val.image || ''}
-                      onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
-                    />
-
-                    <button
-                      onClick={() => handleDeleteValue(index, valIndex)}
-                      style={{
-                        backgroundColor: '#d9534f',
-                        color: '#fff',
-                        border: 'none',
-                        padding: '4px 8px',
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <FiTrash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-
-                {option.type === 'multi' && (
-                  <details style={{ marginTop: 10 }}>
-                    <summary style={{ cursor: 'pointer', fontWeight: 'bold', direction: 'rtl' }}>
-                      إعدادات متقدمة للإضافات المتعددة
-                    </summary>
-                    <div className="advance-options">
-
-                      {/* Set Max options to choose (limit user) */}
-                      <div className="max-options" style={{ marginTop: 10 }}>
-                        <label>
-                          الحد الأقصى للاختيارات:
-                          <input
-                            type="number"
-                            min="1"
-                            value={option.max || ''}
-                            onChange={(e) =>
-                              handleAdvancedChange(index, 'max', parseInt(e.target.value) || null)
-                            }
-                            placeholder="مثلاً 2 أو 3 ماكسيموم"
-                            disabled={option.allChecked} // ❌ Disable if allChecked is on
-                          />
-                        </label>
-
-                        {option.allChecked && (
-                          <div style={{ fontSize: 12, color: '#b33a3a', marginTop: 5 }}>
-                            لا يمكنك تحديد حد أقصى للاختيارات عند تفعيل "اختيار الكل".
-                          </div>
-                        )}
-                      </div>
-                      {/* allCheck - let user mark all options as checked */}
-                      <div className="all-checked-toggle" style={{ marginTop: 10 }}>
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={option.allChecked || false}
-                            onChange={(e) =>
-                              handleAdvancedChange(index, 'allChecked', e.target.checked)
-                            }
-                          />
-                          اختيار الكل افتراضياً
-                        </label>
-                      </div>
-                    </div>
-                    {/* limit option by size (like mansaf & salads limit) */}
-                    <div className="limits-per-size" style={{ marginTop: 10, direction: 'rtl' }}>
-                      <strong>حدد الحد الأقصى حسب الحجم:</strong>
-                      {options.find(o => o.type === 'select')?.values?.map((size, sIndex) => (
-                        <div key={sIndex} style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5 }}>
-                          <span>{size.label?.ar || 'غير معروف'}</span>
-                          <input style={{ width: 200 }}
-                            type="number"
-                            placeholder="كم خيار مسموح من فوق؟"
-                            value={option.limitsBySelectValue?.[size.value] || ''}
-                            onChange={(e) => {
-                              const updated = [...options];
-                              if (!updated[index].limitsBySelectValue) updated[index].limitsBySelectValue = {};
-                              updated[index].limitsBySelectValue[size.value] = parseInt(e.target.value) || null;
-                              onChange(updated);
-                            }}
-                          />
+                <h3 style={{ marginTop: 0, marginBottom: 16 }}>اختر وجبة لنسخ الإضافات منها</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {allMealsInCategory?.filter(meal => meal.options && meal.options.length > 0).length > 0 ? (
+                    allMealsInCategory?.filter(meal => meal.options && meal.options.length > 0).map((meal, index) => (
+                      <button
+                        key={meal.id || index}
+                        onClick={() => handleSelectMeal(meal)}
+                        style={{
+                          padding: '12px 16px',
+                          border: '1px solid #ddd',
+                          borderRadius: 8,
+                          background: '#f8f9fa',
+                          cursor: 'pointer',
+                          textAlign: 'right',
+                          fontSize: 14,
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = '#e9ecef';
+                          e.target.style.borderColor = '#adb5bd';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = '#f8f9fa';
+                          e.target.style.borderColor = '#ddd';
+                        }}
+                      >
+                        <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                          {meal.name?.ar || meal.name?.he || 'وجبة بدون اسم'}
                         </div>
-                      ))}
+                        <div style={{ fontSize: 12, color: '#666' }}>
+                          {meal.options?.length || 0} إضافات متاحة
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div style={{
+                      padding: '24px 16px',
+                      textAlign: 'center',
+                      background: '#f8f9fa',
+                      border: '1px solid #dee2e6',
+                      borderRadius: 8,
+                      color: '#6c757d'
+                    }}>
+                      <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>
+                        لا توجد وجبات مع إضافات للنسخ
+                      </div>
+                      <div style={{ fontSize: 14 }}>
+                        أضف أول وجبة مع إضافات لنسخها مستقبلاً
+                      </div>
                     </div>
-                  </details>
-                )}
-
-
-                <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'center' }}>
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
                   <button
-                    className="add-value-btn"
-                    onClick={() => handleAddValue(index)}
+                    onClick={() => setShowCopyModal(false)}
                     style={{
-                      backgroundColor: 'rgb(40, 167, 69)',
-                      color: '#fff',
-                      border: 'none',
-                      width: 140,
-                      borderRadius: 6,
-                      cursor: 'pointer'
+                      padding: '10px 24px',
+                      border: '1px solid #dc3545',
+                      borderRadius: 8,
+                      background: '#fff',
+                      color: '#dc3545',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease',
+                      minWidth: 100
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = '#dc3545';
+                      e.target.style.color = '#fff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = '#fff';
+                      e.target.style.color = '#dc3545';
                     }}
                   >
-                    ضيف خيار
+                    إلغاء
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-                  <button className="add-value-btn"
-                    onClick={() => handleDeleteAllValues(index)}
+          {/* Add Option Type Modal */}
+          {showAddOptionModal && (
+            <div 
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 1000
+              }}
+              onClick={() => setShowAddOptionModal(false)}
+            >
+              <div 
+                style={{
+                  background: '#fff',
+                  padding: 32,
+                  borderRadius: 12,
+                  maxWidth: 400,
+                  direction: 'rtl',
+                  textAlign: 'center'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 style={{ marginTop: 0, marginBottom: 24 }}>اختر نوع الإضافة</h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                  <button
+                    onClick={() => handleAddOption('select')}
                     style={{
-                      backgroundColor: '#dc3545',
-                      color: '#fff',
-                      border: 'none',
-                      width: 140,
-                      borderRadius: 6,
-                      cursor: 'pointer'
-                    }}>
-                    حذف كل الخيارات
+                      padding: '16px 24px',
+                      border: '2px solid #007bff',
+                      borderRadius: 8,
+                      background: '#fff',
+                      color: '#007bff',
+                      cursor: 'pointer',
+                      fontSize: 16,
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = '#007bff';
+                      e.target.style.color = '#fff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = '#fff';
+                      e.target.style.color = '#007bff';
+                    }}
+                  >
+                    <div style={{ fontWeight: 'bold', marginBottom: 4 }}>اختيار واحد</div>
+                    <div style={{ fontSize: 14, opacity: 0.8 }}>مثل: الحجم، النوع</div>
+                  </button>
+                  
+                  <button
+                    onClick={() => handleAddOption('multi')}
+                    style={{
+                      padding: '16px 24px',
+                      border: '2px solid #28a745',
+                      borderRadius: 8,
+                      background: '#fff',
+                      color: '#28a745',
+                      cursor: 'pointer',
+                      fontSize: 16,
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = '#28a745';
+                      e.target.style.color = '#fff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = '#fff';
+                      e.target.style.color = '#28a745';
+                    }}
+                  >
+                    <div style={{ fontWeight: 'bold', marginBottom: 4 }}>متعدد الاختيارات</div>
+                    <div style={{ fontSize: 14, opacity: 0.8 }}>مثل: الإضافات، التوابل</div>
                   </button>
                 </div>
 
+                <button
+                  onClick={() => setShowAddOptionModal(false)}
+                  style={{
+                    padding: '10px 24px',
+                    border: '1px solid #6c757d',
+                    borderRadius: 8,
+                    background: '#fff',
+                    color: '#6c757d',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#6c757d';
+                    e.target.style.color = '#fff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = '#fff';
+                    e.target.style.color = '#6c757d';
+                  }}
+                >
+                  إلغاء
+                </button>
               </div>
-            )}
+            </div>
+          )}
 
-          </div>
+          {/* Options Selection Modal */}
+          {showOptionsModal && selectedMeal && (
+            <div 
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 1001
+              }}
+              onClick={() => {
+                setShowOptionsModal(false);
+                setSelectedMeal(null);
+                setSelectedOptions([]);
+              }}
+            >
+              <div 
+                style={{
+                  background: '#fff',
+                  padding: 24,
+                  borderRadius: 12,
+                  maxWidth: 600,
+                  maxHeight: 500,
+                  overflow: 'auto',
+                  direction: 'rtl'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 style={{ marginTop: 0, marginBottom: 16 }}>
+                  اختر الإضافات من: {selectedMeal.name?.ar || selectedMeal.name?.he || 'وجبة بدون اسم'}
+                </h3>
+                
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  <button
+                    onClick={handleSelectAllOptions}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#28a745',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#218838';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#28a745';
+                    }}
+                  >
+                    تحديد الكل
+                  </button>
+                  <button
+                    onClick={handleDeselectAllOptions}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#6c757d',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#5a6268';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#6c757d';
+                    }}
+                  >
+                    إلغاء التحديد
+                  </button>
+                </div>
 
-        </div>
-      ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {selectedMeal.options?.map((option, index) => (
+                    <div key={index} style={{
+                      border: '1px solid #ddd',
+                      borderRadius: 8,
+                      padding: 12,
+                      background: selectedOptions.includes(index) ? '#e3f2fd' : '#fff',
+                      transition: 'all 0.2s ease'
+                    }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedOptions.includes(index)}
+                          onChange={() => handleOptionToggle(index)}
+                          style={{ width: 18, height: 18 }}
+                        />
+                        <div>
+                          <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                            {option.label?.ar || option.label?.he || 'خيار بدون اسم'}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#666' }}>
+                            {option.values?.length || 0} قيم متاحة
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  ))}
+                </div>
 
-      <div className="option-add-section">
-        <label className='optionsLabel'>הוסף עוד | زيد بعد اضافات:</label>
-        <div className="optionsWrapper">
-          <select
-            value={newOptionType}
-            onChange={(e) => setNewOptionType(e.target.value)}
-          >
-            <option value="select">حجم | גודל</option>
-            <option value="multi">اضافات | תוספות</option>
-          </select>
-          <button onClick={handleAddOption}>اضافه | הוספה</button>
-        </div>
-      </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }}>
+                  <button
+                    onClick={handleCopySelectedOptions}
+                    disabled={selectedOptions.length === 0}
+                    style={{
+                      padding: '10px 20px',
+                      backgroundColor: selectedOptions.length > 0 ? '#28a745' : '#ccc',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      cursor: selectedOptions.length > 0 ? 'pointer' : 'not-allowed',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease',
+                      minWidth: 120
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedOptions.length > 0) {
+                        e.target.style.backgroundColor = '#218838';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedOptions.length > 0) {
+                        e.target.style.backgroundColor = '#28a745';
+                      }
+                    }}
+                  >
+                    نسخ المحدد ({selectedOptions.length})
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowOptionsModal(false);
+                      setSelectedMeal(null);
+                      setSelectedOptions([]);
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      border: '1px solid #dc3545',
+                      borderRadius: 8,
+                      background: '#fff',
+                      color: '#dc3545',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease',
+                      minWidth: 100
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = '#dc3545';
+                      e.target.style.color = '#fff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = '#fff';
+                      e.target.style.color = '#dc3545';
+                    }}
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {options.map((option, index) => (
+            <div key={index} className="option-card">
+              <div className="option-header">
+                <strong>نوع الاضافه:</strong> <span style={{ color: 'green', fontWeight: '700' }}>{option.type === 'multi' ? 'خيارات متعدده' : 'خيار واحد'}</span>
+              </div>
+
+              <div className="option-labels">
+                <label>
+                  اختر السؤال الي يبين للزبون
+                  <input
+                    value={option.label?.ar || defaultLabels[option.type]?.ar}
+                    onChange={(e) => handleLabelChange(index, 'ar', e.target.value)}
+                  />
+                </label>
+                <label>
+                  בחר השאלה שתופיע ללקוח
+                  <input
+                    value={option.label?.he || defaultLabels[option.type]?.he}
+                    onChange={(e) => handleLabelChange(index, 'he', e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="option-wrapper" style={{ marginBottom: 16 }}>
+                <div className="btn-row-right">
+                  <button
+                    onClick={() => toggleOption(index)}
+                    style={{
+                      direction: 'rtl',
+                      backgroundColor: '#f4f4f4',
+                      padding: '6px 12px',
+                      border: '1px solid #ccc',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      marginBottom: 8
+                    }}
+                  >
+                    {expandedOptions[index] ? '🔽 إخفاء الإضافات' : '➕ عرض الإضافات'}
+                  </button>
+                  <div className="required-extra-label" style={{ marginTop: 8 }}>
+                    <label>
+                      <span style={{ marginInlineStart: 6 }}>الحقل مطلوب؟</span>
+                      <input
+                        type="checkbox"
+                        checked={option.required || false}
+                        onChange={(e) => {
+                          handleAdvancedChange(index, 'required', e.target.checked);
+                        }} />
+                    </label>
+                  </div>
+                </div>
+
+                {expandedOptions[index] && (
+                  <div className="option-values">
+                    <strong style={{ direction: 'rtl' }}>الاضافات | האפשריות</strong>
+
+                    {option.values.map((val, valIndex) => (
+                      <div key={valIndex} className="value-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          placeholder="مثلا: صغير/كبير"
+                          value={val.label.ar}
+                          onChange={(e) => handleValueChange(index, valIndex, 'ar', e.target.value)}
+                        />
+                        <input
+                          placeholder="דוגמה: קטן/גדול"
+                          value={val.label.he}
+                          onChange={(e) => handleValueChange(index, valIndex, 'he', e.target.value)}
+                        />
+                        <input
+                          style={{ maxWidth: 40 }}
+                          type="number"
+                          placeholder="كم زياده؟"
+                          value={val.extra || 0}
+                          onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
+                        />
+                        <input
+                          style={{ minWidth: 85 }}
+                          type="url"
+                          placeholder="رابط الصورة"
+                          value={val.image || ''}
+                          onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
+                        />
+
+                        <button
+                          onClick={() => handleDeleteValue(index, valIndex)}
+                          style={{
+                            backgroundColor: '#d9534f',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <FiTrash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {option.type === 'multi' && (
+                      <details style={{ marginTop: 10 }}>
+                        <summary style={{ cursor: 'pointer', fontWeight: 'bold', direction: 'rtl' }}>
+                          إعدادات متقدمة للإضافات المتعددة
+                        </summary>
+                        <div className="advance-options">
+
+                          {/* Set Max options to choose (limit user) */}
+                          <div className="max-options" style={{ marginTop: 10 }}>
+                            <label>
+                              الحد الأقصى للاختيارات:
+                              <input
+                                type="number"
+                                min="1"
+                                value={option.max || ''}
+                                onChange={(e) =>
+                                  handleAdvancedChange(index, 'max', parseInt(e.target.value) || null)
+                                }
+                                placeholder="مثلاً 2 أو 3 ماكسيموم"
+                                disabled={option.allChecked} // ❌ Disable if allChecked is on
+                              />
+                            </label>
+
+                            {option.allChecked && (
+                              <div style={{ fontSize: 12, color: '#b33a3a', marginTop: 5 }}>
+                                لا يمكنك تحديد حد أقصى للاختيارات عند تفعيل "اختيار الكل".
+                              </div>
+                            )}
+                          </div>
+                          {/* allCheck - let user mark all options as checked */}
+                          <div className="all-checked-toggle" style={{ marginTop: 10 }}>
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={option.allChecked || false}
+                                onChange={(e) =>
+                                  handleAdvancedChange(index, 'allChecked', e.target.checked)
+                                }
+                              />
+                              اختيار الكل افتراضياً
+                            </label>
+                          </div>
+                        </div>
+                        {/* limit option by size (like mansaf & salads limit) */}
+                        <div className="limits-per-size" style={{ marginTop: 10, direction: 'rtl' }}>
+                          <strong>حدد الحد الأقصى حسب الحجم:</strong>
+                          {options.find(o => o.type === 'select')?.values?.map((size, sIndex) => (
+                            <div key={sIndex} style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5 }}>
+                              <span>{size.label?.ar || 'غير معروف'}</span>
+                              <input style={{ width: 200 }}
+                                type="number"
+                                placeholder="كم خيار مسموح من فوق؟"
+                                value={option.limitsBySelectValue?.[size.value] || ''}
+                                onChange={(e) => {
+                                  const updated = [...options];
+                                  if (!updated[index].limitsBySelectValue) updated[index].limitsBySelectValue = {};
+                                  updated[index].limitsBySelectValue[size.value] = parseInt(e.target.value) || null;
+                                  onChange(updated);
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'center' }}>
+                      <button
+                        className="add-value-btn"
+                        onClick={() => handleAddValue(index)}
+                        style={{
+                          backgroundColor: 'rgb(40, 167, 69)',
+                          color: '#fff',
+                          border: 'none',
+                          width: 140,
+                          borderRadius: 6,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ضيف خيار
+                      </button>
+
+                      <button className="add-value-btn"
+                        onClick={() => handleDeleteAllValues(index)}
+                        style={{
+                          backgroundColor: '#dc3545',
+                          color: '#fff',
+                          border: 'none',
+                          width: 140,
+                          borderRadius: 6,
+                          cursor: 'pointer'
+                        }}>
+                        حذف كل الخيارات
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
-
 };
 
 export default OptionsEditor;

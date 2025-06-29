@@ -1,4 +1,4 @@
-import { useEffect, useState, } from 'react';
+import { useEffect, useRef, useState, } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -19,6 +19,9 @@ const MealsPage = () => {
   const [showMeals, setShowMeals] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedMeals, setExpandedMeals] = useState({});
+  const [openFormCategory, setOpenFormCategory] = useState(null);
+  const formRefs = useRef({});
+  const categoryRefs = useRef({});
 
   const toggleMeal = (mealId) => {
     setExpandedMeals(prev => ({
@@ -235,14 +238,27 @@ const MealsPage = () => {
             );
 
             return (
-              <div key={categoryId} style={{ marginTop: 30, borderBottom: '1px solid #ccc', paddingBottom: 20, direction: 'ltr' }}>
+              <div
+                key={categoryId}
+                ref={el => categoryRefs.current[categoryId] = el}
+                style={{ marginTop: 30, borderBottom: '1px solid #ccc', paddingBottom: 20, direction: 'ltr' }}
+              >
                 <h3
-                  onClick={() =>
-                    setExpandedCategories((prev) => ({
-                      ...prev,
-                      [categoryId]: !prev[categoryId],
-                    }))
-                  }
+                  onClick={() => {
+                    setExpandedCategories((prev) => {
+                      const isOpening = !prev[categoryId];
+                      const updated = { ...prev, [categoryId]: isOpening };
+                      setTimeout(() => {
+                        if (isOpening && categoryRefs.current[categoryId]) {
+                          categoryRefs.current[categoryId].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          setTimeout(() => {
+                            window.scrollBy({ top: -30, behavior: 'smooth' });
+                          }, 200);
+                        }
+                      }, 100);
+                      return updated;
+                    });
+                  }}
                   style={{
                     cursor: 'pointer',
                     color: '#333',
@@ -277,31 +293,68 @@ const MealsPage = () => {
 
                 {expandedCategories[categoryId] && (
                   <>
-                    <input
-                      type="text"
-                      placeholder="ابحث عن منتج / חפש מנה"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        margin: '10px 0',
-                        borderRadius: 6,
-                        border: '1px solid #ccc',
-                        fontSize: '14px',
-                        direction: 'rtl'
-                      }}
-                    />
-
-                    <NewMealForm
-                      categoryId={categoryId}
-                      onAdd={(catId, meal) => {
-                        const updated = { ...mealsData.items };
-                        updated[catId] = [...(updated[catId] || []), meal];
-                        setMealsData({ ...mealsData, items: updated });
-                      }}
-                    />
-
+                    <div style={{ display: 'flex', gap: 8, margin: '10px 0', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder="ابحث عن منتج / חפש מנה"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: '8px',
+                          borderRadius: 6,
+                          border: '1px solid #ccc',
+                          fontSize: '14px',
+                          direction: 'rtl'
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          if (openFormCategory === categoryId) {
+                            setOpenFormCategory(null);
+                          } else {
+                            setOpenFormCategory(categoryId);
+                            setTimeout(() => {
+                              if (formRefs.current[categoryId]) {
+                                formRefs.current[categoryId].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                setTimeout(() => {
+                                  window.scrollBy({ top: -30, behavior: 'smooth' });
+                                }, 200);
+                              }
+                            }, 100);
+                          }
+                        }}
+                        style={{
+                          backgroundColor: 'rgb(40, 167, 69)',
+                          color: 'white',
+                          padding: '8px',
+                          border: 'none',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          direction: 'rtl',
+                          width: '40px',
+                          height: '40px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '18px'
+                        }}
+                      >
+                        ➕
+                      </button>
+                    </div>
+                    <div ref={el => formRefs.current[categoryId] = el}>
+                      <NewMealForm
+                        categoryId={categoryId}
+                        onAdd={(catId, meal) => {
+                          const updated = { ...mealsData.items };
+                          updated[catId] = [...(updated[catId] || []), meal];
+                          setMealsData({ ...mealsData, items: updated });
+                        }}
+                        visible={openFormCategory === categoryId}
+                        setVisible={() => setOpenFormCategory(null)}
+                      />
+                    </div>
                     {filteredMeals.map((meal, index) => (
                       <MealCard
                         key={meal.id}
@@ -312,6 +365,7 @@ const MealsPage = () => {
                         onDelete={() => deleteMeal(categoryId, index)}
                         expanded={expandedMeals[meal.id]}
                         onToggle={() => toggleMeal(meal.id)}
+                        allMealsInCategory={meals}
                       />
                     ))}
                   </>

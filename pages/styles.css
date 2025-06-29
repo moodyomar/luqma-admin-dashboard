@@ -161,7 +161,7 @@ p {
 }
 .btn-row-right{
 display: flex;
-justify-content: flex-end;
+justify-content: space-between;
 }
 .meal-header-collapsed{
   height: 50px;
