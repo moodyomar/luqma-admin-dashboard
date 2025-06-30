@@ -82,7 +82,7 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
                 // For now, just a placeholder
               }}
             >
-              <span>تفاصيل واعدادات المنتج</span>
+              <span>الاعدادات:</span>
             </h3>
             {/* Icon buttons */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -130,6 +130,35 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               >
                 {meal.available !== false ? <FiEye /> : <FiEyeOff />}
               </button>
+              {/* Move to category select */}
+              {categories && categories.length > 1 && (
+                <select
+                  value={categoryId}
+                  onChange={e => onMoveCategory && onMoveCategory(e.target.value)}
+                  style={{
+                    minWidth: 90,
+                    padding: '6px 8px',
+                    borderRadius: 8,
+                    border: '1px solid #ccc',
+                    background: '#fafbfc',
+                    fontSize: 14,
+                    direction: 'rtl',
+                    color: '#333',
+                    marginRight: 4,
+                    cursor: 'pointer',
+                  }}
+                  title="העבר קטגוריה"
+                >
+                  <option value={categoryId} disabled>
+                    انقل لقسم اخر
+                  </option>
+                  {categories.filter(c => c.id !== categoryId).map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name?.ar || cat.name?.he ||  'קטגוריה'}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
           <div className="meal-header-row">
