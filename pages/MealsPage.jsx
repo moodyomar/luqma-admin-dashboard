@@ -386,6 +386,32 @@ const MealsPage = () => {
                           alert('שגיאה בשמירת סדר המנות');
                         }
                       }}
+                      categories={mealsData.categories}
+                      onMoveCategory={async (meal, oldCategoryId, newCategoryId) => {
+                        if (oldCategoryId === newCategoryId) return;
+                        // Remove from old
+                        const oldMeals = [...(mealsData.items[oldCategoryId] || [])].filter(m => m.id !== meal.id);
+                        // Add to new (at end)
+                        const newMeals = [...(mealsData.items[newCategoryId] || []), { ...meal }];
+                        // Reassign order
+                        const orderedOld = oldMeals.map((m, idx) => ({ ...m, order: idx }));
+                        const orderedNew = newMeals.map((m, idx) => ({ ...m, order: idx }));
+                        const updatedItems = {
+                          ...mealsData.items,
+                          [oldCategoryId]: orderedOld,
+                          [newCategoryId]: orderedNew,
+                        };
+                        setMealsData({ ...mealsData, items: updatedItems });
+                        // Save to Firestore
+                        try {
+                          await updateDoc(doc(db, 'menus', brand.id), {
+                            [`items.${oldCategoryId}`]: orderedOld,
+                            [`items.${newCategoryId}`]: orderedNew,
+                          });
+                        } catch (err) {
+                          alert('שגיאה בהעברת המנה לקטגוריה חדשה');
+                        }
+                      }}
                     />
                   </>
                 )}
@@ -417,7 +443,6 @@ const MealsPage = () => {
           התנתקות
         </button>
       </div>
-
     </div>
   );
 };

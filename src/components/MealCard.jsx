@@ -1,6 +1,7 @@
 import OptionsEditor from './OptionsEditor';
+import { FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories }) => {
   const handleFieldChange = (field, lang, value) => {
     const updated = { ...meal };
     if (field === 'name' || field === 'description') {
@@ -64,6 +65,73 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
       {/* Expanded Body */}
       {expanded && (
         <div className="meal-expanded-body" style={{ padding: 16 }}>
+          {/* Category select and options header row */}
+          <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', direction: 'rtl', marginBottom: 12, gap: 12 }}>
+            {/* Options header (collapsible) */}
+            <h3 
+              style={{ 
+                direction: 'rtl', 
+                margin: 0, 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+              onClick={() => {
+                // If OptionsEditor exposes toggleAllOptions, call it via ref or prop
+                // For now, just a placeholder
+              }}
+            >
+              <span>تفاصيل واعدادات المنتج</span>
+            </h3>
+            {/* Icon buttons */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={onDelete}
+                title="حذف المنتج"
+                style={{
+                  width: 36,
+                  height: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#e74c3c',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 20,
+                  transition: 'background 0.2s',
+                  padding: 0,
+                }}
+              >
+                <FiTrash2 />
+              </button>
+              <button
+                onClick={() =>
+                  onChange({ ...meal, available: meal.available === false ? true : false })
+                }
+                title={meal.available === false ? 'اظهار المنتج' : 'اخفاء المنتج'}
+                style={{
+                  width: 36,
+                  height: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: meal.available !== false ? '#28a745' : '#222',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 20,
+                  transition: 'background 0.2s',
+                  padding: 0,
+                }}
+              >
+                {meal.available !== false ? <FiEye /> : <FiEyeOff />}
+              </button>
+            </div>
+          </div>
           <div className="meal-header-row">
             <input
               type="text"
@@ -110,45 +178,6 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             categoryId={categoryId}
             allMealsInCategory={allMealsInCategory}
           />
-
-          <div className="meal-card-buttons" style={{ marginTop: 12 }}>
-            <button
-              onClick={onDelete}
-              style={{
-                padding: '4px 10px',
-                border: 'none',
-                borderRadius: 6,
-                marginTop: 4,
-                cursor: 'pointer',
-                backgroundColor: '#d9534f',
-                color: '#fff',
-              }}
-            >
-              حذف المنتج
-            </button>
-
-            {meal.available !== false && meal.available !== true ? (
-              <p style={{ fontSize: 13, color: 'gray' }}>❓ بدون حالة</p>
-            ) : (
-              <button
-                onClick={() =>
-                  onChange({ ...meal, available: meal.available === false ? true : false })
-                }
-                style={{
-                  backgroundColor: meal.available === false ? '#28a745' : '#1F1F1F',
-                  color: 'white',
-                  padding: '4px 10px',
-                  border: 'none',
-                  borderRadius: 6,
-                  marginTop: 4,
-                  cursor: 'pointer',
-                  marginInlineStart: 8,
-                }}
-              >
-                {meal.available === false ? 'اظهار المنتج' : 'اخفاء المنتج'}
-              </button>
-            )}
-          </div>
         </div>
       )}
     </div>

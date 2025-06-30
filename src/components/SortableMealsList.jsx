@@ -22,6 +22,8 @@ export default function SortableMealsList({
   onToggleMeal,
   allMealsInCategory,
   onReorder,
+  categories,
+  onMoveCategory,
 }) {
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -50,6 +52,8 @@ export default function SortableMealsList({
             expanded={expandedMeals[meal.id]}
             onToggle={() => onToggleMeal(meal.id)}
             allMealsInCategory={allMealsInCategory}
+            onMoveCategory={(newCategoryId) => onMoveCategory(meal, categoryId, newCategoryId)}
+            categories={categories}
           />
         ))}
       </SortableContext>
