@@ -392,7 +392,7 @@ const OrdersPage = () => {
 
   return (
     <div className="orders-container" style={{ paddingBottom: 80 }}>
-      <h1 className="orders-title">الطلبات</h1>
+      <h1 className="orders-title">{showActive ? 'الطلبات الحاليه' : 'الطلبات السابقه'}</h1>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       <AudioUnlocker />
       {showActive ? (
