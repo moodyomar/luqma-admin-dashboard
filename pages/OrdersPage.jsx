@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import brand from '../constants/brandConfig'
 import { db } from '../firebase/firebaseConfig';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import AudioUnlocker, { getSharedAudio } from '../src/components/AudioUnlocker';
 import { Toaster, toast } from 'react-hot-toast';
 import './styles.css';
@@ -14,8 +14,30 @@ const OrderCard = React.memo(({ order }) => {
   const paymentString = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين'
 
   const [showPrepTime, setShowPrepTime] = useState(false);
-  const [selectedTime, setSelectedTime] = useState(20);
+  const [selectedTime, setSelectedTime] = useState(null);
+  const [prepTimeOptions, setPrepTimeOptions] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Fetch prep time options from business config
+  useEffect(() => {
+    async function fetchPrepOptions() {
+      const ref = doc(db, 'menus', brand.id);
+      const snap = await getDoc(ref);
+      let options = snap.exists() && snap.data().config?.prepTimeOptions;
+      if (!options || !Array.isArray(options) || options.length === 0) {
+        options = [
+          { value: 20, unit: 'minutes' },
+          { value: 25, unit: 'minutes' },
+          { value: 30, unit: 'minutes' },
+          { value: 35, unit: 'minutes' },
+          { value: 40, unit: 'minutes' }
+        ];
+      }
+      setPrepTimeOptions(options);
+      setSelectedTime(options[0]);
+    }
+    fetchPrepOptions();
+  }, []);
 
   const handlePrint = (order) => {
     const printWindow = window.open('', '_blank');
@@ -111,7 +133,8 @@ ${paymentString === 'اونلاين' ?
       const ref = doc(db, 'menus', brand.id, 'orders', order.id);
       await updateDoc(ref, {
         status: 'preparing',
-        prepTimeMinutes: selectedTime,
+        prepTimeMinutes: selectedTime.value,
+        prepTimeUnit: selectedTime.unit,
         acceptedAt: new Date().toISOString(),
       });
       setShowPrepTime(false);
@@ -282,9 +305,11 @@ ${paymentString === 'اونلاين' ?
             </button>
           ) : (
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'center' }}>
-              <select value={selectedTime} onChange={e => setSelectedTime(Number(e.target.value))} style={{ fontSize: 16, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', fontWeight: 500 }}>
-                {[20, 25, 30, 35, 40].map(min => (
-                  <option key={min} value={min}>{min} دقيقة</option>
+              <select value={JSON.stringify(selectedTime)} onChange={e => setSelectedTime(JSON.parse(e.target.value))} style={{ fontSize: 16, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', fontWeight: 500 }}>
+                {prepTimeOptions.map((opt, idx) => (
+                  <option key={idx} value={JSON.stringify(opt)}>
+                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
+                  </option>
                 ))}
               </select>
               <button onClick={handleSetTimeAndAccept} disabled={loading} style={{ fontWeight: 700, padding: '10px 28px', borderRadius: 8, background: '#34C759', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
@@ -432,7 +457,7 @@ const OrdersPage = () => {
               fontWeight: 700, fontSize: 18, color: showActive ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 24px', cursor: 'pointer'
             }}
           >
-            طلبات حاليا
+            طلبات قيد التحضير
           </button>
           {activeOrders.length > 0 && (
             <span style={{
