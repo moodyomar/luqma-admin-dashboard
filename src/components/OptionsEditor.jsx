@@ -120,7 +120,15 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
 
   const handleCopyFromMeal = (sourceMeal) => {
     if (sourceMeal.options && sourceMeal.options.length > 0) {
-      onChange([...sourceMeal.options]);
+      // Deep copy the options to ensure they are completely independent
+      const deepCopiedOptions = sourceMeal.options.map(option => ({
+        ...option,
+        values: option.values.map(value => ({
+          ...value,
+          value: `opt_${Date.now()}_${Math.random()}`, // Generate new unique value ID
+        }))
+      }));
+      onChange(deepCopiedOptions);
       setShowCopyModal(false);
     }
   };
@@ -144,7 +152,17 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
 
   const handleCopySelectedOptions = () => {
     if (selectedOptions.length > 0 && selectedMeal) {
-      const optionsToCopy = selectedOptions.map(index => selectedMeal.options[index]);
+      // Deep copy the selected options to ensure they are completely independent
+      const optionsToCopy = selectedOptions.map(index => {
+        const option = selectedMeal.options[index];
+        return {
+          ...option,
+          values: option.values.map(value => ({
+            ...value,
+            value: `opt_${Date.now()}_${Math.random()}`, // Generate new unique value ID
+          }))
+        };
+      });
       const newOptions = [...options, ...optionsToCopy];
       onChange(newOptions);
       setShowOptionsModal(false);
