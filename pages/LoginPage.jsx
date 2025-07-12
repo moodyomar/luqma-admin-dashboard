@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { auth } from '../firebase/firebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
+import brandConfig from '../constants/brandConfig';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -28,7 +29,7 @@ const LoginPage = () => {
       alignItems: 'center',
     }}>
       <div className="logo">
-        <img src="https://qbmedia.b-cdn.net/luqmaimages/logo.svg" alt="Luqma" />
+        <img src={brandConfig.logoUrl} alt={brandConfig.name} />
       </div>
       <div style={{
         background: 'white',
@@ -62,7 +63,7 @@ const LoginPage = () => {
           {error && <p style={{ color: 'red', fontSize: 14 }}>{error}</p>}
           <button type="submit" style={{
             width: '100%',
-            background: '#27ae60',
+            background: brandConfig.themeColor,
             color: 'white',
             border: 'none',
             padding: '10px 0',

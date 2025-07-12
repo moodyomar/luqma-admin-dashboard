@@ -1,6 +1,6 @@
 // pages/OrdersPage.jsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import brand from '../constants/brandConfig'
+import brandConfig from '../constants/brandConfig';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import AudioUnlocker, { getSharedAudio } from '../src/components/AudioUnlocker';
@@ -21,7 +21,7 @@ const OrderCard = React.memo(({ order }) => {
   // Fetch prep time options from business config
   useEffect(() => {
     async function fetchPrepOptions() {
-      const ref = doc(db, 'menus', brand.id);
+      const ref = doc(db, 'menus', brandConfig.id);
       const snap = await getDoc(ref);
       let options = snap.exists() && snap.data().config?.prepTimeOptions;
       if (!options || !Array.isArray(options) || options.length === 0) {
@@ -130,7 +130,7 @@ ${paymentString === 'اونلاين' ?
   const handleSetTimeAndAccept = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', brand.id, 'orders', order.id);
+      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
       await updateDoc(ref, {
         status: 'preparing',
         prepTimeMinutes: selectedTime.value,
@@ -149,7 +149,7 @@ ${paymentString === 'اونلاين' ?
   const handleOrderReady = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', brand.id, 'orders', order.id);
+      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
       await updateDoc(ref, {
         status: 'ready',
         readyAt: new Date().toISOString(),
@@ -165,7 +165,7 @@ ${paymentString === 'اونلاين' ?
   const handleOutForDelivery = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', brand.id, 'orders', order.id);
+      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
       await updateDoc(ref, {
         status: 'out_for_delivery',
         outForDeliveryAt: new Date().toISOString(),
@@ -181,7 +181,7 @@ ${paymentString === 'اونلاين' ?
   const handleDelivered = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', brand.id, 'orders', order.id);
+      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
       await updateDoc(ref, {
         status: 'delivered',
         deliveredAt: new Date().toISOString(),
@@ -362,7 +362,7 @@ const OrdersPage = () => {
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
-      collection(db, 'menus', brand.id, 'orders'), (snapshot) => {
+      collection(db, 'menus', brandConfig.id, 'orders'), (snapshot) => {
         const unlockedAudio = getSharedAudio();
         if (unlockedAudio) {
           unlockedAudio.currentTime = 0;

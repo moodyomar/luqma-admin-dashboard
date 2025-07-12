@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import brand from '../constants/brandConfig';
+import brandConfig from '../constants/brandConfig';
 import './styles.css';
 
 const BusinessManagePage = () => {
@@ -20,7 +20,7 @@ const BusinessManagePage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const ref = doc(db, 'menus', brand.id);
+      const ref = doc(db, 'menus', brandConfig.id);
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data();
@@ -95,7 +95,7 @@ const BusinessManagePage = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    const ref = doc(db, 'menus', brand.id);
+    const ref = doc(db, 'menus', brandConfig.id);
     try {
       await updateDoc(ref, {
         'config.deliveryFee': Number(form.deliveryFee),

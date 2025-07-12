@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import MealCard from '../src/components/MealCard';
 import NewMealForm from '../src/components/NewMealForm';
 import CategoryManager from '../src/components/CategoryManager';
-import brand from '../constants/brandConfig';
+import brandConfig from '../constants/brandConfig';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
 import './styles.css'
@@ -35,7 +35,7 @@ const MealsPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const ref = doc(db, 'menus', brand.id);
+      const ref = doc(db, 'menus', brandConfig.id);
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data();
@@ -73,7 +73,7 @@ const MealsPage = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    const ref = doc(db, 'menus', brand.id);
+    const ref = doc(db, 'menus', brandConfig.id);
 
     const cleanedMealsData = {
       ...mealsData,
@@ -379,7 +379,7 @@ const MealsPage = () => {
                         const updated = { ...mealsData.items, [categoryId]: reorderedMeals };
                         setMealsData({ ...mealsData, items: updated });
                         try {
-                          await updateDoc(doc(db, 'menus', brand.id), {
+                          await updateDoc(doc(db, 'menus', brandConfig.id), {
                             [`items.${categoryId}`]: reorderedMeals
                           });
                         } catch (err) {
@@ -404,7 +404,7 @@ const MealsPage = () => {
                         setMealsData({ ...mealsData, items: updatedItems });
                         // Save to Firestore
                         try {
-                          await updateDoc(doc(db, 'menus', brand.id), {
+                          await updateDoc(doc(db, 'menus', brandConfig.id), {
                             [`items.${oldCategoryId}`]: orderedOld,
                             [`items.${newCategoryId}`]: orderedNew,
                           });
