@@ -27,16 +27,14 @@ h4 {
 }
 
 .meal-card {
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 5px;
-    background-color: #fefefe;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    max-width: 800px;
-    /* 👈 Add this */
-    margin-inline: auto;
-    /* 👈 Center it */
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0;
+  background-color: #fff;
+  margin-bottom: 4px;
+  box-shadow: none !important;
+  max-width: 800px;
+  margin-inline: auto;
 }
 
 .meal-grid {
@@ -136,11 +134,11 @@ button:active {
 }
 
 .option-card {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 12px;
-    margin-bottom: 16px;
-    background: #f9f9f9;
+  border: none;
+  border-radius: 0;
+  padding: 6px 0 6px 0;
+  margin-bottom: 6px;
+  background: none;
 }
 
 .option-header {
@@ -325,4 +323,112 @@ font-size: 13px !important;
   .value-row-bottom button {
     flex: 0 0 auto;
   }
+}
+
+.meal-settings-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 0.7fr;
+  grid-template-rows: auto auto;
+  gap: 10px 16px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.meal-settings-input {
+  width: 100%;
+  min-width: 60px;
+  height: 38px;
+  font-size: 1rem;
+  padding: 6px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafbfc;
+  transition: border 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.meal-settings-price-input {
+  width: 100%;
+  min-width: 40px;
+  text-align: center;
+  font-size: 1rem;
+  height: 38px;
+  padding: 6px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafbfc;
+  transition: border 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.meal-settings-input[type="text"][placeholder*="קישור תמונה"],
+.meal-settings-input[type="text"][placeholder*="רابط"] {
+  min-width: 60px;
+  width: 100%;
+}
+
+.meal-settings-label {
+  font-size: 0.95rem;
+  color: #555;
+  margin-right: 6px;
+  min-width: 60px;
+  text-align: right;
+}
+
+.meal-settings-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #0001;
+  padding: 18px 16px;
+  margin-bottom: 18px;
+}
+
+.icon-square-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f7;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-left: 6px;
+  margin-right: 0;
+  padding: 0;
+  transition: border 0.18s, box-shadow 0.18s, background 0.18s;
+  cursor: pointer;
+}
+.icon-square-btn:focus, .icon-square-btn:hover {
+  border: 1.5px solid #007bff;
+  background: #f0f6ff;
+  outline: none;
+}
+
+.icon-square-btn.eye {
+  color: #27ae60;
+}
+.icon-square-btn.trash {
+  color: #e74c3c;
+}
+.icon-square-btn.eye:focus, .icon-square-btn.eye:hover {
+  background: #eafaf1;
+  border-color: #27ae60;
+}
+.icon-square-btn.trash:focus, .icon-square-btn.trash:hover {
+  background: #fdeaea;
+  border-color: #e74c3c;
+}
+
+.meal-card-header {
+  padding: 6px 10px 4px 10px !important;
+  border-radius: 6px 6px 0 0;
+  background: #fff;
+  min-height: 44px;
+}
+
+.meal-expanded-body {
+  padding: 4px 10px 8px 10px !important;
+  background: none;
+  border-radius: 0 0 6px 6px;
+  margin: 0;
 }

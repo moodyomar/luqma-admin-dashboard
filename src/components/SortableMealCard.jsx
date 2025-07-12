@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import MealCard from './MealCard';
 
-export default function SortableMealCard({ id, meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, onMoveCategory, categories }) {
+export default function SortableMealCard({ id, meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, onMoveCategory, categories, onChangeInstant }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
 
     const style = {
@@ -46,6 +46,7 @@ export default function SortableMealCard({ id, meal, categoryId, index, onChange
                 categoryId={categoryId}
                 index={index}
                 onChange={onChange}
+                onChangeInstant={onChangeInstant}
                 onDelete={onDelete}
                 expanded={expanded}
                 onToggle={onToggle}

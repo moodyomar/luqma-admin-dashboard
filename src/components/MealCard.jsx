@@ -1,7 +1,7 @@
 import OptionsEditor from './OptionsEditor';
 import { FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories, onChangeInstant }) => {
   const handleFieldChange = (field, lang, value) => {
     const updated = { ...meal };
     if (field === 'name' || field === 'description') {
@@ -19,24 +19,27 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
   return (
     <div className="meal-card" style={{ border: '1px solid #ddd', borderRadius: 8, marginBottom: 8 }}>
       {/* Collapsed Header */}
-      <div className="meal-header-collapsed" style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        direction: 'rtl',
-        textAlign: 'center',
-        justifyContent: 'space-between',
-        padding: '0 8px',
-        minHeight: 56,
-        position: 'relative',
-      }}>
-        {/* Drag handle (if present) */}
-        {dragHandle ? (
-          <div style={{ width: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {dragHandle()}
-          </div>
-        ) : null}
-        {/* Main content (clickable to toggle) */}
+      <div
+        className="meal-card-header"
+        style={{
+          background: meal.hidden ? '#f5f5f5' : '#fff',
+          opacity: meal.hidden ? 0.5 : 1,
+          transition: 'all 0.2s',
+          display: 'flex',
+          flexDirection: 'row-reverse', // RTL: image right, buttons left
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderRadius: 10,
+          boxShadow: '0 1px 3px #eee',
+          padding: '6px 10px',
+          minHeight: 56,
+        }}
+      >
+        {/* Meal image at the far right (RTL) */}
+        {meal.image && (
+          <img src={meal.image} alt="meal" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', margin: '0 6px 0 0' }} />
+        )}
+        {/* Centered text block */}
         <div
           onClick={onToggle}
           style={{
@@ -44,27 +47,44 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            margin: '0 8px',
+            justifyContent: 'center',
             cursor: 'pointer',
             userSelect: 'none',
             textAlign: 'center',
+            minWidth: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <strong style={{ fontSize: 17 }}>{meal.name?.ar || '—'}</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+            <strong style={{ fontSize: 17, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{meal.name?.ar || '—'}</strong>
             <span style={{ fontSize: 18, color: '#888' }}>{expanded ? '⌃' : '⌄'}</span>
           </div>
           <span style={{ color: '#666', fontSize: 13 }}>₪{meal.price || '0'}</span>
         </div>
-        {/* Image */}
-        {meal.image && (
-          <img src={meal.image} alt="meal" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', margin: '0 8px' }} />
-        )}
+        {/* Drag and hide (eye) buttons grouped on the left (RTL) */}
+        <div style={{ display: 'flex', alignItems: 'center'}}>
+          {dragHandle ? (
+            <div style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+              <button className="icon-square-btn" tabIndex={-1} style={{ border: 'none', background: 'none', boxShadow: 'none', cursor: 'grab' }}>
+                {dragHandle()}
+              </button>
+            </div>
+          ) : null}
+          <button
+            className="icon-square-btn eye"
+            onClick={() => onChangeInstant
+              ? onChangeInstant(categoryId, index, { ...meal, hidden: !meal.hidden })
+              : onChange({ ...meal, hidden: !meal.hidden })
+            }
+            title={meal.hidden ? 'הצג מנה' : 'הסתר מנה'}
+          >
+            {meal.hidden ? <FiEyeOff /> : <FiEye />}
+          </button>
+        </div>
       </div>
 
       {/* Expanded Body */}
       {expanded && (
-        <div className="meal-expanded-body" style={{ padding: 16 }}>
+        <div className="meal-expanded-body" style={{ padding: '8px 0 0 0', border: 'none', background: 'none', boxShadow: 'none', margin: 0 }}>
           {/* Category select and options header row */}
           <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', direction: 'rtl', marginBottom: 12, gap: 12 }}>
             {/* Options header (collapsible) */}
@@ -84,53 +104,8 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             >
               <span>الاعدادات:</span>
             </h3>
-            {/* Icon buttons */}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                onClick={onDelete}
-                title="حذف المنتج"
-                style={{
-                  width: 36,
-                  height: 36,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#e74c3c',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  fontSize: 20,
-                  transition: 'background 0.2s',
-                  padding: 0,
-                }}
-              >
-                <FiTrash2 />
-              </button>
-              <button
-                onClick={() =>
-                  onChange({ ...meal, available: meal.available === false ? true : false })
-                }
-                title={meal.available === false ? 'اظهار المنتج' : 'اخفاء المنتج'}
-                style={{
-                  width: 36,
-                  height: 36,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: meal.available !== false ? '#28a745' : '#222',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  fontSize: 20,
-                  transition: 'background 0.2s',
-                  padding: 0,
-                }}
-              >
-                {meal.available !== false ? <FiEye /> : <FiEyeOff />}
-              </button>
-              {/* Move to category select */}
+            {/* Move to category select and delete button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {categories && categories.length > 1 && (
                 <select
                   value={categoryId}
@@ -159,42 +134,57 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
                   ))}
                 </select>
               )}
+              <button
+                className="icon-square-btn trash"
+                onClick={onDelete}
+                title="מחק מנה"
+              >
+                <FiTrash2 />
+              </button>
             </div>
           </div>
-          <div className="meal-header-row">
+          {/* Modern meal settings row: 2 rows, 3 columns */}
+          <div className="meal-settings-row">
+            {/* Row 1 */}
             <input
               type="text"
+              className="meal-settings-input"
               placeholder="اسم المنتج بالعربي"
               value={meal?.name?.ar || ''}
               onChange={(e) => handleFieldChange('name', 'ar', e.target.value)}
             />
             <input
               type="text"
+              className="meal-settings-input"
               placeholder="שם המוצר בעברית"
               value={meal?.name?.he || ''}
               onChange={(e) => handleFieldChange('name', 'he', e.target.value)}
             />
             <input
               type="text"
-              className="price-input"
+              className="meal-settings-price-input"
               placeholder="המחיר | السعر"
               value={meal?.price || ''}
               onChange={(e) => handleFieldChange('price', null, e.target.value)}
             />
+            {/* Row 2 */}
             <input
               type="text"
+              className="meal-settings-input"
               placeholder="الوصف بالعربي"
               value={meal?.description?.ar || ''}
               onChange={(e) => handleFieldChange('description', 'ar', e.target.value)}
             />
             <input
               type="text"
+              className="meal-settings-input"
               placeholder="התיאור בעברית"
               value={meal?.description?.he || ''}
               onChange={(e) => handleFieldChange('description', 'he', e.target.value)}
             />
             <input
               type="text"
+              className="meal-settings-input"
               placeholder="קישור תמונה | אם אין לדלג"
               value={meal?.image || ''}
               onChange={(e) => handleFieldChange('image', null, e.target.value)}

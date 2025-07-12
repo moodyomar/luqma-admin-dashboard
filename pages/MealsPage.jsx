@@ -172,6 +172,23 @@ const MealsPage = () => {
     }
   };
 
+  // Add this function for instant hide/unhide
+  const updateMealInstant = async (categoryId, index, updatedMeal) => {
+    // Update local state immediately
+    const updated = [...mealsData.items[categoryId]];
+    updated[index] = updatedMeal;
+    setMealsData({ ...mealsData, items: { ...mealsData.items, [categoryId]: updated } });
+
+    // Update Firestore instantly
+    try {
+      await updateDoc(doc(db, 'menus', brandConfig.id), {
+        [`items.${categoryId}`]: updated
+      });
+    } catch (err) {
+      alert('שגיאה בעדכון המנה ב-Firestore');
+    }
+  };
+
 
   if (loading) return <p>Loading...</p>;
 
@@ -370,6 +387,7 @@ const MealsPage = () => {
                         updated[idx] = updatedMeal;
                         setMealsData({ ...mealsData, items: { ...mealsData.items, [categoryId]: updated } });
                       }}
+                      onChangeMealInstant={updateMealInstant}
                       onDeleteMeal={(idx) => deleteMeal(categoryId, idx)}
                       expandedMeals={expandedMeals}
                       onToggleMeal={toggleMeal}
