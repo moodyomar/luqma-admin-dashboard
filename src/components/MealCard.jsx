@@ -22,8 +22,8 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
       <div
         className="meal-card-header"
         style={{
-          background: meal.hidden ? '#f5f5f5' : '#fff',
-          opacity: meal.hidden ? 0.5 : 1,
+          background: meal.available === false ? '#f5f5f5' : '#fff',
+          opacity: meal.available === false ? 0.5 : 1,
           transition: 'all 0.2s',
           display: 'flex',
           flexDirection: 'row-reverse', // RTL: image right, buttons left
@@ -72,12 +72,12 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           <button
             className="icon-square-btn eye"
             onClick={() => onChangeInstant
-              ? onChangeInstant(categoryId, index, { ...meal, hidden: !meal.hidden })
-              : onChange({ ...meal, hidden: !meal.hidden })
+              ? onChangeInstant(categoryId, index, { ...meal, available: meal.available === false ? true : false })
+              : onChange({ ...meal, available: meal.available === false ? true : false })
             }
-            title={meal.hidden ? 'הצג מנה' : 'הסתר מנה'}
+            title={meal.available === false ? 'הצג מנה' : 'הסתר מנה'}
           >
-            {meal.hidden ? <FiEyeOff /> : <FiEye />}
+            {meal.available === false ? <FiEyeOff /> : <FiEye />}
           </button>
         </div>
       </div>

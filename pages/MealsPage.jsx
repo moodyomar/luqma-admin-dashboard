@@ -253,8 +253,10 @@ const MealsPage = () => {
             // Sort meals by order (lowest first), fallback to Infinity if missing
             const sortedMeals = [...meals].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
             const filteredMeals = sortedMeals.filter((meal) =>
-              meal.name.ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              meal.name.he.toLowerCase().includes(searchTerm.toLowerCase())
+              (meal.available !== false) && (
+                meal.name.ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                meal.name.he.toLowerCase().includes(searchTerm.toLowerCase())
+              )
             );
 
             return (
