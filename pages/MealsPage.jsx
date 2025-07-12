@@ -173,10 +173,9 @@ const MealsPage = () => {
   };
 
   // Add this function for instant hide/unhide
-  const updateMealInstant = async (categoryId, index, updatedMeal) => {
-    // Update local state immediately
-    const updated = [...mealsData.items[categoryId]];
-    updated[index] = updatedMeal;
+  const updateMealInstant = async (categoryId, mealId, updatedMeal) => {
+    // Update local state immediately by finding the meal by id
+    const updated = (mealsData.items[categoryId] || []).map(m => m.id === mealId ? updatedMeal : m);
     setMealsData({ ...mealsData, items: { ...mealsData.items, [categoryId]: updated } });
 
     // Update Firestore instantly
@@ -252,11 +251,10 @@ const MealsPage = () => {
           .map(([categoryId, meals]) => {
             // Sort meals by order (lowest first), fallback to Infinity if missing
             const sortedMeals = [...meals].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
+            // Show all meals, regardless of available status, but filter by search term
             const filteredMeals = sortedMeals.filter((meal) =>
-              (meal.available !== false) && (
-                meal.name.ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                meal.name.he.toLowerCase().includes(searchTerm.toLowerCase())
-              )
+              meal.name.ar.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              meal.name.he.toLowerCase().includes(searchTerm.toLowerCase())
             );
 
             return (
@@ -389,7 +387,7 @@ const MealsPage = () => {
                         updated[idx] = updatedMeal;
                         setMealsData({ ...mealsData, items: { ...mealsData.items, [categoryId]: updated } });
                       }}
-                      onChangeMealInstant={updateMealInstant}
+                      onChangeMealInstant={(catId, _idx, updatedMeal) => updateMealInstant(catId, updatedMeal.id, updatedMeal)}
                       onDeleteMeal={(idx) => deleteMeal(categoryId, idx)}
                       expandedMeals={expandedMeals}
                       onToggleMeal={toggleMeal}
