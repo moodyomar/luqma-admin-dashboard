@@ -169,3 +169,9 @@ justify-content: space-between;
 .required-extra-label{
   text-align: right;
 }
+
+@media (max-width: 600px) {
+  .driver-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

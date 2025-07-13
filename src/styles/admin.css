@@ -33,8 +33,8 @@ h4 {
   background-color: #fff;
   margin-bottom: 4px;
   box-shadow: none !important;
-  max-width: 800px;
-  margin-inline: auto;
+    max-width: 800px;
+    margin-inline: auto;
 }
 
 .meal-grid {

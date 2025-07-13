@@ -177,21 +177,7 @@ ${paymentString === 'اونلاين' ?
     }
   };
 
-  // Mark order as delivered
-  const handleDelivered = async () => {
-    setLoading(true);
-    try {
-      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
-      await updateDoc(ref, {
-        status: 'delivered',
-        deliveredAt: new Date().toISOString(),
-      });
-    } catch (err) {
-      alert('שגיאה בעדכון ההזמנה.');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   return (
     <div className="order-card">
@@ -340,12 +326,20 @@ ${paymentString === 'اونلاين' ?
           </button>
         </div>
       )}
+      {/* Note: Delivery status is now managed by drivers */}
       {order.status === 'out_for_delivery' && (
         <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-          <button onClick={handleDelivered} disabled={loading} style={{ fontWeight: 700, padding: '10px 28px', borderRadius: 8, background: '#34C759', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
-            <IoMdCheckmark style={{ marginLeft: 8 }} />
-            تم التوصيل
-          </button>
+          <div style={{ 
+            padding: '10px 20px', 
+            background: '#f8f9fa', 
+            color: '#6c757d', 
+            borderRadius: 8, 
+            fontSize: 16, 
+            fontWeight: 500,
+            border: '1px solid #dee2e6'
+          }}>
+            🚚 قيد التوصيل بواسطة السائق
+          </div>
         </div>
       )}
 

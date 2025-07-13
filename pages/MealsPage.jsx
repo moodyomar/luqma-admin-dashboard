@@ -10,6 +10,7 @@ import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
 import './styles.css'
 import SortableMealsList from '../src/components/SortableMealsList';
+import { FiLogOut } from 'react-icons/fi';
 
 const MealsPage = () => {
   const [mealsData, setMealsData] = useState({ categories: [], items: {} });
@@ -192,7 +193,36 @@ const MealsPage = () => {
   if (loading) return <p>Loading...</p>;
 
   return (
-    <div style={{ padding: 2, marginBottom: 85 }}>
+    <div style={{ padding: 2, marginBottom: 85, position: 'relative' }}>
+      {/* Top-right logout icon, higher and more visible */}
+      <button
+        onClick={handleLogout}
+        style={{
+          position: 'fixed', // fixed to viewport
+          top: 24,
+          right: 32,
+          background: '#dc3545',
+          border: 'none',
+          color: '#fff',
+          width: 44,
+          height: 44,
+          borderRadius: 10,
+          fontSize: 26,
+          cursor: 'pointer',
+          zIndex: 200,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'background 0.2s',
+        }}
+        title="تسجيل خروج"
+        aria-label="تسجيل خروج"
+        onMouseOver={e => (e.currentTarget.style.background = '#b71c1c')}
+        onMouseOut={e => (e.currentTarget.style.background = '#dc3545')}
+      >
+        <FiLogOut />
+      </button>
       <h2 style={{
         textAlign: 'center',
         fontSize: '24px',
@@ -200,7 +230,7 @@ const MealsPage = () => {
         color: '#333',
         marginBottom: '24px',
       }}>
-        ממשק ניהול התפריט לאפליקציה
+        ממשק ניהול התפריט
       </h2>
       <div className="buttonsWrapper">
         <button
@@ -450,15 +480,15 @@ const MealsPage = () => {
           הזמנות נכנסות
         </button>
         <button
+          onClick={() => window.location.href = '/users'}
+          className="loginButton secondary">
+ניהול נהגים
+        </button>
+        <button
           onClick={handleSave}
           disabled={saving}
           className="loginButton primary">
           {saving ? 'שומר...' : 'שמור שינויים'}
-        </button>
-        <button
-          onClick={handleLogout}
-          className="loginButton danger">
-          התנתקות
         </button>
       </div>
     </div>

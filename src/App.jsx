@@ -1,23 +1,44 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebase/firebaseConfig';
+import { useAuth } from './contexts/AuthContext';
 import '../src/styles/admin.css'
 
 function App() {
   const navigate = useNavigate();
+  const { user, userRole, loading } = useAuth();
 
   useEffect(() => {
-    // Redirect user based on login state
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    if (!loading) {
       if (user) {
-        navigate('/meals');
+        // Redirect based on user role
+        if (userRole === 'driver') {
+          navigate('/driver/orders');
+        } else if (userRole === 'admin') {
+          navigate('/meals');
+        } else {
+          // Default to admin if role is not set
+          navigate('/meals');
+        }
       } else {
         navigate('/login');
       }
-    });
+    }
+  }, [user, userRole, loading, navigate]);
 
-    return () => unsubscribe();
-  }, [navigate]);
+  if (loading) {
+    return (
+      <div style={{ 
+        height: '100vh', 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        fontSize: '18px',
+        color: '#666'
+      }}>
+        جاري التحميل... | Loading...
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 40 }}>

@@ -25,14 +25,14 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           background: meal.available === false ? '#f5f5f5' : '#fff',
           opacity: meal.available === false ? 0.5 : 1,
           transition: 'all 0.2s',
-          display: 'flex',
+        display: 'flex',
           flexDirection: 'row-reverse', // RTL: image right, buttons left
-          alignItems: 'center',
-          justifyContent: 'space-between',
+        alignItems: 'center',
+        justifyContent: 'space-between',
           borderRadius: 10,
           boxShadow: '0 1px 3px #eee',
           padding: '6px 10px',
-          minHeight: 56,
+        minHeight: 56,
         }}
       >
         {/* Meal image at the far right (RTL) */}

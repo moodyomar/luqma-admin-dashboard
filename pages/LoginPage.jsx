@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { auth } from '../firebase/firebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
+import { useAuth } from '../src/contexts/AuthContext';
 import brandConfig from '../constants/brandConfig';
 
 const LoginPage = () => {
@@ -9,16 +10,60 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
   const [error, setError] = useState('');
+  const { userRole, authError, logout, loading } = useAuth();
+
+  // Professional, efficient, scalable redirect based on role
+  if (!loading && userRole === 'admin') {
+    return <Navigate to="/meals" replace />;
+  }
+  if (!loading && userRole === 'driver') {
+    return <Navigate to="/driver/orders" replace />;
+  }
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/meals');
+      // Navigation will be handled by role-based redirect above
     } catch (err) {
-      setError('Login failed. Check your credentials.');
+      setError('فشل تسجيل الدخول. يرجى التحقق من بيانات الدخول.');
     }
   };
+
+  if (authError) {
+    return (
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        fontSize: '18px',
+        color: '#b71c1c',
+        textAlign: 'center',
+        padding: 24
+      }}>
+        <div style={{ marginBottom: 24 }}>
+          ⚠️ {authError}
+        </div>
+        <button
+          onClick={logout}
+          style={{
+            padding: '10px 24px',
+            background: '#dc3545',
+            color: 'white',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontSize: 16
+          }}
+        >
+          تسجيل خروج | Logout
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       height: '100vh',
@@ -90,21 +135,3 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
-
-const inputStyle = {
-  width: '100%',
-  padding: '12px 14px',
-  marginBottom: '15px',
-  borderRadius: '6px',
-  border: '1px solid #ccc',
-};
-
-const buttonStyle = {
-  width: '100%',
-  padding: '12px',
-  backgroundColor: '#28a745',
-  color: 'white',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: 'pointer',
-};

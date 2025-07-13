@@ -295,52 +295,52 @@ const BusinessManagePage = () => {
         </button>
         {showContact && (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <label style={{ fontWeight: 500, color: '#444' }}>
-                אינסטגרם:
-                <input
-                  type="text"
-                  name="instagram"
-                  value={form.contact.instagram}
-                  onChange={handleChange}
-                  placeholder="@yourbusiness"
-                  style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-                />
-              </label>
-              <label style={{ fontWeight: 500, color: '#444' }}>
-                טלפון:
-                <input
-                  type="text"
-                  name="phone"
-                  value={form.contact.phone}
-                  onChange={handleChange}
-                  placeholder="04-000-0000"
-                  style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-                />
-              </label>
-              <label style={{ fontWeight: 500, color: '#444' }}>
-                אתר אינטרנט:
-                <input
-                  type="text"
-                  name="website"
-                  value={form.contact.website}
-                  onChange={handleChange}
-                  placeholder="https://yourwebsite.com"
-                  style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-                />
-              </label>
-              <label style={{ fontWeight: 500, color: '#444' }}>
-                אימייל:
-                <input
-                  type="email"
-                  name="email"
-                  value={form.contact.email}
-                  onChange={handleChange}
-                  placeholder="info@yourbusiness.com"
-                  style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-                />
-              </label>
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אינסטגרם:
+            <input
+              type="text"
+              name="instagram"
+              value={form.contact.instagram}
+              onChange={handleChange}
+              placeholder="@yourbusiness"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            טלפון:
+            <input
+              type="text"
+              name="phone"
+              value={form.contact.phone}
+              onChange={handleChange}
+              placeholder="04-000-0000"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אתר אינטרנט:
+            <input
+              type="text"
+              name="website"
+              value={form.contact.website}
+              onChange={handleChange}
+              placeholder="https://yourwebsite.com"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אימייל:
+            <input
+              type="email"
+              name="email"
+              value={form.contact.email}
+              onChange={handleChange}
+              placeholder="info@yourbusiness.com"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+        </div>
           </>
         )}
       </div>
