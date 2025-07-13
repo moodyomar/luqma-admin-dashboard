@@ -17,7 +17,7 @@ function App() {
           navigate('/meals');
         } else {
           // Default to admin if role is not set
-          navigate('/meals');
+        navigate('/meals');
         }
       } else {
         navigate('/login');

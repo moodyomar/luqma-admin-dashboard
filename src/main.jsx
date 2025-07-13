@@ -14,9 +14,9 @@ import UserManagementPage from '../pages/UserManagementPage';
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <AuthProvider>
-      <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/login" element={<LoginPage />} />
+    <Routes>
+      <Route path="/" element={<App />} />
+      <Route path="/login" element={<LoginPage />} />
         
         {/* Admin Routes */}
         <Route path="/meals" element={
@@ -46,7 +46,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <DriverOrdersPage />
           </ProtectedRoute>
         } />
-      </Routes>
+    </Routes>
     </AuthProvider>
   </BrowserRouter>
 );

@@ -62,7 +62,7 @@ const LoginPage = () => {
         </button>
       </div>
     );
-  }
+    }
 
   return (
     <div style={{

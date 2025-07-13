@@ -320,10 +320,31 @@ ${paymentString === 'اونلاين' ?
       )}
       {order.status === 'ready' && (
         <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-          <button onClick={handleOutForDelivery} disabled={loading} style={{ fontWeight: 700, padding: '10px 28px', borderRadius: 8, background: '#FF9500', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
-            <IoMdBicycle style={{ marginLeft: 8 }} />
-            خرج للتوصيل
-          </button>
+          {order.deliveryMethod === 'delivery' ? (
+            <div style={{ 
+              padding: '10px 20px', 
+              background: '#f8f9fa', 
+              color: '#6c757d', 
+              borderRadius: 8, 
+              fontSize: 16, 
+              fontWeight: 500,
+              border: '1px solid #dee2e6'
+            }}>
+              في انتظار السائق لبدء التوصيل
+            </div>
+          ) : (
+            <div style={{ 
+              padding: '10px 20px', 
+              background: '#f8f9fa', 
+              color: '#6c757d', 
+              borderRadius: 8, 
+              fontSize: 16, 
+              fontWeight: 500,
+              border: '1px solid #dee2e6'
+            }}>
+              الطلب جاهز للاستلام من المحل
+            </div>
+          )}
         </div>
       )}
       {/* Note: Delivery status is now managed by drivers */}
