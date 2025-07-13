@@ -207,12 +207,16 @@ ${paymentString === 'اونلاين' ?
         <span className="value">{deliveryString || '—'}</span>
       </p>
 
-      <p>
-        <span className="label">📍 العنوان:</span>
-        <span className="value">{order.address || '—'}</span>
-      </p>
+      {/* Only show address for delivery orders */}
+      {order.deliveryMethod === 'delivery' && (
+        <p>
+          <span className="label">📍 العنوان:</span>
+          <span className="value">{order.address || '—'}</span>
+        </p>
+      )}
 
-      {order.extraNotes && (
+      {/* Only show extraNotes for delivery orders */}
+      {order.deliveryMethod === 'delivery' && order.extraNotes && (
         <p style={{ marginTop: -10, color: '#999', fontSize: 13 }}>
           📝 ملاحظات الموقع: {order.extraNotes}
         </p>
@@ -319,7 +323,7 @@ ${paymentString === 'اونلاين' ?
         </div>
       )}
       {order.status === 'ready' && (
-        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
           {order.deliveryMethod === 'delivery' ? (
             <div style={{ 
               padding: '10px 20px', 
@@ -333,17 +337,51 @@ ${paymentString === 'اونلاين' ?
               في انتظار السائق لبدء التوصيل
             </div>
           ) : (
-            <div style={{ 
-              padding: '10px 20px', 
-              background: '#f8f9fa', 
-              color: '#6c757d', 
-              borderRadius: 8, 
-              fontSize: 16, 
-              fontWeight: 500,
-              border: '1px solid #dee2e6'
-            }}>
-              الطلب جاهز للاستلام من المحل
-            </div>
+            <>
+              <div style={{ 
+                padding: '10px 20px', 
+                background: '#f8f9fa', 
+                color: '#6c757d', 
+                borderRadius: 8, 
+                fontSize: 16, 
+                fontWeight: 500,
+                border: '1px solid #dee2e6'
+              }}>
+                الطلب جاهز للاستلام 🔔
+              </div>
+              <button
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
+                    await updateDoc(ref, {
+                      status: 'delivered',
+                      deliveredAt: new Date().toISOString(),
+                    });
+                  } catch (err) {
+                    alert('שגיאה בעדכון ההזמנה.');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  fontWeight: 700,
+                  padding: '10px 24px',
+                  borderRadius: 8,
+                  background: '#34C759',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  marginRight: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                تم الاستلام
+              </button>
+            </>
           )}
         </div>
       )}
