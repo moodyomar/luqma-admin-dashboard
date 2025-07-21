@@ -13,6 +13,7 @@ const BusinessManagePage = () => {
     workingHours: { open: '', close: '' },
     contact: { instagram: '', phone: '', website: '' },
     prepTimeOptions: [], // new field
+    storeStatusMode: 'auto', // NEW FIELD
   });
   const [newPrepValue, setNewPrepValue] = useState('');
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
@@ -42,12 +43,15 @@ const BusinessManagePage = () => {
         const prepTimeOptions = data.config?.prepTimeOptions || [];
         // Get deliveryFee from config if available
         const deliveryFee = data.config?.deliveryFee ?? '';
+        // Get storeStatusMode from config if available
+        const storeStatusMode = data.config?.storeStatusMode || 'auto';
         setForm({
           deliveryFee,
           isOpen: typeof data.isOpen === 'boolean' ? data.isOpen : true,
           workingHours: { open, close },
           contact,
           prepTimeOptions,
+          storeStatusMode, // NEW
         });
       }
       setLoading(false);
@@ -71,6 +75,8 @@ const BusinessManagePage = () => {
       }));
     } else if (name === 'deliveryFee') {
       setForm((prev) => ({ ...prev, deliveryFee: value }));
+    } else if (name === 'storeStatusMode') {
+      setForm((prev) => ({ ...prev, storeStatusMode: value }));
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
@@ -103,6 +109,7 @@ const BusinessManagePage = () => {
         'config.workingHours': form.workingHours,
         'config.contact': form.contact,
         'config.prepTimeOptions': form.prepTimeOptions,
+        'config.storeStatusMode': form.storeStatusMode, // NEW
       });
       alert('✅ נשמר בהצלחה!');
     } catch (err) {
@@ -156,32 +163,29 @@ const BusinessManagePage = () => {
             />
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2 }}>סטטוס חנות</label>
-            <label
+            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2 }}>حالة المتجر</label>
+            <select
+              name="storeStatusMode"
+              value={form.storeStatusMode}
+              onChange={handleChange}
               style={{
                 height: 44,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                background: '#fff',
                 borderRadius: 10,
                 border: '1px solid #e0e0e0',
                 fontSize: 16,
-                fontWeight: 500,
-                cursor: 'pointer',
-                padding: '0 12px',
+                background: '#fff',
+                textAlign: 'right',
                 boxSizing: 'border-box',
+                width: '100%',
+                padding: '0 12px',
+                marginBottom: 8,
               }}
             >
-              <input
-                type="checkbox"
-                name="isOpen"
-                checked={form.isOpen}
-                onChange={handleChange}
-                style={{ width: 20, height: 20, accentColor: '#007aff', marginLeft: 4 }}
-              />
-              {form.isOpen ? 'פתוח' : 'סגור'}
-            </label>
+              <option value="auto">تلقائي (حسب ساعات العمل)</option>
+              <option value="open">مفتوح الآن</option>
+              <option value="busy">مشغول حالياً</option>
+              <option value="closed">مغلق الآن</option>
+            </select>
           </div>
         </div>
         {/* Second row: Opening and closing times */}
