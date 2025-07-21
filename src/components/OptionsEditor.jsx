@@ -14,6 +14,12 @@ const defaultLabels = {
   },
 };
 
+const displayAsTypes = [
+  { value: 'text', label: 'نص/كتابه' },
+  { value: 'color', label: 'الوان' },
+  // Future: { value: 'image', label: 'صورة' },
+];
+
 const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory }) => {
   const [newOptionType, setNewOptionType] = useState('select');
   const [expandedOptions, setExpandedOptions] = useState({});
@@ -48,13 +54,40 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
     onChange(updated);
   };
 
+  const handleDisplayAsChange = (optionIndex, value) => {
+    const updated = [...options];
+    updated[optionIndex].displayAs = value;
+    // If switching to color, remove image fields from values
+    if (value === 'color') {
+      updated[optionIndex].values = updated[optionIndex].values.map(val => ({
+        ...val,
+        color: val.color || '#000000', // default to black if not set
+        image: undefined,
+      }));
+    } else {
+      updated[optionIndex].values = updated[optionIndex].values.map(val => ({
+        ...val,
+        color: undefined,
+      }));
+    }
+    onChange(updated);
+  };
+
+  const handleColorChange = (optionIndex, valueIndex, color) => {
+    const updated = [...options];
+    updated[optionIndex].values[valueIndex].color = color;
+    onChange(updated);
+  };
+
   const handleAddValue = (optionIndex) => {
     const updated = [...options];
+    const option = updated[optionIndex];
     updated[optionIndex].values.push({
       label: { ar: '', he: '' },
       value: `opt_${Date.now()}`,
-      extra: updated[optionIndex].type === 'select' ? 0 : undefined,
-      image: '',
+      extra: option.type === 'select' ? 0 : undefined,
+      image: option.displayAs === 'color' ? undefined : '',
+      color: option.displayAs === 'color' ? '#000000' : undefined,
     });
     onChange(updated);
   };
@@ -85,7 +118,8 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
       required: false,
       max: null,
       allChecked: false,
-      limitsBySelectValue: {}
+      limitsBySelectValue: {},
+      displayAs: 'text', // default
     };
     onChange([...options, newOption]);
     setShowAddOptionModal(false);
@@ -123,9 +157,11 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
       // Deep copy the options to ensure they are completely independent
       const deepCopiedOptions = sourceMeal.options.map(option => ({
         ...option,
+        displayAs: option.displayAs || 'text',
         values: option.values.map(value => ({
           ...value,
           value: `opt_${Date.now()}_${Math.random()}`, // Generate new unique value ID
+          color: value.color || undefined,
         }))
       }));
       onChange(deepCopiedOptions);
@@ -157,9 +193,11 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
         const option = selectedMeal.options[index];
         return {
           ...option,
+          displayAs: option.displayAs || 'text',
           values: option.values.map(value => ({
             ...value,
             value: `opt_${Date.now()}_${Math.random()}`, // Generate new unique value ID
+            color: value.color || undefined,
           }))
         };
       });
@@ -644,6 +682,20 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
             <div key={index} className="option-card">
               <div className="option-header">
                 <strong>نوع الاضافه:</strong> <span style={{ color: 'green', fontWeight: '700' }}>{option.type === 'multi' ? 'خيارات متعدده' : 'خيار واحد'}</span>
+                <span style={{ marginInlineStart: 12 }}>
+                  <label style={{ fontWeight: 500 }}>
+                    <span style={{ marginInlineEnd: 4 }}>عرض كـ:</span>
+                    <select
+                      value={option.displayAs || 'text'}
+                      onChange={e => handleDisplayAsChange(index, e.target.value)}
+                      style={{ padding: '2px 4px',width: '115px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                    >
+                      {displayAsTypes.map(type => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </span>
               </div>
 
               <div className="option-labels">
@@ -708,6 +760,26 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
                           value={val.label.he}
                           onChange={(e) => handleValueChange(index, valIndex, 'he', e.target.value)}
                         />
+                        {option.displayAs === 'color' ? (
+                          <>
+                            <input
+                              type="color"
+                              value={val.color || '#000000'}
+                              onChange={e => handleColorChange(index, valIndex, e.target.value)}
+                              style={{ width: 40, height: 32, border: 'none', background: 'none', cursor: 'pointer' }}
+                              title="اختر اللون"
+                            />
+                            <span style={{ width: 60, fontSize: 12, color: '#555' }}>{val.color || '#000000'}</span>
+                          </>
+                        ) : (
+                          <input
+                            style={{ minWidth: 85 }}
+                            type="url"
+                            placeholder="رابط الصورة"
+                            value={val.image || ''}
+                            onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
+                          />
+                        )}
                         <input
                           style={{ maxWidth: 40 }}
                           type="number"
@@ -715,14 +787,6 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
                           value={val.extra || 0}
                           onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
                         />
-                        <input
-                          style={{ minWidth: 85 }}
-                          type="url"
-                          placeholder="رابط الصورة"
-                          value={val.image || ''}
-                          onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
-                        />
-
                         <button
                           onClick={() => handleDeleteValue(index, valIndex)}
                           style={{

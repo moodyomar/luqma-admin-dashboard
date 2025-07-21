@@ -93,13 +93,14 @@ const MealsPage = () => {
                   extra: typeof val?.extra === 'number' ? val.extra : 0,
                   image: val?.image || '',
                 };
-
-
+                // ✅ Add color if present
+                if (val.color) {
+                  cleanVal.color = val.color;
+                }
                 // ✅ فقط أضف extra إذا كان النوع 'select'
                 if (opt.type === 'select') {
                   cleanVal.extra = typeof val?.extra === 'number' ? val.extra : 0;
                 }
-
                 return cleanVal;
               });
 
@@ -110,7 +111,8 @@ const MealsPage = () => {
                   he: opt?.label?.he || '',
                 },
                 values: cleanedValues,
-
+                // ✅ Add displayAs if present (default to 'text')
+                displayAs: opt?.displayAs || 'text',
                 // ✅ New Fields
                 max: typeof opt.max === 'number' ? opt.max : null,
                 allChecked: !!opt.allChecked,
