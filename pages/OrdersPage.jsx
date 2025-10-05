@@ -431,7 +431,7 @@ const OrdersPage = () => {
         if (isFirstLoad.current) {
           isFirstLoad.current = false; // ✅ prevent first-time trigger
         } else if (updatedOrders.length > prevOrdersCount) {
-          new Audio('/notify.mp3').play();
+          new Audio('/luqma-notify.mp3').play();
           toast.custom(() => (
             <div style={{
               background: '#fff8c4',
@@ -495,7 +495,7 @@ const OrdersPage = () => {
         )
       )}
       <audio id="orderSound" preload="auto">
-        <source src="/sounds/notify.mp3" type="audio/mpeg" />
+        <source src="/sounds/luqma-notify.mp3" type="audio/mpeg" />
         Your browser does not support the audio element.
       </audio>
       {/* Fixed bottom nav */}

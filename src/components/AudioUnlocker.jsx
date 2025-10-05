@@ -10,7 +10,7 @@ export default function AudioUnlocker() {
   const [enabled, setEnabled] = useState(false);
 
   const handleClick = () => {
-    const audio = new Audio('/notify.mp3');
+    const audio = new Audio('/luqma-notify.mp3');
     audio.play()
       .then(() => {
         sharedAudio = audio; // ✅ unlock + store for reuse
