@@ -10,7 +10,8 @@ import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, I
 
 const OrderCard = React.memo(({ order }) => {
 
-  const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 'استلام بالمحل'
+  const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
+                        order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل'
   const paymentString = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين'
 
   const [showPrepTime, setShowPrepTime] = useState(false);
@@ -67,7 +68,12 @@ const OrderCard = React.memo(({ order }) => {
       <p>👤 <strong>${order.name || '—'}</strong></p>
       <p>📞 <strong>${order.phone || '—'}</strong></p>
       <p>🚚 التوصيل: <strong>${deliveryString || '—'}</strong></p>
-      <p>📍 العنوان: <strong>${order.address || '—'}</strong></p>
+      ${order.deliveryMethod === 'delivery' ? 
+        `<p>📍 العنوان: <strong>${order.address || '—'}</strong></p>` : 
+        order.deliveryMethod === 'eat_in' && order.tableNumber ? 
+        `<p>🪑 رقم الطاولة: <strong>${order.tableNumber}</strong></p>` : 
+        ''
+      }
 
       ${order.extraNotes
         ? `<p style="color: #666; font-size: 13px;">📝 ملاحظات الموقع: ${order.extraNotes}</p>`
@@ -207,7 +213,7 @@ ${paymentString === 'اونلاين' ?
         <span className="value">{deliveryString || '—'}</span>
       </p>
 
-      {/* Only show address for delivery orders */}
+      {/* Show address for delivery orders */}
       {order.deliveryMethod === 'delivery' && (
         <p>
           <span className="label">📍 العنوان:</span>
@@ -215,7 +221,15 @@ ${paymentString === 'اونلاين' ?
         </p>
       )}
 
-      {/* Only show extraNotes for delivery orders */}
+      {/* Show table number for eat-in orders */}
+      {order.deliveryMethod === 'eat_in' && order.tableNumber && (
+        <p>
+          <span className="label">🪑 رقم الطاولة:</span>
+          <span className="value">{order.tableNumber}</span>
+        </p>
+      )}
+
+      {/* Show extraNotes for delivery orders */}
       {order.deliveryMethod === 'delivery' && order.extraNotes && (
         <p style={{ marginTop: -10, color: '#999', fontSize: 13 }}>
           📝 ملاحظات الموقع: {order.extraNotes}
@@ -336,6 +350,52 @@ ${paymentString === 'اونلاين' ?
             }}>
               في انتظار السائق لبدء التوصيل
             </div>
+          ) : order.deliveryMethod === 'eat_in' ? (
+            <>
+              <div style={{ 
+                padding: '10px 20px', 
+                background: '#f8f9fa', 
+                color: '#6c757d', 
+                borderRadius: 8, 
+                fontSize: 16, 
+                fontWeight: 500,
+                border: '1px solid #dee2e6'
+              }}>
+                الطلب جاهز للطاولة {order.tableNumber} 🔔
+              </div>
+              <button
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
+                    await updateDoc(ref, {
+                      status: 'delivered',
+                      deliveredAt: new Date().toISOString(),
+                    });
+                  } catch (err) {
+                    alert('שגיאה בעדכון ההזמנה.');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  fontWeight: 700,
+                  padding: '10px 24px',
+                  borderRadius: 8,
+                  background: '#34C759',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  marginRight: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                تم التوصيل للطاولة
+              </button>
+            </>
           ) : (
             <>
               <div style={{ 

@@ -13,7 +13,8 @@ import './styles.css';
 const DriverOrderCard = React.memo(({ order }) => {
   const [loading, setLoading] = useState(false);
 
-  const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 'استلام بالمحل';
+  const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
+                        order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل';
   const paymentString = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين';
 
   // Format date in English/Israel format
