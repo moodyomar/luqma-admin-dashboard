@@ -66,7 +66,7 @@ const OrderCard = React.memo(({ order }) => {
       <div class="divider"></div>
 
       <p>👤 <strong>${order.name || '—'}</strong></p>
-      <p>📞 <strong>${order.phone || '—'}</strong></p>
+      <p>📞 <strong>${order.phone ? `<a href="tel:${order.phone}" style="color: #007aff; text-decoration: none;">${order.phone}</a>` : '—'}</strong></p>
       <p>🚚 التوصيل: <strong>${deliveryString || '—'}</strong></p>
       ${order.deliveryMethod === 'delivery' ? 
         `<p>📍 العنوان: <strong>${order.address || '—'}</strong></p>` : 
@@ -203,8 +203,19 @@ ${paymentString === 'اونلاين' ?
           <span className="value">{order.name || '—'}</span>
         </div>
         <div>
-          <span className="label">📞</span>
-          <span className="value">{order.phone || '—'}</span>
+          <span className="value" style={{ display: 'flex', alignItems: 'center' }}>
+            {order.phone ? (
+              <a href={`tel:${order.phone}`} style={{ color: '#007aff', textDecoration: 'none', fontWeight: 'inherit', display: 'flex', alignItems: 'center' }}>
+                <span style={{ marginLeft: 8 }}>📞</span>
+                {order.phone}
+              </a>
+            ) : (
+              <>
+                <span style={{ marginLeft: 8 }}>📞</span>
+                —
+              </>
+            )}
+          </span>
         </div>
       </div>
 
@@ -470,18 +481,13 @@ const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [prevOrdersCount, setPrevOrdersCount] = useState(0);
   const isFirstLoad = useRef(true); // 🟡 new flag
-  const lastCheckTime = useRef(new Date()); // Track last check time to identify truly new orders
+  const knownOrderIds = useRef(new Set()); // Track known order IDs to detect truly new orders
   const [showActive, setShowActive] = useState(true);
 
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, 'menus', brandConfig.id, 'orders'), (snapshot) => {
-        const unlockedAudio = getSharedAudio();
-        if (unlockedAudio) {
-          unlockedAudio.currentTime = 0;
-          unlockedAudio.play();
-        }
         const updatedOrders = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -490,18 +496,35 @@ const OrdersPage = () => {
         setOrders(updatedOrders);
 
         if (isFirstLoad.current) {
-          isFirstLoad.current = false; // ✅ prevent first-time trigger
-          lastCheckTime.current = new Date(); // Set initial check time
+          // On first load, populate known order IDs without playing sound
+          isFirstLoad.current = false;
+          updatedOrders.forEach(order => {
+            knownOrderIds.current.add(order.id);
+          });
         } else {
-          // Check for truly new orders by comparing creation time
+          // Check for truly new orders by comparing order IDs
           const newOrders = updatedOrders.filter(order => {
-            const orderCreatedAt = new Date(order.createdAt);
-            return orderCreatedAt > lastCheckTime.current;
+            const isNewOrder = !knownOrderIds.current.has(order.id);
+            if (isNewOrder) {
+              knownOrderIds.current.add(order.id);
+            }
+            return isNewOrder;
           });
 
           // Only play sound and show toast if there are actually new orders
           if (newOrders.length > 0) {
-            new Audio('/luqma.mp3').play();
+            // Try to use the unlocked audio first, fallback to new Audio
+            const unlockedAudio = getSharedAudio();
+            if (unlockedAudio) {
+              unlockedAudio.currentTime = 0;
+              unlockedAudio.play().catch(err => {
+                console.warn('Failed to play unlocked audio, trying fallback:', err);
+                new Audio('/luqma.mp3').play().catch(console.warn);
+              });
+            } else {
+              new Audio('/luqma.mp3').play().catch(console.warn);
+            }
+            
             toast.custom(() => (
               <div style={{
                 background: '#fff8c4',
@@ -519,8 +542,6 @@ const OrdersPage = () => {
               duration: 7000 // or even longer like 10000 for 10s
             });
           }
-          
-          lastCheckTime.current = new Date(); // Update check time
         }
 
         setPrevOrdersCount(updatedOrders.length);
