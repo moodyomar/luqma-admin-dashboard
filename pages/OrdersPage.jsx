@@ -470,6 +470,7 @@ const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [prevOrdersCount, setPrevOrdersCount] = useState(0);
   const isFirstLoad = useRef(true); // 🟡 new flag
+  const lastCheckTime = useRef(new Date()); // Track last check time to identify truly new orders
   const [showActive, setShowActive] = useState(true);
 
 
@@ -490,25 +491,36 @@ const OrdersPage = () => {
 
         if (isFirstLoad.current) {
           isFirstLoad.current = false; // ✅ prevent first-time trigger
-        } else if (updatedOrders.length > prevOrdersCount) {
-          new Audio('/luqma.mp3').play();
-          toast.custom(() => (
-            <div style={{
-              background: '#fff8c4',
-              padding: '14px 20px',
-              borderRadius: '10px',
-              fontWeight: 'bold',
-              fontSize: '16px',
-              color: '#222',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              direction: 'rtl'
-            }}>
-              📦 طلب جديد وصل!
-            </div>
-          ), {
-            duration: 7000 // or even longer like 10000 for 10s
+          lastCheckTime.current = new Date(); // Set initial check time
+        } else {
+          // Check for truly new orders by comparing creation time
+          const newOrders = updatedOrders.filter(order => {
+            const orderCreatedAt = new Date(order.createdAt);
+            return orderCreatedAt > lastCheckTime.current;
           });
 
+          // Only play sound and show toast if there are actually new orders
+          if (newOrders.length > 0) {
+            new Audio('/luqma.mp3').play();
+            toast.custom(() => (
+              <div style={{
+                background: '#fff8c4',
+                padding: '14px 20px',
+                borderRadius: '10px',
+                fontWeight: 'bold',
+                fontSize: '16px',
+                color: '#222',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                direction: 'rtl'
+              }}>
+                📦 طلب جديد وصل!
+              </div>
+            ), {
+              duration: 7000 // or even longer like 10000 for 10s
+            });
+          }
+          
+          lastCheckTime.current = new Date(); // Update check time
         }
 
         setPrevOrdersCount(updatedOrders.length);
