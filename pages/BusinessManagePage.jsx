@@ -39,6 +39,17 @@ const BusinessManagePage = () => {
     contact: { instagram: '', phone: '', website: '' },
     prepTimeOptions: [], // new field
     storeStatusMode: 'auto', // NEW FIELD
+    features: { // NEW FIELD for delivery methods
+      enablePickup: false,
+      enableDelivery: false,
+      enableEatIn: false,
+      allowGuestCheckout: false,
+      enableLogin: false,
+      enableVisa: false,
+      enableWhatsAppOrders: false,
+      showPrices: false,
+      showSplash: false
+    }
   });
   const [newPrepValue, setNewPrepValue] = useState('');
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
@@ -55,9 +66,16 @@ const BusinessManagePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       const ref = doc(db, 'menus', brandConfig.id);
+      console.log('Fetching data from Firebase path:', 'menus/' + brandConfig.id);
+      console.log('BrandConfig ID:', brandConfig.id);
       const snap = await getDoc(ref);
+      console.log('Firebase document exists:', snap.exists());
+      
       if (snap.exists()) {
         const data = snap.data();
+        console.log('Full Firebase data:', data);
+        console.log('Data keys:', Object.keys(data));
+        
         // Try to get working hours from config if available
         let open = data.workingHours?.open || '';
         let close = data.workingHours?.close || '';
@@ -78,19 +96,57 @@ const BusinessManagePage = () => {
         const deliveryFee = data.config?.deliveryFee ?? '';
         // Get storeStatusMode from config if available
         const storeStatusMode = data.config?.storeStatusMode || 'auto';
+        
+        // Get features from config.features - preserve existing values, default to false if not exists
+        const existingFeatures = data.config?.features || {};
+        console.log('Raw features from Firebase:', data.config?.features);
+        console.log('Existing features object:', existingFeatures);
+        console.log('enablePickup value:', existingFeatures.enablePickup);
+        console.log('enablePickup type:', typeof existingFeatures.enablePickup);
+        
+        const features = {
+          enablePickup: existingFeatures.enablePickup ?? false,
+          enableDelivery: existingFeatures.enableDelivery ?? false,
+          enableEatIn: existingFeatures.enableEatIn ?? false,
+          allowGuestCheckout: existingFeatures.allowGuestCheckout ?? false,
+          enableLogin: existingFeatures.enableLogin ?? false,
+          enableVisa: existingFeatures.enableVisa ?? false,
+          enableWhatsAppOrders: existingFeatures.enableWhatsAppOrders ?? false,
+          showPrices: existingFeatures.showPrices ?? false,
+          showSplash: existingFeatures.showSplash ?? false
+        };
+        console.log('Final processed features for form:', features);
+        
+        // Set the form with all the loaded data
         setForm({
           deliveryFee,
           isOpen: typeof data.isOpen === 'boolean' ? data.isOpen : true,
           workingHours: { open, close },
           contact,
           prepTimeOptions,
-          storeStatusMode, // NEW
+          storeStatusMode,
+          features, // This will override the initial false values
         });
+        
+        console.log('Form state set with features:', features);
+        
+        // Double-check the form state after a short delay
+        setTimeout(() => {
+          console.log('Form state after 100ms delay:', form);
+        }, 100);
+      } else {
+        console.log('Firebase document does not exist!');
       }
       setLoading(false);
     };
     fetchData();
   }, []);
+
+  // Debug: Monitor form state changes
+  useEffect(() => {
+    console.log('Form state changed:', form);
+    console.log('Features in form state:', form.features);
+  }, [form]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -110,6 +166,20 @@ const BusinessManagePage = () => {
       setForm((prev) => ({ ...prev, deliveryFee: value }));
     } else if (name === 'storeStatusMode') {
       setForm((prev) => ({ ...prev, storeStatusMode: value }));
+    } else if (name.startsWith('feature_')) {
+      const featureName = name.replace('feature_', '');
+      console.log('Feature changed:', featureName, 'to:', checked); // Debug log
+      const updatedFeatures = {
+        ...form.features,
+        [featureName]: checked
+      };
+      setForm((prev) => ({
+        ...prev,
+        features: updatedFeatures
+      }));
+      
+      // Auto-save to Firebase immediately
+      saveFeatureToFirebase(updatedFeatures);
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
@@ -132,22 +202,58 @@ const BusinessManagePage = () => {
     }));
   };
 
+  // Auto-save features to Firebase
+  const saveFeatureToFirebase = async (features) => {
+    try {
+      console.log('🔄 Auto-saving features to Firebase:', features);
+      const ref = doc(db, 'menus', brandConfig.id);
+      await updateDoc(ref, {
+        'config.features': features,
+      });
+      console.log('✅ Features auto-saved successfully!');
+    } catch (error) {
+      console.error('❌ Error auto-saving features:', error);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const ref = doc(db, 'menus', brandConfig.id);
     try {
-      await updateDoc(ref, {
+      console.log('=== SAVE OPERATION START ===');
+      console.log('BrandConfig ID:', brandConfig.id);
+      console.log('Current form features:', form.features);
+      console.log('About to save to Firebase path: menus/' + brandConfig.id);
+      
+      const updateData = {
         'config.deliveryFee': Number(form.deliveryFee),
         'config.isOpen': form.isOpen,
         'config.workingHours': form.workingHours,
         'config.contact': form.contact,
         'config.prepTimeOptions': form.prepTimeOptions,
-        'config.storeStatusMode': form.storeStatusMode, // NEW
-      });
+        'config.storeStatusMode': form.storeStatusMode,
+        'config.features': form.features,
+      };
+      
+      console.log('Full update data being sent to Firebase:', updateData);
+      console.log('Features object being saved:', updateData['config.features']);
+      
+      await updateDoc(ref, updateData);
+      console.log('✅ Successfully saved to Firebase!');
+      
+      // Verify the save by reading back from Firebase
+      console.log('Verifying save by reading back from Firebase...');
+      const verifySnap = await getDoc(ref);
+      if (verifySnap.exists()) {
+        const verifyData = verifySnap.data();
+        console.log('Verification - Features in Firebase after save:', verifyData.config?.features);
+      }
+      
       alert('✅ נשמר בהצלחה!');
     } catch (err) {
       console.error('❌ Error saving business settings:', err);
-      alert('❌ שגיאה בשמירה.');
+      console.error('Error details:', err.message);
+      alert('❌ שגיאה בשמירה: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -283,6 +389,58 @@ const BusinessManagePage = () => {
             </select>
           </div>
         </div>
+        
+        {/* Features/Delivery Methods Section */}
+        <div style={{ marginTop: 16, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>
+            אפשרויות הזמנה זמינות
+          </label>
+          <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+            בחר אילו אפשרויות הזמנה יהיו זמינות ללקוחות שלך
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                name="feature_enablePickup"
+                checked={form.features.enablePickup}
+                onChange={handleChange}
+                style={{ width: 16, height: 16, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                איסוף עצמי
+              </span>
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                name="feature_enableDelivery"
+                checked={form.features.enableDelivery}
+                onChange={handleChange}
+                style={{ width: 16, height: 16, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                משלוח
+              </span>
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                name="feature_enableEatIn"
+                checked={form.features.enableEatIn}
+                onChange={handleChange}
+                style={{ width: 16, height: 16, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                אכילה במקום
+              </span>
+            </label>
+          </div>
+        </div>
+        
         {/* Second row: Opening and closing times */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
