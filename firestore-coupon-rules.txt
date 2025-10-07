@@ -1,0 +1,73 @@
+// Firebase Firestore Security Rules for Coupon System
+// Add these rules to your Firestore security rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Coupon collection rules
+    match /menus/{brandId}/coupons/{couponId} {
+      // Allow read access for coupon validation (public read for app users)
+      allow read: if true;
+      
+      // Only allow admin users to write/update/delete coupons
+      allow write, update, delete: if request.auth != null 
+        && request.auth.token.role == 'admin'
+        && request.auth.token.brandId == brandId;
+      
+      // Allow incrementing usage count (for when coupons are applied)
+      allow update: if request.auth != null 
+        && request.writeFields.hasOnly(['usageCount', 'updatedAt'])
+        && request.writeFields.keys().hasAll(['usageCount', 'updatedAt']);
+    }
+  }
+}
+
+/*
+Alternative rules if you want more restrictive read access:
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /menus/{brandId}/coupons/{couponId} {
+      // Allow read access only for authenticated users
+      allow read: if request.auth != null;
+      
+      // Only allow admin users to write/update/delete coupons
+      allow write, update, delete: if request.auth != null 
+        && request.auth.token.role == 'admin'
+        && request.auth.token.brandId == brandId;
+      
+      // Allow incrementing usage count
+      allow update: if request.auth != null 
+        && request.writeFields.hasOnly(['usageCount', 'updatedAt'])
+        && request.writeFields.keys().hasAll(['usageCount', 'updatedAt']);
+    }
+  }
+}
+*/
+
+/*
+To implement these rules:
+1. Go to Firebase Console
+2. Navigate to Firestore Database
+3. Click on "Rules" tab
+4. Replace the existing rules with the above rules
+5. Click "Publish"
+
+Note: Make sure your authentication system sets the appropriate custom claims:
+- role: 'admin' for admin users
+- brandId: your brand identifier
+
+Example of setting custom claims in your authentication system:
+// For admin users
+await admin.auth().setCustomUserClaims(uid, {
+  role: 'admin',
+  brandId: 'your-brand-id'
+});
+
+// For regular app users (optional, if you want to restrict read access)
+await admin.auth().setCustomUserClaims(uid, {
+  role: 'user',
+  brandId: 'your-brand-id'
+});
+*/

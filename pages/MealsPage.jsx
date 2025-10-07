@@ -474,7 +474,7 @@ const MealsPage = () => {
         <button
           onClick={() => window.location.href = '/manage'}
           className="loginButton secondary">
-          ניהול זמינות
+          ניהול עסק
         </button>
         <button
           onClick={() => window.location.href = '/orders'}
