@@ -470,6 +470,36 @@ const MealsPage = () => {
           })
       )}
 
+      {/* Floating Save Button */}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        style={{
+          position: 'fixed',
+          left: '20px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: '50px',
+          height: '50px',
+          borderRadius: '50%',
+          background: saving ? '#6c757d' : '#28a745',
+          border: 'none',
+          color: 'white',
+          fontSize: '20px',
+          cursor: saving ? 'not-allowed' : 'pointer',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          transition: 'all 0.2s ease'
+        }}
+        title={saving ? 'שומר...' : 'שמור שינויים'}
+      >
+        💾
+      </button>
+
+      {/* Main Navigation Buttons */}
       <div className="loginButtons" style={{ gap: '10px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
         <button
           onClick={() => window.location.href = '/manage'}
@@ -484,13 +514,12 @@ const MealsPage = () => {
         <button
           onClick={() => window.location.href = '/users'}
           className="loginButton secondary">
-ניהול נהגים
+          ניהול נהגים
         </button>
         <button
-          onClick={handleSave}
-          disabled={saving}
-          className="loginButton primary">
-          {saving ? 'שומר...' : 'שמור שינויים'}
+          onClick={() => window.location.href = '/analytics'}
+          className="loginButton warning">
+          📊 التحليلات
         </button>
       </div>
     </div>

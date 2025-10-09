@@ -188,10 +188,10 @@ ${paymentString === 'اونلاين' ?
   // Enhanced status badge with colors and icons
   const getStatusBadge = () => {
     const statusConfig = {
-      'pending': { text: 'جديد', color: '#dc3545', icon: '🔴', bgColor: '#fee' },
+      'pending': { text: 'جديد', color: '#007bff', icon: '💙', bgColor: '#e3f2fd' },
       'preparing': { text: 'قيد التحضير', color: '#ffc107', icon: '🟡', bgColor: '#fffbf0' },
       'ready': { text: 'جاهز', color: '#28a745', icon: '🟢', bgColor: '#f0fff4' },
-      'out_for_delivery': { text: 'قيد التوصيل', color: '#007bff', icon: '🔵', bgColor: '#f0f8ff' },
+      'out_for_delivery': { text: 'قيد التوصيل', color: '#17a2b8', icon: '🔵', bgColor: '#e0f7fa' },
       'delivered': { text: 'مكتمل', color: '#6c757d', icon: '⚫', bgColor: '#f8f9fa' },
       'completed': { text: 'مكتمل', color: '#6c757d', icon: '⚫', bgColor: '#f8f9fa' },
       'cancelled': { text: 'ملغي', color: '#dc3545', icon: '❌', bgColor: '#fee' }
@@ -225,6 +225,30 @@ ${paymentString === 'اونلاين' ?
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     return orderTime > fiveMinutesAgo;
   }, [order.createdAt]);
+
+  // Smart preparation time estimation based on order complexity
+  const estimatedPrepTime = useMemo(() => {
+    if (!order.items || order.items.length === 0) return 15;
+    
+    let totalTime = 0;
+    order.items.forEach(item => {
+      const quantity = item.quantity || 1;
+      // Base time per item type (in minutes)
+      const baseTime = item.name?.toLowerCase().includes('pizza') ? 20 :
+                      item.name?.toLowerCase().includes('burger') ? 15 :
+                      item.name?.toLowerCase().includes('salad') ? 10 :
+                      item.name?.toLowerCase().includes('drink') ? 2 :
+                      item.name?.toLowerCase().includes('appetizer') ? 8 : 12;
+      
+      totalTime += baseTime * quantity;
+    });
+    
+    // Add complexity bonus
+    if (order.items.length > 3) totalTime += 5;
+    if (order.items.some(item => item.additions && item.additions.length > 2)) totalTime += 3;
+    
+    return Math.min(Math.max(totalTime, 10), 45); // Between 10-45 minutes
+  }, [order.items]);
 
   return (
     <div 
@@ -264,6 +288,28 @@ ${paymentString === 'اونلاين' ?
 
       {/* Status Badge */}
       {getStatusBadge()}
+
+      {/* Estimated Prep Time */}
+      {order.status === 'preparing' && (
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '6px 12px',
+          borderRadius: '20px',
+          backgroundColor: '#e3f2fd',
+          color: '#1976d2',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          border: '1px solid #bbdefb',
+          marginBottom: '10px',
+          marginLeft: '10px'
+        }}>
+          <span>⏱️</span>
+          <span>وقت متوقع: {estimatedPrepTime} دقيقة</span>
+        </div>
+      )}
+
 
       <div className="row">
         <div>
@@ -336,7 +382,7 @@ ${paymentString === 'اونلاين' ?
           <p className="meals-title">تفاصيل الوجبات:</p>
           <ul>
             {order.cart.map((item, index) => (
-              <li key={item.uid || `${item.id}-${index}`} className="meal-item" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <li key={`${order.uid || order.id}-${index}-${item.uid || item.id || item.name || 'item'}`} className="meal-item" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
                 {item.image && (
                   <img
                     src={item.image}
@@ -552,6 +598,8 @@ const OrdersPage = () => {
   const knownOrderIds = useRef(new Set()); // Track known order IDs to detect truly new orders
   const [showActive, setShowActive] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'delivery', 'pickup', 'eat_in'
+  const [showKitchenView, setShowKitchenView] = useState(false); // Kitchen display system view
+  const [searchTerm, setSearchTerm] = useState(''); // Search functionality
 
   // Calculate dashboard metrics
   const dashboardMetrics = useMemo(() => {
@@ -658,8 +706,23 @@ const OrdersPage = () => {
       filtered = filtered.filter(order => order.deliveryMethod === activeFilter);
     }
     
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(order => {
+        // Search by customer name, phone, order ID, or items
+        const nameMatch = order.name?.toLowerCase().includes(searchLower);
+        const phoneMatch = order.phone?.includes(searchTerm);
+        const idMatch = (order.uid || order.id)?.toLowerCase().includes(searchLower);
+        const itemsMatch = order.items?.some(item => 
+          item.name?.toLowerCase().includes(searchLower)
+        );
+        return nameMatch || phoneMatch || idMatch || itemsMatch;
+      });
+    }
+    
     return filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [orders, activeFilter]);
+  }, [orders, activeFilter, searchTerm]);
 
   const activeOrders = sortedOrders.filter(order =>
     ['pending', 'preparing', 'ready', 'active', 'out_for_delivery'].includes(order.status)
@@ -672,119 +735,179 @@ const OrdersPage = () => {
     <div className="orders-container" style={{ paddingBottom: 80 }}>
       <h1 className="orders-title">{showActive ? 'الطلبات الحاليه' : 'الطلبات السابقه'}</h1>
       
-      {/* Dashboard Metrics */}
-      <div style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        margin: '0 -20px 20px -20px',
-        padding: '20px',
-        borderRadius: '0 0 20px 20px',
-        color: 'white',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-        gap: '15px'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>💰</div>
-          <div style={{ fontSize: '14px', opacity: 0.9 }}>المبيعات اليوم</div>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{dashboardMetrics.totalSalesToday.toLocaleString()}₪</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>📊</div>
-          <div style={{ fontSize: '14px', opacity: 0.9 }}>الطلبات النشطة</div>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{dashboardMetrics.activeOrdersCount}</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>⏱️</div>
-          <div style={{ fontSize: '14px', opacity: 0.9 }}>متوسط التحضير</div>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{dashboardMetrics.avgPrepTime} دقيقة</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>📈</div>
-          <div style={{ fontSize: '14px', opacity: 0.9 }}>جديد آخر ساعة</div>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{dashboardMetrics.newOrdersLastHour}</div>
-        </div>
-      </div>
 
-      {/* Quick Filter Buttons */}
+      {/* View Toggle and Filter Buttons */}
       <div style={{
         display: 'flex',
-        gap: '8px',
-        marginBottom: '20px',
         flexWrap: 'wrap',
-        justifyContent: 'center'
+        gap: '6px',
+        marginBottom: '20px',
+        justifyContent: 'center',
+        alignItems: 'center'
       }}>
+        {/* Kitchen View Toggle */}
+        <button
+          onClick={() => setShowKitchenView(!showKitchenView)}
+          style={{
+            padding: '8px 10px',
+            borderRadius: '20px',
+            border: showKitchenView ? '2px solid #dc3545' : '1px solid #dc3545',
+            background: showKitchenView ? '#dc3545' : 'white',
+            color: showKitchenView ? 'white' : '#dc3545',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '3px',
+            whiteSpace: 'nowrap',
+            flex: '0 0 auto',
+            minWidth: 'fit-content'
+          }}
+        >
+          {showKitchenView ? '📱 عادي' : '👨‍🍳 مطبخ'}
+        </button>
+        
+        {/* All Orders */}
         <button
           onClick={() => setActiveFilter('all')}
           style={{
-            padding: '8px 16px',
+            padding: '8px 12px',
             borderRadius: '20px',
             border: activeFilter === 'all' ? '2px solid #007bff' : '1px solid #ddd',
             background: activeFilter === 'all' ? '#007bff' : 'white',
             color: activeFilter === 'all' ? 'white' : '#333',
-            fontSize: '14px',
+            fontSize: '12px',
             fontWeight: 'bold',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            justifyContent: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap',
+            flex: '1 1 auto',
+            minWidth: 'fit-content'
           }}
         >
-          📊 جميع الطلبات ({orders.length})
+          📊 كل الطلبات ({orders.length})
         </button>
+        
+        {/* Delivery */}
         <button
           onClick={() => setActiveFilter('delivery')}
           style={{
-            padding: '8px 16px',
+            padding: '8px 10px',
             borderRadius: '20px',
             border: activeFilter === 'delivery' ? '2px solid #28a745' : '1px solid #28a745',
             background: activeFilter === 'delivery' ? '#28a745' : 'white',
             color: activeFilter === 'delivery' ? 'white' : '#28a745',
-            fontSize: '14px',
+            fontSize: '11px',
             fontWeight: 'bold',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            justifyContent: 'center',
+            gap: '3px',
+            whiteSpace: 'nowrap',
+            flex: '0 0 auto',
+            minWidth: 'fit-content'
           }}
         >
           🚚 توصيل ({orders.filter(order => order.deliveryMethod === 'delivery' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
         </button>
+        
+        {/* Pickup */}
         <button
           onClick={() => setActiveFilter('pickup')}
           style={{
-            padding: '8px 16px',
+            padding: '8px 10px',
             borderRadius: '20px',
             border: activeFilter === 'pickup' ? '2px solid #ffc107' : '1px solid #ffc107',
             background: activeFilter === 'pickup' ? '#ffc107' : 'white',
             color: activeFilter === 'pickup' ? 'white' : '#ffc107',
-            fontSize: '14px',
+            fontSize: '11px',
             fontWeight: 'bold',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            justifyContent: 'center',
+            gap: '3px',
+            whiteSpace: 'nowrap',
+            flex: '0 0 auto',
+            minWidth: 'fit-content'
           }}
         >
           🏪 استلام ({orders.filter(order => order.deliveryMethod === 'pickup' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
         </button>
+        
+        {/* Eat-in */}
         <button
           onClick={() => setActiveFilter('eat_in')}
           style={{
-            padding: '8px 16px',
+            padding: '8px 10px',
             borderRadius: '20px',
             border: activeFilter === 'eat_in' ? '2px solid #17a2b8' : '1px solid #17a2b8',
             background: activeFilter === 'eat_in' ? '#17a2b8' : 'white',
             color: activeFilter === 'eat_in' ? 'white' : '#17a2b8',
-            fontSize: '14px',
+            fontSize: '11px',
             fontWeight: 'bold',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            justifyContent: 'center',
+            gap: '3px',
+            whiteSpace: 'nowrap',
+            flex: '0 0 auto',
+            minWidth: 'fit-content'
           }}
         >
           🍽️ اكل بالمطعم ({orders.filter(order => order.deliveryMethod === 'eat_in' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
         </button>
+      </div>
+
+      {/* Advanced Search Bar */}
+      <div style={{
+        margin: '0 auto 20px auto',
+        maxWidth: '500px',
+        position: 'relative'
+      }}>
+        <input
+          type="text"
+          placeholder="🔍 البحث عن الطلبات (اسم العميل، رقم الهاتف، رقم الطلب، أو اسم الوجبة)..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '12px 20px 12px 45px',
+            borderRadius: '25px',
+            border: '2px solid #e0e0e0',
+            fontSize: '14px',
+            outline: 'none',
+            transition: 'border-color 0.3s ease',
+            backgroundColor: '#f8f9fa'
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#007bff'}
+          onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            style={{
+              position: 'absolute',
+              right: '15px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              fontSize: '18px',
+              cursor: 'pointer',
+              color: '#999'
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
@@ -810,8 +933,8 @@ const OrdersPage = () => {
           <p className="orders-empty">لا يوجد طلبات حالياً.</p>
         ) : (
           <div className="orders-grid">
-            {activeOrders.map((order) => (
-              <OrderCard key={order.uid || order.id} order={order} />
+            {activeOrders.map((order, index) => (
+              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} />
             ))}
           </div>
         )
@@ -820,8 +943,8 @@ const OrdersPage = () => {
           <p className="orders-empty">لا يوجد طلبات سابقة.</p>
         ) : (
           <div className="orders-grid">
-            {pastOrders.map((order) => (
-              <OrderCard key={order.uid || order.id} order={order} />
+            {pastOrders.map((order, index) => (
+              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} />
             ))}
           </div>
         )

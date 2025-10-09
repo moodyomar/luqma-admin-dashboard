@@ -10,6 +10,7 @@ import OrdersPage from '../pages/OrdersPage';
 import BusinessManagePage from '../pages/BusinessManagePage';
 import DriverOrdersPage from '../pages/DriverOrdersPage';
 import UserManagementPage from '../pages/UserManagementPage';
+import AnalyticsPage from '../pages/AnalyticsPage';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
@@ -32,6 +33,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/manage" element={
           <ProtectedRoute allowedRoles={['admin']}>
             <BusinessManagePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/analytics" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AnalyticsPage />
           </ProtectedRoute>
         } />
         <Route path="/users" element={
