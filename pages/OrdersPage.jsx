@@ -8,7 +8,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import './styles.css';
 import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle } from 'react-icons/io';
 
-const OrderCard = React.memo(({ order }) => {
+const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder }) => {
 
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
                         order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل'
@@ -143,6 +143,11 @@ ${paymentString === 'اونلاين' ?
         prepTimeUnit: selectedTime.unit,
         acceptedAt: new Date().toISOString(),
       });
+      
+      // Start the countdown timer
+      const prepTimeMinutes = selectedTime.value;
+      startTimerForOrder(order.id || order.uid, prepTimeMinutes);
+      
       setShowPrepTime(false);
     } catch (err) {
       alert('שגיאה בעדכון ההזמנה.');
@@ -289,24 +294,28 @@ ${paymentString === 'اونلاين' ?
       {/* Status Badge */}
       {getStatusBadge()}
 
-      {/* Estimated Prep Time */}
-      {order.status === 'preparing' && (
+      {/* Countdown Timer */}
+      {order.status === 'preparing' && estimatedPrepTime && (
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '6px',
           padding: '6px 12px',
           borderRadius: '20px',
-          backgroundColor: '#e3f2fd',
-          color: '#1976d2',
+          backgroundColor: orderTimers[order.id || order.uid] <= 300 ? '#ffebee' : '#e3f2fd', // Red if less than 5 min
+          color: orderTimers[order.id || order.uid] <= 300 ? '#d32f2f' : '#1976d2', // Red if less than 5 min
           fontSize: '12px',
           fontWeight: 'bold',
-          border: '1px solid #bbdefb',
+          border: `1px solid ${orderTimers[order.id || order.uid] <= 300 ? '#ffcdd2' : '#bbdefb'}`,
           marginBottom: '10px',
           marginLeft: '10px'
         }}>
           <span>⏱️</span>
-          <span>وقت متوقع: {estimatedPrepTime} دقيقة</span>
+          <span>
+            وقت متبقي: {orderTimers[order.id || order.uid] ? 
+              `${Math.floor(orderTimers[order.id || order.uid] / 60)}:${String(orderTimers[order.id || order.uid] % 60).padStart(2, '0')}` : 
+              `${estimatedPrepTime}:00`} دقيقة
+          </span>
         </div>
       )}
 
@@ -596,10 +605,18 @@ const OrdersPage = () => {
   const [prevOrdersCount, setPrevOrdersCount] = useState(0);
   const isFirstLoad = useRef(true); // 🟡 new flag
   const knownOrderIds = useRef(new Set()); // Track known order IDs to detect truly new orders
-  const [showActive, setShowActive] = useState(true);
+  const [viewType, setViewType] = useState('new'); // 'new', 'active', 'past'
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'delivery', 'pickup', 'eat_in'
-  const [showKitchenView, setShowKitchenView] = useState(false); // Kitchen display system view
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
+  const [orderTimers, setOrderTimers] = useState({}); // Track countdown timers for each order
+
+  // Function to start a timer for an order
+  const startTimerForOrder = (orderId, estimatedMinutes) => {
+    setOrderTimers(prev => ({
+      ...prev,
+      [orderId]: estimatedMinutes * 60 // Convert minutes to seconds
+    }));
+  };
 
   // Calculate dashboard metrics
   const dashboardMetrics = useMemo(() => {
@@ -698,6 +715,47 @@ const OrdersPage = () => {
     return () => unsubscribe();
   }, [prevOrdersCount]);
 
+  // Countdown timer effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOrderTimers(prevTimers => {
+        const newTimers = { ...prevTimers };
+        Object.keys(newTimers).forEach(orderId => {
+          if (newTimers[orderId] > 0) {
+            newTimers[orderId] = newTimers[orderId] - 1;
+          } else {
+            delete newTimers[orderId]; // Remove completed timers
+          }
+        });
+        return newTimers;
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initialize timers for orders that are preparing
+  useEffect(() => {
+    const newTimers = {};
+    orders.forEach(order => {
+      const orderId = order.id || order.uid;
+      
+      // Only start timer for orders that are preparing and don't already have a timer
+      if (order.status === 'preparing' && !orderTimers[orderId]) {
+        // Use the prep time that was set when order was accepted
+        let prepTimeMinutes = order.prepTimeMinutes || 15; // default 15 minutes if not set
+        
+        // Convert to seconds and start timer
+        const prepTimeSeconds = prepTimeMinutes * 60;
+        newTimers[orderId] = prepTimeSeconds;
+      }
+    });
+    
+    if (Object.keys(newTimers).length > 0) {
+      setOrderTimers(prev => ({ ...prev, ...newTimers }));
+    }
+  }, [orders]);
+
   const sortedOrders = useMemo(() => {
     let filtered = [...orders];
     
@@ -721,54 +779,42 @@ const OrdersPage = () => {
       });
     }
     
-    return filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // Sort by newest first (latest orders first)
+    return filtered.sort((a, b) => {
+      const timeA = new Date(a.createdAt);
+      const timeB = new Date(b.createdAt);
+      return timeB - timeA;
+    });
   }, [orders, activeFilter, searchTerm]);
 
+  const newOrders = sortedOrders.filter(order => order.status === 'pending');
   const activeOrders = sortedOrders.filter(order =>
-    ['pending', 'preparing', 'ready', 'active', 'out_for_delivery'].includes(order.status)
+    ['preparing', 'ready', 'active', 'out_for_delivery'].includes(order.status)
   );
   const pastOrders = sortedOrders.filter(order =>
     ['delivered', 'completed'].includes(order.status)
   );
 
   return (
-    <div className="orders-container" style={{ paddingBottom: 80 }}>
-      <h1 className="orders-title">{showActive ? 'الطلبات الحاليه' : 'الطلبات السابقه'}</h1>
+    <div className="orders-container" style={{ 
+      paddingBottom: 80,
+      overflowX: 'hidden',
+      maxWidth: '100%'
+    }}>
+      <h1 className="orders-title">
+        {viewType === 'new' ? 'الطلبات الجديدة' : 
+         viewType === 'active' ? 'الطلبات النشطة' : 'الطلبات السابقة'}
+      </h1>
       
 
       {/* View Toggle and Filter Buttons */}
-      <div style={{
+      <div className="filter-buttons-container" style={{
         display: 'flex',
-        flexWrap: 'wrap',
-        gap: '6px',
+        gap: '8px',
         marginBottom: '20px',
-        justifyContent: 'center',
-        alignItems: 'center'
+        padding: '0 10px',
+        overflowX: 'auto'
       }}>
-        {/* Kitchen View Toggle */}
-        <button
-          onClick={() => setShowKitchenView(!showKitchenView)}
-          style={{
-            padding: '8px 10px',
-            borderRadius: '20px',
-            border: showKitchenView ? '2px solid #dc3545' : '1px solid #dc3545',
-            background: showKitchenView ? '#dc3545' : 'white',
-            color: showKitchenView ? 'white' : '#dc3545',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '3px',
-            whiteSpace: 'nowrap',
-            flex: '0 0 auto',
-            minWidth: 'fit-content'
-          }}
-        >
-          {showKitchenView ? '📱 عادي' : '👨‍🍳 مطبخ'}
-        </button>
-        
         {/* All Orders */}
         <button
           onClick={() => setActiveFilter('all')}
@@ -786,8 +832,9 @@ const OrdersPage = () => {
             justifyContent: 'center',
             gap: '4px',
             whiteSpace: 'nowrap',
-            flex: '1 1 auto',
-            minWidth: 'fit-content'
+            flex: '0 0 auto',
+            minWidth: '120px',
+            whiteSpace: 'nowrap'
           }}
         >
           📊 كل الطلبات ({orders.length})
@@ -811,7 +858,8 @@ const OrdersPage = () => {
             gap: '3px',
             whiteSpace: 'nowrap',
             flex: '0 0 auto',
-            minWidth: 'fit-content'
+            minWidth: '120px',
+            whiteSpace: 'nowrap'
           }}
         >
           🚚 توصيل ({orders.filter(order => order.deliveryMethod === 'delivery' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
@@ -835,7 +883,8 @@ const OrdersPage = () => {
             gap: '3px',
             whiteSpace: 'nowrap',
             flex: '0 0 auto',
-            minWidth: 'fit-content'
+            minWidth: '120px',
+            whiteSpace: 'nowrap'
           }}
         >
           🏪 استلام ({orders.filter(order => order.deliveryMethod === 'pickup' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
@@ -859,7 +908,8 @@ const OrdersPage = () => {
             gap: '3px',
             whiteSpace: 'nowrap',
             flex: '0 0 auto',
-            minWidth: 'fit-content'
+            minWidth: '120px',
+            whiteSpace: 'nowrap'
           }}
         >
           🍽️ اكل بالمطعم ({orders.filter(order => order.deliveryMethod === 'eat_in' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
@@ -913,6 +963,7 @@ const OrdersPage = () => {
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       <AudioUnlocker />
       
+      
       {/* CSS Animations */}
       <style>
         {`
@@ -926,15 +977,35 @@ const OrdersPage = () => {
             90% { opacity: 1; }
             100% { opacity: 0; }
           }
+          
+          /* Hide scrollbars for filter buttons */
+          .filter-buttons-container::-webkit-scrollbar {
+            display: none;
+          }
+          
+          .filter-buttons-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
         `}
       </style>
-      {showActive ? (
+      {viewType === 'new' ? (
+        newOrders.length === 0 ? (
+          <p className="orders-empty">لا يوجد طلبات جديدة.</p>
+        ) : (
+          <div className="orders-grid">
+            {newOrders.map((order, index) => (
+              <OrderCard key={`new-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} />
+            ))}
+          </div>
+        )
+      ) : viewType === 'active' ? (
         activeOrders.length === 0 ? (
-          <p className="orders-empty">لا يوجد طلبات حالياً.</p>
+          <p className="orders-empty">لا يوجد طلبات نشطة.</p>
         ) : (
           <div className="orders-grid">
             {activeOrders.map((order, index) => (
-              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} />
+              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} />
             ))}
           </div>
         )
@@ -944,7 +1015,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {pastOrders.map((order, index) => (
-              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} />
+              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} />
             ))}
           </div>
         )
@@ -958,14 +1029,48 @@ const OrdersPage = () => {
         position: 'fixed', bottom: 0, left: 0, width: '100%', background: '#fff', borderTop: '1px solid #eee',
         display: 'flex', justifyContent: 'center', zIndex: 100, padding: '10px 0'
       }}>
+        {/* New Orders Tab */}
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <button
-            onClick={() => setShowActive(true)}
+            onClick={() => setViewType('new')}
             style={{
-              fontWeight: 700, fontSize: 18, color: showActive ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 24px', cursor: 'pointer'
+              fontWeight: 700, fontSize: 16, color: viewType === 'new' ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 12px', cursor: 'pointer'
             }}
           >
-            طلبات قيد التحضير
+            طلبات جديدة
+          </button>
+          {newOrders.length > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: -6,
+              right: -10,
+              minWidth: 22,
+              height: 22,
+              background: '#dc3545',
+              color: '#fff',
+              borderRadius: 11,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '0 6px',
+              boxShadow: '0 1px 4px #aaa'
+            }}>
+              {newOrders.length}
+            </span>
+          )}
+        </div>
+        
+        {/* Active Orders Tab */}
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            onClick={() => setViewType('active')}
+            style={{
+              fontWeight: 700, fontSize: 16, color: viewType === 'active' ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 12px', cursor: 'pointer'
+            }}
+          >
+            قيد التحضير
           </button>
           {activeOrders.length > 0 && (
             <span style={{
@@ -974,13 +1079,13 @@ const OrdersPage = () => {
               right: -10,
               minWidth: 22,
               height: 22,
-              background: '#E63119',
+              background: '#ffc107',
               color: '#fff',
               borderRadius: 11,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: 700,
               padding: '0 6px',
               boxShadow: '0 1px 4px #aaa'
@@ -989,12 +1094,16 @@ const OrdersPage = () => {
             </span>
           )}
         </div>
+        
+        {/* Past Orders Tab */}
         <button
-          onClick={() => setShowActive(false)}
+          onClick={() => setViewType('past')}
           style={{
-            fontWeight: 700, fontSize: 18, color: !showActive ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 24px', cursor: 'pointer'
+            fontWeight: 700, fontSize: 16, color: viewType === 'past' ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 12px', cursor: 'pointer'
           }}
-        >طلبات سابقة</button>
+        >
+          طلبات سابقة
+        </button>
       </div>
     </div>
   );
