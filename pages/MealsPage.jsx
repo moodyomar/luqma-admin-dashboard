@@ -504,22 +504,22 @@ const MealsPage = () => {
         <button
           onClick={() => window.location.href = '/manage'}
           className="loginButton secondary">
-          ניהול עסק
+          ⚙️ ניהול עסק
         </button>
         <button
           onClick={() => window.location.href = '/orders'}
           className="loginButton info">
-          הזמנות נכנסות
+          💰 הזמנות נכנסות
         </button>
         <button
           onClick={() => window.location.href = '/users'}
           className="loginButton secondary">
-          ניהול נהגים
+          🚘 ניהול נהגים
         </button>
         <button
           onClick={() => window.location.href = '/analytics'}
           className="loginButton warning">
-          📊 التحليلات
+          📊 סטטיסטיקות
         </button>
       </div>
     </div>
