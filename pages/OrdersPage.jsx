@@ -185,8 +185,55 @@ ${paymentString === 'اونلاين' ?
 
 
 
+  // Enhanced status badge with colors and icons
+  const getStatusBadge = () => {
+    const statusConfig = {
+      'pending': { text: 'جديد', color: '#dc3545', icon: '🔴', bgColor: '#fee' },
+      'preparing': { text: 'قيد التحضير', color: '#ffc107', icon: '🟡', bgColor: '#fffbf0' },
+      'ready': { text: 'جاهز', color: '#28a745', icon: '🟢', bgColor: '#f0fff4' },
+      'out_for_delivery': { text: 'قيد التوصيل', color: '#007bff', icon: '🔵', bgColor: '#f0f8ff' },
+      'delivered': { text: 'مكتمل', color: '#6c757d', icon: '⚫', bgColor: '#f8f9fa' },
+      'completed': { text: 'مكتمل', color: '#6c757d', icon: '⚫', bgColor: '#f8f9fa' },
+      'cancelled': { text: 'ملغي', color: '#dc3545', icon: '❌', bgColor: '#fee' }
+    };
+
+    const config = statusConfig[order.status] || statusConfig['pending'];
+    
+    return (
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '6px 12px',
+        borderRadius: '20px',
+        backgroundColor: config.bgColor,
+        color: config.color,
+        fontSize: '12px',
+        fontWeight: 'bold',
+        border: `1px solid ${config.color}20`,
+        marginBottom: '10px'
+      }}>
+        <span>{config.icon}</span>
+        <span>{config.text}</span>
+      </div>
+    );
+  };
+
+  // Check if this is a new order (created in last 5 minutes)
+  const isNewOrder = useMemo(() => {
+    const orderTime = new Date(order.createdAt);
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    return orderTime > fiveMinutesAgo;
+  }, [order.createdAt]);
+
   return (
-    <div className="order-card">
+    <div 
+      className="order-card"
+      style={{
+        animation: isNewOrder ? 'pulse 2s ease-in-out infinite' : 'none',
+        border: isNewOrder ? '2px solid #28a745' : '1px solid #ddd'
+      }}
+    >
       <div className="order-header">
         <div className="dateCol">
           <span className="order-date">{order.date}</span>
@@ -196,6 +243,27 @@ ${paymentString === 'اونلاين' ?
           <button className="printingBtn" onClick={() => handlePrint(order)}>🖨️</button>
         </div>
       </div>
+
+      {/* New Order Badge */}
+      {isNewOrder && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          background: '#28a745',
+          color: 'white',
+          padding: '4px 8px',
+          borderRadius: '12px',
+          fontSize: '10px',
+          fontWeight: 'bold',
+          animation: 'fadeOut 30s ease-out forwards'
+        }}>
+          جديد!
+        </div>
+      )}
+
+      {/* Status Badge */}
+      {getStatusBadge()}
 
       <div className="row">
         <div>
@@ -483,6 +551,38 @@ const OrdersPage = () => {
   const isFirstLoad = useRef(true); // 🟡 new flag
   const knownOrderIds = useRef(new Set()); // Track known order IDs to detect truly new orders
   const [showActive, setShowActive] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'delivery', 'pickup', 'eat_in'
+
+  // Calculate dashboard metrics
+  const dashboardMetrics = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayOrders = orders.filter(order => {
+      const orderDate = new Date(order.createdAt);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === today.getTime();
+    });
+
+    const activeOrders = orders.filter(order => !['delivered', 'completed', 'cancelled'].includes(order.status));
+    const newOrdersLastHour = orders.filter(order => {
+      const orderTime = new Date(order.createdAt);
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      return orderTime > oneHourAgo;
+    });
+
+    const totalSalesToday = todayOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+    const avgPrepTime = todayOrders.length > 0 
+      ? Math.round(todayOrders.reduce((sum, order) => sum + (order.prepTime || 15), 0) / todayOrders.length)
+      : 15;
+
+    return {
+      totalSalesToday,
+      activeOrdersCount: activeOrders.length,
+      avgPrepTime,
+      newOrdersLastHour: newOrdersLastHour.length
+    };
+  }, [orders]);
 
 
   useEffect(() => {
@@ -551,8 +651,15 @@ const OrdersPage = () => {
   }, [prevOrdersCount]);
 
   const sortedOrders = useMemo(() => {
-    return [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [orders]);
+    let filtered = [...orders];
+    
+    // Apply delivery method filter
+    if (activeFilter !== 'all') {
+      filtered = filtered.filter(order => order.deliveryMethod === activeFilter);
+    }
+    
+    return filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [orders, activeFilter]);
 
   const activeOrders = sortedOrders.filter(order =>
     ['pending', 'preparing', 'ready', 'active', 'out_for_delivery'].includes(order.status)
@@ -564,8 +671,140 @@ const OrdersPage = () => {
   return (
     <div className="orders-container" style={{ paddingBottom: 80 }}>
       <h1 className="orders-title">{showActive ? 'الطلبات الحاليه' : 'الطلبات السابقه'}</h1>
+      
+      {/* Dashboard Metrics */}
+      <div style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        margin: '0 -20px 20px -20px',
+        padding: '20px',
+        borderRadius: '0 0 20px 20px',
+        color: 'white',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: '15px'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>💰</div>
+          <div style={{ fontSize: '14px', opacity: 0.9 }}>المبيعات اليوم</div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{dashboardMetrics.totalSalesToday.toLocaleString()}₪</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>📊</div>
+          <div style={{ fontSize: '14px', opacity: 0.9 }}>الطلبات النشطة</div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{dashboardMetrics.activeOrdersCount}</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>⏱️</div>
+          <div style={{ fontSize: '14px', opacity: 0.9 }}>متوسط التحضير</div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{dashboardMetrics.avgPrepTime} دقيقة</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>📈</div>
+          <div style={{ fontSize: '14px', opacity: 0.9 }}>جديد آخر ساعة</div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{dashboardMetrics.newOrdersLastHour}</div>
+        </div>
+      </div>
+
+      {/* Quick Filter Buttons */}
+      <div style={{
+        display: 'flex',
+        gap: '8px',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        justifyContent: 'center'
+      }}>
+        <button
+          onClick={() => setActiveFilter('all')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '20px',
+            border: activeFilter === 'all' ? '2px solid #007bff' : '1px solid #ddd',
+            background: activeFilter === 'all' ? '#007bff' : 'white',
+            color: activeFilter === 'all' ? 'white' : '#333',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          📊 جميع الطلبات ({orders.length})
+        </button>
+        <button
+          onClick={() => setActiveFilter('delivery')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '20px',
+            border: activeFilter === 'delivery' ? '2px solid #28a745' : '1px solid #28a745',
+            background: activeFilter === 'delivery' ? '#28a745' : 'white',
+            color: activeFilter === 'delivery' ? 'white' : '#28a745',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          🚚 توصيل ({orders.filter(order => order.deliveryMethod === 'delivery' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
+        </button>
+        <button
+          onClick={() => setActiveFilter('pickup')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '20px',
+            border: activeFilter === 'pickup' ? '2px solid #ffc107' : '1px solid #ffc107',
+            background: activeFilter === 'pickup' ? '#ffc107' : 'white',
+            color: activeFilter === 'pickup' ? 'white' : '#ffc107',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          🏪 استلام ({orders.filter(order => order.deliveryMethod === 'pickup' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
+        </button>
+        <button
+          onClick={() => setActiveFilter('eat_in')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '20px',
+            border: activeFilter === 'eat_in' ? '2px solid #17a2b8' : '1px solid #17a2b8',
+            background: activeFilter === 'eat_in' ? '#17a2b8' : 'white',
+            color: activeFilter === 'eat_in' ? 'white' : '#17a2b8',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          🍽️ اكل بالمطعم ({orders.filter(order => order.deliveryMethod === 'eat_in' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
+        </button>
+      </div>
+
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       <AudioUnlocker />
+      
+      {/* CSS Animations */}
+      <style>
+        {`
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+          }
+          @keyframes fadeOut {
+            0% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+        `}
+      </style>
       {showActive ? (
         activeOrders.length === 0 ? (
           <p className="orders-empty">لا يوجد طلبات حالياً.</p>
