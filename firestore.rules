@@ -1,0 +1,164 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    // Check if user is authenticated
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    // Check if user belongs to a specific business
+    function hasBiz(bid) {
+      return isAuthed() && 
+             request.auth.token.businessIds != null &&
+             (bid in request.auth.token.businessIds);
+    }
+
+    // Check if user has admin role
+    function isAdmin() {
+      return isAuthed() && 
+             request.auth.token.roles != null &&
+             ('admin' in request.auth.token.roles);
+    }
+
+    // Check if user has driver role
+    function isDriver() {
+      return isAuthed() && 
+             request.auth.token.roles != null &&
+             ('driver' in request.auth.token.roles);
+    }
+
+    // Check if user is admin for specific business
+    function isBusinessAdmin(bid) {
+      return hasBiz(bid) && isAdmin();
+    }
+
+    // ========================================
+    // LEGACY GLOBAL USERS COLLECTION (for backwards compatibility)
+    // ========================================
+    match /users/{uid} {
+      // Allow users to read their own document
+      allow read: if isAuthed() && request.auth.uid == uid;
+      // Only super admins can write (for migration purposes)
+      allow write: if isAdmin();
+    }
+
+    // ========================================
+    // TENANT-SCOPED COLLECTIONS
+    // ========================================
+    match /menus/{businessId} {
+      
+      // Business settings document (read by anyone with access, write by admins only)
+      allow read: if hasBiz(businessId) || true; // Public read for menu display
+      allow write: if isBusinessAdmin(businessId);
+
+      // ========================================
+      // USERS SUBCOLLECTION (per-business membership)
+      // ========================================
+      match /users/{uid} {
+        // Users can read all members of their business
+        allow read: if hasBiz(businessId);
+        // Only admins can create/update user memberships
+        allow create, update: if isBusinessAdmin(businessId);
+        // Prevent deletion (soft delete via status field instead)
+        allow delete: if false;
+      }
+
+      // ========================================
+      // ORDERS SUBCOLLECTION
+      // ========================================
+      match /orders/{orderId} {
+        // Business members can read all orders
+        allow read: if hasBiz(businessId);
+        // Admins and drivers can update order status
+        allow update: if hasBiz(businessId) && (isAdmin() || isDriver());
+        // Only admins can create orders from dashboard (customers create via functions)
+        allow create: if isBusinessAdmin(businessId);
+        // Only admins can delete orders
+        allow delete: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // PRODUCTS/MEALS SUBCOLLECTION
+      // ========================================
+      match /products/{productId} {
+        // Public read for menu display (or restrict to hasBiz if needed)
+        allow read: if true;
+        // Only admins can manage products
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // CATEGORIES SUBCOLLECTION
+      // ========================================
+      match /categories/{categoryId} {
+        // Public read for menu display
+        allow read: if true;
+        // Only admins can manage categories
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // COUPONS SUBCOLLECTION
+      // ========================================
+      match /coupons/{couponId} {
+        // Business members can read coupons (for validation)
+        allow read: if hasBiz(businessId) || true; // Public read for customer validation
+        // Only admins can manage coupons
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // MEDIA SUBCOLLECTION
+      // ========================================
+      match /media/{mediaId} {
+        // Public read for displaying images
+        allow read: if true;
+        // Only admins can manage media
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // DRIVERS SUBCOLLECTION (if separate from users)
+      // ========================================
+      match /drivers/{driverId} {
+        // Business members can read drivers
+        allow read: if hasBiz(businessId);
+        // Only admins can manage drivers
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // ANALYTICS/STATS SUBCOLLECTION
+      // ========================================
+      match /analytics/{docId} {
+        // Only business members can read analytics
+        allow read: if hasBiz(businessId);
+        // Only admins can write analytics
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // NOTIFICATIONS SUBCOLLECTION
+      // ========================================
+      match /notifications/{notificationId} {
+        // Business members can read notifications
+        allow read: if hasBiz(businessId);
+        // System/admins can write notifications
+        allow write: if isBusinessAdmin(businessId);
+      }
+    }
+
+    // ========================================
+    // DENY ALL OTHER PATHS
+    // ========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

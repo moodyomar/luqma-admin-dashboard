@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import BusinessSwitcher from './components/BusinessSwitcher';
 import '../src/styles/admin.css'
 
 function App() {
   const navigate = useNavigate();
-  const { user, userRole, loading } = useAuth();
+  const { user, userRole, loading, hasMultipleBusinesses } = useAuth();
 
   useEffect(() => {
     if (!loading) {
@@ -42,6 +43,7 @@ function App() {
 
   return (
     <div style={{ padding: 40 }}>
+      {hasMultipleBusinesses && <BusinessSwitcher />}
       <h2>Redirecting...</h2>
     </div>
   );
