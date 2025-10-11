@@ -118,21 +118,83 @@ const AnalyticsPage = () => {
     // Daily Sales Breakdown
     const dailySales = {};
     filteredOrders.forEach(order => {
-      const date = new Date(order.createdAt).toLocaleDateString('he-IL');
-      if (!dailySales[date]) {
-        dailySales[date] = { sales: 0, orders: 0 };
+      // Create a proper date object and format it correctly
+      const orderDate = new Date(order.createdAt);
+      const dateKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      if (!dailySales[dateKey]) {
+        dailySales[dateKey] = { 
+          sales: 0, 
+          orders: 0,
+          displayDate: orderDate.toLocaleDateString('he-IL', { 
+            day: '2-digit', 
+            month: 'short'
+          })
+        };
       }
-      dailySales[date].sales += order.total || 0;
-      dailySales[date].orders += 1;
+      dailySales[dateKey].sales += order.total || 0;
+      dailySales[dateKey].orders += 1;
     });
 
     // Popular Items
     const itemCounts = {};
     filteredOrders.forEach(order => {
-      if (order.items) {
-        order.items.forEach(item => {
-          const itemName = item.name || item.title || 'Unknown Item';
-          itemCounts[itemName] = (itemCounts[itemName] || 0) + (item.quantity || 1);
+      // Handle different item structures
+      let items = order.cart || order.items || order.orderItems || order.products || order.meals || [];
+      
+      // If items is not an array, try to convert it
+      if (!Array.isArray(items)) {
+        if (typeof items === 'object' && items !== null) {
+          // Convert object to array
+          items = Object.values(items);
+        } else {
+          items = [];
+        }
+      }
+      
+      if (Array.isArray(items) && items.length > 0) {
+        items.forEach(item => {
+          if (typeof item === 'object' && item !== null) {
+            // Try to get item name from various possible structures
+            let itemName = item.name || item.title || item.productName || item.mealName || item.product?.name;
+            
+            // If itemName is an object (likely multilingual), extract Arabic or English name
+            if (typeof itemName === 'object' && itemName !== null) {
+              // Try Arabic first (since this is an Arabic app), then English, then any available language
+              itemName = itemName.ar || itemName.he || itemName.en || itemName.name || itemName.title || 
+                        Object.values(itemName)[0] || 'منتج غير محدد';
+            }
+            
+            // If still no name, try common nested patterns
+            if (!itemName || typeof itemName === 'object') {
+              itemName = item.product?.name || item.meal?.name || item.item?.name || 'منتج غير محدد';
+            }
+            
+            // Final fallback - if still an object, get first string value
+            if (typeof itemName === 'object' && itemName !== null) {
+              const stringValues = Object.values(itemName).filter(val => typeof val === 'string');
+              itemName = stringValues[0] || 'منتج غير محدد';
+            }
+            
+            // Ensure we have a string
+            if (!itemName || typeof itemName !== 'string') {
+              itemName = 'منتج غير محدد';
+            }
+            
+            const quantity = parseInt(item.quantity || item.qty || item.count || 1);
+            
+            if (itemName && itemName !== 'منتج غير محدد' && quantity > 0) {
+              itemCounts[itemName] = (itemCounts[itemName] || 0) + quantity;
+            }
+            
+            // Debug individual item processing
+            console.log('🔍 Processing item:', {
+              item,
+              extractedName: itemName,
+              quantity,
+              finalItemName: itemName
+            });
+          }
         });
       }
     });
@@ -140,6 +202,25 @@ const AnalyticsPage = () => {
     const popularItems = Object.entries(itemCounts)
       .sort(([,a], [,b]) => b - a)
       .slice(0, 10);
+      
+    // Debug logging
+    console.log('🔍 Analytics Debug:', {
+      totalOrders: filteredOrders.length,
+      ordersWithItems: filteredOrders.filter(o => (o.cart || o.items || o.orderItems || o.products)?.length > 0).length,
+      itemCounts,
+      popularItems,
+      sampleOrder: filteredOrders[0] ? {
+        id: filteredOrders[0].id,
+        hasItems: !!(filteredOrders[0].cart || filteredOrders[0].items || filteredOrders[0].orderItems || filteredOrders[0].products),
+        itemsField: filteredOrders[0].cart ? 'cart' :
+                   filteredOrders[0].items ? 'items' : 
+                   filteredOrders[0].orderItems ? 'orderItems' : 
+                   filteredOrders[0].products ? 'products' : 'none',
+        itemsData: filteredOrders[0].cart || filteredOrders[0].items || filteredOrders[0].orderItems || filteredOrders[0].products,
+        allFields: Object.keys(filteredOrders[0]),
+        fullOrderStructure: filteredOrders[0]
+      } : 'No orders'
+    });
 
     // Peak Hours Analysis
     const hourlyStats = {};
@@ -171,11 +252,16 @@ const AnalyticsPage = () => {
       paymentStats[method] = (paymentStats[method] || 0) + 1;
     });
 
+    // Sort daily sales by date and limit based on time range
+    const sortedDailySales = Object.entries(dailySales)
+      .sort(([a], [b]) => new Date(a) - new Date(b))
+      .slice(-days); // Show only the selected number of days
+
     return {
       totalSales,
       avgOrderValue,
       orderCount,
-      dailySales: Object.entries(dailySales).slice(-7), // Last 7 days
+      dailySales: sortedDailySales,
       popularItems,
       peakHours,
       deliveryStats,
@@ -511,10 +597,17 @@ const AnalyticsPage = () => {
           border: '1px solid #eee'
         }}>
           <h3 style={{ marginBottom: '20px', color: '#333' }}>📅 المبيعات اليومية</h3>
-          <div style={{ height: '200px', display: 'flex', alignItems: 'end', gap: '10px' }}>
+          <div style={{ 
+            height: '200px', 
+            display: 'flex', 
+            alignItems: 'end', 
+            gap: '10px',
+            paddingTop: '10px',
+            marginTop: '10px'
+          }}>
             {analytics.dailySales.map(([date, data], index) => {
               const maxSales = Math.max(...analytics.dailySales.map(([,d]) => d.sales));
-              const height = (data.sales / maxSales) * 180;
+              const height = (data.sales / maxSales) * 160; // Reduced from 180 to account for padding
               return (
                 <div key={date} style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{
@@ -525,7 +618,7 @@ const AnalyticsPage = () => {
                     minHeight: '4px'
                   }} />
                   <div style={{ fontSize: '12px', color: '#666' }}>
-                    {new Date(date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}
+                    {data.displayDate}
                   </div>
                   <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
                     {data.sales.toFixed(0)}₪
@@ -546,27 +639,65 @@ const AnalyticsPage = () => {
         }}>
           <h3 style={{ marginBottom: '20px', color: '#333' }}>🍕 المنتجات الأكثر طلباً</h3>
           <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-            {analytics.popularItems.map(([item, count], index) => (
-              <div key={item} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 0',
-                borderBottom: index < analytics.popularItems.length - 1 ? '1px solid #eee' : 'none'
-              }}>
-                <span style={{ fontSize: '14px', color: '#333' }}>{item}</span>
-                <span style={{
-                  background: '#007bff',
-                  color: 'white',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontSize: '12px',
-                  fontWeight: 'bold'
+            {analytics.popularItems && analytics.popularItems.length > 0 ? (
+              analytics.popularItems.map(([item, count], index) => (
+                <div key={item} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 0',
+                  borderBottom: index < analytics.popularItems.length - 1 ? '1px solid #eee' : 'none'
                 }}>
-                  {count}
-                </span>
+                  <span style={{ 
+                    fontSize: '14px', 
+                    color: '#333',
+                    fontWeight: '500',
+                    flex: 1,
+                    textAlign: 'right'
+                  }}>
+                    {item}
+                  </span>
+                  <span style={{
+                    background: 'linear-gradient(135deg, #007bff, #0056b3)',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '16px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    minWidth: '30px',
+                    textAlign: 'center',
+                    boxShadow: '0 2px 4px rgba(0,123,255,0.3)'
+                  }}>
+                    {count}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '40px 20px',
+                color: '#666',
+                fontSize: '14px'
+              }}>
+                <div style={{ 
+                  fontSize: '48px', 
+                  marginBottom: '16px',
+                  opacity: 0.5 
+                }}>
+                  🍕
+                </div>
+                <p style={{ margin: 0, marginBottom: '8px' }}>
+                  لا توجد بيانات متاحة
+                </p>
+                <p style={{ 
+                  margin: 0, 
+                  fontSize: '12px',
+                  color: '#999'
+                }}>
+                  سيتم عرض المنتجات الأكثر طلباً عند توفر الطلبات
+                </p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
