@@ -219,13 +219,15 @@ const DriverOrderCard = React.memo(({ order }) => {
 
 const DriverOrdersPage = () => {
   const [orders, setOrders] = useState([]);
-  const { user } = useAuth();
+  const { user, activeBusinessId } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
 
   useEffect(() => {
+    if (!activeBusinessId) return;
+    
     const unsubscribe = onSnapshot(
-      collection(db, 'menus', brandConfig.id, 'orders'), 
+      collection(db, 'menus', activeBusinessId, 'orders'), 
       (snapshot) => {
         const updatedOrders = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -235,7 +237,7 @@ const DriverOrdersPage = () => {
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [activeBusinessId]);
 
   const handleLogout = async () => {
     await signOut(auth);

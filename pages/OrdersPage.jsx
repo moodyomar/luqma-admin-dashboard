@@ -5,10 +5,11 @@ import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import AudioUnlocker, { getSharedAudio } from '../src/components/AudioUnlocker';
 import { Toaster, toast } from 'react-hot-toast';
+import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css';
 import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle } from 'react-icons/io';
 
-const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder }) => {
+const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId }) => {
 
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
                         order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل'
@@ -136,7 +137,7 @@ ${paymentString === 'اونلاين' ?
   const handleSetTimeAndAccept = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
       await updateDoc(ref, {
         status: 'preparing',
         prepTimeMinutes: selectedTime.value,
@@ -609,6 +610,7 @@ const OrdersPage = () => {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'delivery', 'pickup', 'eat_in'
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
   const [orderTimers, setOrderTimers] = useState({}); // Track countdown timers for each order
+  const { activeBusinessId } = useAuth();
 
   // Function to start a timer for an order
   const startTimerForOrder = (orderId, estimatedMinutes) => {
@@ -651,8 +653,10 @@ const OrdersPage = () => {
 
 
   useEffect(() => {
+    if (!activeBusinessId) return;
+    
     const unsubscribe = onSnapshot(
-      collection(db, 'menus', brandConfig.id, 'orders'), (snapshot) => {
+      collection(db, 'menus', activeBusinessId, 'orders'), (snapshot) => {
         const updatedOrders = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -713,7 +717,7 @@ const OrdersPage = () => {
       });
 
     return () => unsubscribe();
-  }, [prevOrdersCount]);
+  }, [activeBusinessId]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -995,7 +999,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {newOrders.map((order, index) => (
-              <OrderCard key={`new-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} />
+              <OrderCard key={`new-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} />
             ))}
           </div>
         )
@@ -1005,7 +1009,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {activeOrders.map((order, index) => (
-              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} />
+              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} />
             ))}
           </div>
         )
@@ -1015,7 +1019,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {pastOrders.map((order, index) => (
-              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} />
+              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} />
             ))}
           </div>
         )

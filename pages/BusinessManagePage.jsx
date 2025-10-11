@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Toaster, toast } from 'react-hot-toast';
+import { useAuth } from '../src/contexts/AuthContext';
 import { 
   IoMdAdd, 
   IoMdCreate, 
@@ -32,6 +33,7 @@ import './styles.css';
 const BusinessManagePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { activeBusinessId } = useAuth();
   const [form, setForm] = useState({
     deliveryFee: '',
     isOpen: true,
@@ -65,9 +67,9 @@ const BusinessManagePage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const ref = doc(db, 'menus', brandConfig.id);
-      console.log('Fetching data from Firebase path:', 'menus/' + brandConfig.id);
-      console.log('BrandConfig ID:', brandConfig.id);
+      const ref = doc(db, 'menus', activeBusinessId);
+      console.log('Fetching data from Firebase path:', 'menus/' + activeBusinessId);
+      console.log('Active Business ID:', activeBusinessId);
       const snap = await getDoc(ref);
       console.log('Firebase document exists:', snap.exists());
       
@@ -139,8 +141,10 @@ const BusinessManagePage = () => {
       }
       setLoading(false);
     };
-    fetchData();
-  }, []);
+    if (activeBusinessId) {
+      fetchData();
+    }
+  }, [activeBusinessId]);
 
   // Debug: Monitor form state changes
   useEffect(() => {
@@ -206,7 +210,7 @@ const BusinessManagePage = () => {
   const saveFeatureToFirebase = async (features) => {
     try {
       console.log('🔄 Auto-saving features to Firebase:', features);
-      const ref = doc(db, 'menus', brandConfig.id);
+      const ref = doc(db, 'menus', activeBusinessId);
       await updateDoc(ref, {
         'config.features': features,
       });
@@ -218,12 +222,12 @@ const BusinessManagePage = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    const ref = doc(db, 'menus', brandConfig.id);
+    const ref = doc(db, 'menus', activeBusinessId);
     try {
       console.log('=== SAVE OPERATION START ===');
-      console.log('BrandConfig ID:', brandConfig.id);
+      console.log('Active Business ID:', activeBusinessId);
       console.log('Current form features:', form.features);
-      console.log('About to save to Firebase path: menus/' + brandConfig.id);
+      console.log('About to save to Firebase path: menus/' + activeBusinessId);
       
       const updateData = {
         'config.deliveryFee': Number(form.deliveryFee),

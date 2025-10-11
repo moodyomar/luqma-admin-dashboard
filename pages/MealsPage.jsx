@@ -8,6 +8,7 @@ import CategoryManager from '../src/components/CategoryManager';
 import brandConfig from '../constants/brandConfig';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
+import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css'
 import SortableMealsList from '../src/components/SortableMealsList';
 import { FiLogOut } from 'react-icons/fi';
@@ -24,6 +25,7 @@ const MealsPage = () => {
   const [openFormCategory, setOpenFormCategory] = useState(null);
   const formRefs = useRef({});
   const categoryRefs = useRef({});
+  const { activeBusinessId } = useAuth();
 
   const toggleMeal = (mealId) => {
     setExpandedMeals(prev => ({
@@ -35,8 +37,10 @@ const MealsPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!activeBusinessId) return;
+    
     const fetchData = async () => {
-      const ref = doc(db, 'menus', brandConfig.id);
+      const ref = doc(db, 'menus', activeBusinessId);
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data();
@@ -52,7 +56,7 @@ const MealsPage = () => {
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [activeBusinessId]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -74,7 +78,7 @@ const MealsPage = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    const ref = doc(db, 'menus', brandConfig.id);
+    const ref = doc(db, 'menus', activeBusinessId);
 
     const cleanedMealsData = {
       ...mealsData,
@@ -183,7 +187,7 @@ const MealsPage = () => {
 
     // Update Firestore instantly
     try {
-      await updateDoc(doc(db, 'menus', brandConfig.id), {
+      await updateDoc(doc(db, 'menus', activeBusinessId), {
         [`items.${categoryId}`]: updated
       });
     } catch (err) {
@@ -429,7 +433,7 @@ const MealsPage = () => {
                         const updated = { ...mealsData.items, [categoryId]: reorderedMeals };
                         setMealsData({ ...mealsData, items: updated });
                         try {
-                          await updateDoc(doc(db, 'menus', brandConfig.id), {
+                          await updateDoc(doc(db, 'menus', activeBusinessId), {
                             [`items.${categoryId}`]: reorderedMeals
                           });
                         } catch (err) {
@@ -454,7 +458,7 @@ const MealsPage = () => {
                         setMealsData({ ...mealsData, items: updatedItems });
                         // Save to Firestore
                         try {
-                          await updateDoc(doc(db, 'menus', brandConfig.id), {
+                          await updateDoc(doc(db, 'menus', activeBusinessId), {
                             [`items.${oldCategoryId}`]: orderedOld,
                             [`items.${newCategoryId}`]: orderedNew,
                           });

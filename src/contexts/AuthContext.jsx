@@ -62,17 +62,20 @@ export const AuthProvider = ({ children }) => {
           }
           
           // ========================================
-          // 3. SET ACTIVE BUSINESS
+          // 3. VALIDATE BUSINESS ACCESS FOR CURRENT APP
           // ========================================
-          // Check if user has access to the configured brand
-          if (userBusinessIds.includes(brandConfig.id)) {
-            setActiveBusinessId(brandConfig.id);
-            console.log(`✅ Using configured business: ${brandConfig.id}`);
-          } else {
-            // Use first available business
-            setActiveBusinessId(userBusinessIds[0]);
-            console.log(`⚠️ User doesn't have access to ${brandConfig.id}, using: ${userBusinessIds[0]}`);
+          // Check if user has access to the configured brand for this app instance
+          if (!userBusinessIds.includes(brandConfig.id)) {
+            setUserRole('invalid');
+            setAuthError(`⚠️ لا يوجد لديك صلاحية للوصول إلى ${brandConfig.id}. حسابك مُفعل للوصول إلى: ${userBusinessIds.join(', ')}. يرجى تسجيل الخروج وتسجيل الدخول بالحساب المناسب.`);
+            console.warn(`❌ User doesn't have access to ${brandConfig.id}, has access to: ${userBusinessIds.join(', ')}`);
+            setLoading(false);
+            return;
           }
+          
+          // User has access to the configured business
+          setActiveBusinessId(brandConfig.id);
+          console.log(`✅ User has access to configured business: ${brandConfig.id}`);
           
           // ========================================
           // 4. SET USER ROLE

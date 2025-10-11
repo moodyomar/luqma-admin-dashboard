@@ -3,17 +3,21 @@ import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestor
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
 import brandConfig from '../constants/brandConfig';
+import { useAuth } from '../src/contexts/AuthContext';
 
 const AnalyticsPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('7d'); // '1d', '7d', '30d', '90d'
   const navigate = useNavigate();
+  const { activeBusinessId } = useAuth();
 
   useEffect(() => {
+    if (!activeBusinessId) return;
+    
     const unsubscribe = onSnapshot(
       query(
-        collection(db, 'menus', brandConfig.id, 'orders'),
+        collection(db, 'menus', activeBusinessId, 'orders'),
         orderBy('createdAt', 'desc'),
         limit(1000) // Limit for performance
       ),
@@ -28,7 +32,7 @@ const AnalyticsPage = () => {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [activeBusinessId]);
 
   // Calculate real-time status overview
   const realTimeStatus = useMemo(() => {

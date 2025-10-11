@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import AuthGuard from './components/AuthGuard';
 import ProtectedRoute from './components/ProtectedRoute';
 import App from './App';
 import LoginPage from '../pages/LoginPage';
@@ -15,44 +16,46 @@ import AnalyticsPage from '../pages/AnalyticsPage';
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <AuthProvider>
-    <Routes>
-      <Route path="/" element={<App />} />
-      <Route path="/login" element={<LoginPage />} />
-        
-        {/* Admin Routes */}
-        <Route path="/meals" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <MealsPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/orders" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <OrdersPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/manage" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <BusinessManagePage />
-          </ProtectedRoute>
-        } />
-        <Route path="/analytics" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AnalyticsPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/users" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <UserManagementPage />
-          </ProtectedRoute>
-        } />
-        
-        {/* Driver Routes */}
-        <Route path="/driver/orders" element={
-          <ProtectedRoute allowedRoles={['driver']}>
-            <DriverOrdersPage />
-          </ProtectedRoute>
-        } />
-    </Routes>
+      <AuthGuard>
+        <Routes>
+          <Route path="/" element={<App />} />
+          <Route path="/login" element={<LoginPage />} />
+            
+            {/* Admin Routes */}
+            <Route path="/meals" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <MealsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/orders" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <OrdersPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/manage" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <BusinessManagePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/analytics" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/users" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <UserManagementPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Driver Routes */}
+            <Route path="/driver/orders" element={
+              <ProtectedRoute allowedRoles={['driver']}>
+                <DriverOrdersPage />
+              </ProtectedRoute>
+            } />
+        </Routes>
+      </AuthGuard>
     </AuthProvider>
   </BrowserRouter>
 );
