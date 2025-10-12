@@ -103,12 +103,28 @@ const AnalyticsPage = () => {
     };
     
     const days = timeRanges[timeRange];
-    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
-    const filteredOrders = orders.filter(order => {
-      const orderDate = new Date(order.createdAt);
-      return orderDate >= startDate;
-    });
+    // More precise date filtering
+    let filteredOrders = [];
+    if (timeRange === '1d') {
+      // For "today" - only include orders from today
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      filteredOrders = orders.filter(order => {
+        const orderDate = new Date(order.createdAt);
+        return orderDate >= today && orderDate < tomorrow;
+      });
+    } else {
+      // For other ranges - use relative days
+      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      filteredOrders = orders.filter(order => {
+        const orderDate = new Date(order.createdAt);
+        return orderDate >= startDate;
+      });
+    }
 
     // Sales Analytics
     const totalSales = filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
@@ -120,7 +136,10 @@ const AnalyticsPage = () => {
     filteredOrders.forEach(order => {
       // Create a proper date object and format it correctly
       const orderDate = new Date(order.createdAt);
-      const dateKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      // Use local date to avoid timezone issues
+      const dateKey = orderDate.getFullYear() + '-' + 
+                     String(orderDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                     String(orderDate.getDate()).padStart(2, '0');
       
       if (!dailySales[dateKey]) {
         dailySales[dateKey] = { 
@@ -285,15 +304,12 @@ const AnalyticsPage = () => {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1 style={{ 
-        textAlign: 'center', 
-        marginBottom: '30px',
-        color: '#333',
-        fontSize: '28px'
-      }}>
-        📊 لوحة التحكم - التحليلات
-      </h1>
+    <div style={{ 
+      padding: window.innerWidth < 768 ? '8px' : '16px', 
+      paddingBottom: window.innerWidth < 768 ? '100px' : '16px',
+      maxWidth: '1200px', 
+      margin: '0 auto' 
+    }}>
 
       {/* Real-Time Status Overview */}
       <div style={{

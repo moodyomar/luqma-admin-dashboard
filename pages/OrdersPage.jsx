@@ -82,7 +82,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       }
 ${paymentString === 'اونلاين' ?
         `<p>💳 وضع الطلب: <strong>مدفوع</strong></p>`
-        : `<p>💳 طريقة الدفع: <strong>${paymentString || '—'}</strong></p>`}
+        : `<p>💳 الدفع: <strong>${paymentString || '—'}</strong></p>`}
       <p>📦 عدد المنتجات: <strong>${order.cart?.length || 0}</strong></p>
       <p>💰 السعر: <strong>₪${order.total || order.price}</strong></p>
 
@@ -343,10 +343,17 @@ ${paymentString === 'اونلاين' ?
         </div>
       </div>
 
-      <p>
-        <span className="label">🚚 التوصيل:</span>
-        <span className="value">{deliveryString || '—'}</span>
-      </p>
+      {/* Delivery and Payment in one row */}
+      <div className="row">
+        <div>
+          <span className="label">🚚 التوصيل:</span>
+          <span className="value">{deliveryString || '—'}</span>
+        </div>
+        <div>
+          <span className="label">💳 {paymentString === 'اونلاين' ? 'وضع الطلب:' : 'الدفع:'}</span>
+          <span className="value">{paymentString === 'اونلاين' ? 'مدفوع' : paymentString || '—'}</span>
+        </div>
+      </div>
 
       {/* Show address for delivery orders */}
       {order.deliveryMethod === 'delivery' && (
@@ -370,11 +377,6 @@ ${paymentString === 'اونلاين' ?
           📝 ملاحظات الموقع: {order.extraNotes}
         </p>
       )}
-
-      <p>
-        <span className="label">💳 {paymentString === 'اونلاين' ? 'وضع الطلب:' : 'طريقة الدفع:'}</span>
-        <span className="value">{paymentString === 'اونلاين' ? 'مدفوع' : paymentString || '—'}</span>
-      </p>
 
       <div className="row">
         <div>
@@ -622,13 +624,13 @@ const OrdersPage = () => {
 
   // Calculate dashboard metrics
   const dashboardMetrics = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const todayOrders = orders.filter(order => {
       const orderDate = new Date(order.createdAt);
-      orderDate.setHours(0, 0, 0, 0);
-      return orderDate.getTime() === today.getTime();
+      const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
+      return orderDateOnly.getTime() === today.getTime();
     });
 
     const activeOrders = orders.filter(order => !['delivered', 'completed', 'cancelled'].includes(order.status));
@@ -801,21 +803,20 @@ const OrdersPage = () => {
 
   return (
     <div className="orders-container" style={{ 
-      paddingBottom: 80,
+      paddingBottom: window.innerWidth < 768 ? '20px' : '20px', // No extra space needed since bottom nav is hidden on orders page
       overflowX: 'hidden',
-      maxWidth: '100%'
+      maxWidth: '100%',
+      paddingTop: '50px' // Perfect spacing from top bar
     }}>
-      <h1 className="orders-title">
-        {viewType === 'new' ? 'الطلبات الجديدة' : 
-         viewType === 'active' ? 'الطلبات النشطة' : 'الطلبات السابقة'}
-      </h1>
       
+
 
       {/* View Toggle and Filter Buttons */}
       <div className="filter-buttons-container" style={{
         display: 'flex',
         gap: '8px',
         marginBottom: '20px',
+        marginTop: '15px', // More extra space from top
         padding: '0 10px',
         overflowX: 'auto'
       }}>
@@ -823,22 +824,21 @@ const OrdersPage = () => {
         <button
           onClick={() => setActiveFilter('all')}
           style={{
-            padding: '8px 12px',
-            borderRadius: '20px',
+            padding: '6px 10px',
+            borderRadius: '18px',
             border: activeFilter === 'all' ? '2px solid #007bff' : '1px solid #ddd',
             background: activeFilter === 'all' ? '#007bff' : 'white',
             color: activeFilter === 'all' ? 'white' : '#333',
-            fontSize: '12px',
+            fontSize: '11px',
             fontWeight: 'bold',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '4px',
+            gap: '3px',
             whiteSpace: 'nowrap',
             flex: '0 0 auto',
-            minWidth: '120px',
-            whiteSpace: 'nowrap'
+            minWidth: '110px'
           }}
         >
           📊 كل الطلبات ({orders.length})
@@ -848,8 +848,8 @@ const OrdersPage = () => {
         <button
           onClick={() => setActiveFilter('delivery')}
           style={{
-            padding: '8px 10px',
-            borderRadius: '20px',
+            padding: '6px 10px',
+            borderRadius: '18px',
             border: activeFilter === 'delivery' ? '2px solid #28a745' : '1px solid #28a745',
             background: activeFilter === 'delivery' ? '#28a745' : 'white',
             color: activeFilter === 'delivery' ? 'white' : '#28a745',
@@ -862,8 +862,7 @@ const OrdersPage = () => {
             gap: '3px',
             whiteSpace: 'nowrap',
             flex: '0 0 auto',
-            minWidth: '120px',
-            whiteSpace: 'nowrap'
+            minWidth: '90px'
           }}
         >
           🚚 توصيل ({orders.filter(order => order.deliveryMethod === 'delivery' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
@@ -873,8 +872,8 @@ const OrdersPage = () => {
         <button
           onClick={() => setActiveFilter('pickup')}
           style={{
-            padding: '8px 10px',
-            borderRadius: '20px',
+            padding: '6px 10px',
+            borderRadius: '18px',
             border: activeFilter === 'pickup' ? '2px solid #ffc107' : '1px solid #ffc107',
             background: activeFilter === 'pickup' ? '#ffc107' : 'white',
             color: activeFilter === 'pickup' ? 'white' : '#ffc107',
@@ -887,8 +886,7 @@ const OrdersPage = () => {
             gap: '3px',
             whiteSpace: 'nowrap',
             flex: '0 0 auto',
-            minWidth: '120px',
-            whiteSpace: 'nowrap'
+            minWidth: '90px'
           }}
         >
           🏪 استلام ({orders.filter(order => order.deliveryMethod === 'pickup' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
@@ -1024,91 +1022,190 @@ const OrdersPage = () => {
           </div>
         )
       )}
+      
+      {/* Bottom Status Tabs - Modern like bottom navigation */}
+      <div className="bottom-status-tabs" style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '70px',
+        backgroundColor: '#fff',
+        borderTop: '1px solid #e5e5e7',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        padding: '8px 0',
+        zIndex: 9999,
+        backdropFilter: 'blur(20px)',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        boxShadow: '0 -2px 20px rgba(0, 0, 0, 0.1)'
+      }}>
+        <button
+          onClick={() => setViewType('new')}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            transition: 'all 0.2s ease',
+            position: 'relative'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = '#f5f5f5';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = 'transparent';
+          }}
+        >
+          <div style={{ position: 'relative' }}>
+            <span style={{ 
+              fontSize: '20px', 
+              color: viewType === 'new' ? '#007AFF' : '#666'
+            }}>
+              📦
+            </span>
+            {newOrders.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                backgroundColor: '#FF3B30',
+                color: 'white',
+                borderRadius: '50%',
+                width: '18px',
+                height: '18px',
+                fontSize: '10px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'system-ui'
+              }}>
+                {newOrders.length > 9 ? '9+' : newOrders.length}
+              </div>
+            )}
+          </div>
+          <span style={{ 
+            fontSize: '11px', 
+            fontWeight: '500',
+            color: viewType === 'new' ? '#007AFF' : '#666'
+          }}>
+            طلبات جديدة
+          </span>
+        </button>
+
+        <button
+          onClick={() => setViewType('active')}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            transition: 'all 0.2s ease',
+            position: 'relative'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = '#f5f5f5';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = 'transparent';
+          }}
+        >
+          <div style={{ position: 'relative' }}>
+            <span style={{ 
+              fontSize: '20px', 
+              color: viewType === 'active' ? '#34C759' : '#666'
+            }}>
+              ⏳
+            </span>
+            {activeOrders.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                backgroundColor: '#FF9500',
+                color: 'white',
+                borderRadius: '50%',
+                width: '18px',
+                height: '18px',
+                fontSize: '10px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'system-ui'
+              }}>
+                {activeOrders.length > 9 ? '9+' : activeOrders.length}
+              </div>
+            )}
+          </div>
+          <span style={{ 
+            fontSize: '11px', 
+            fontWeight: '500',
+            color: viewType === 'active' ? '#34C759' : '#666'
+          }}>
+            طلبات قيد التحضير
+          </span>
+        </button>
+
+        <button
+          onClick={() => setViewType('past')}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = '#f5f5f5';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = 'transparent';
+          }}
+        >
+          <span style={{ 
+            fontSize: '20px', 
+            color: viewType === 'past' ? '#8E8E93' : '#666'
+          }}>
+            ✅
+          </span>
+          <span style={{ 
+            fontSize: '11px', 
+            fontWeight: '500',
+            color: viewType === 'past' ? '#8E8E93' : '#666'
+          }}>
+            طلبات سابقة
+          </span>
+        </button>
+      </div>
+
+      {/* Main Content Spacer for Bottom Tabs */}
+      <div style={{ height: '80px' }} />
+      
       <audio id="orderSound" preload="auto">
         <source src="/sounds/luqma.mp3" type="audio/mpeg" />
         Your browser does not support the audio element.
       </audio>
-      {/* Fixed bottom nav */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, width: '100%', background: '#fff', borderTop: '1px solid #eee',
-        display: 'flex', justifyContent: 'center', zIndex: 100, padding: '10px 0'
-      }}>
-        {/* New Orders Tab */}
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-          <button
-            onClick={() => setViewType('new')}
-            style={{
-              fontWeight: 700, fontSize: 16, color: viewType === 'new' ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 12px', cursor: 'pointer'
-            }}
-          >
-            طلبات جديدة
-          </button>
-          {newOrders.length > 0 && (
-            <span style={{
-              position: 'absolute',
-              top: -6,
-              right: -10,
-              minWidth: 22,
-              height: 22,
-              background: '#dc3545',
-              color: '#fff',
-              borderRadius: 11,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              fontWeight: 700,
-              padding: '0 6px',
-              boxShadow: '0 1px 4px #aaa'
-            }}>
-              {newOrders.length}
-            </span>
-          )}
-        </div>
-        
-        {/* Active Orders Tab */}
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-          <button
-            onClick={() => setViewType('active')}
-            style={{
-              fontWeight: 700, fontSize: 16, color: viewType === 'active' ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 12px', cursor: 'pointer'
-            }}
-          >
-            قيد التحضير
-          </button>
-          {activeOrders.length > 0 && (
-            <span style={{
-              position: 'absolute',
-              top: -6,
-              right: -10,
-              minWidth: 22,
-              height: 22,
-              background: '#ffc107',
-              color: '#fff',
-              borderRadius: 11,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              fontWeight: 700,
-              padding: '0 6px',
-              boxShadow: '0 1px 4px #aaa'
-            }}>
-              {activeOrders.length}
-            </span>
-          )}
-        </div>
-        
-        {/* Past Orders Tab */}
-        <button
-          onClick={() => setViewType('past')}
-          style={{
-            fontWeight: 700, fontSize: 16, color: viewType === 'past' ? '#007aff' : '#888', background: 'none', border: 'none', margin: '0 12px', cursor: 'pointer'
-          }}
-        >
-          طلبات سابقة
-        </button>
-      </div>
     </div>
   );
 };

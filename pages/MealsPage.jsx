@@ -199,45 +199,11 @@ const MealsPage = () => {
   if (loading) return <p>Loading...</p>;
 
   return (
-    <div style={{ padding: 2, marginBottom: 85, position: 'relative' }}>
-      {/* Top-right logout icon, higher and more visible */}
-      <button
-        onClick={handleLogout}
-        style={{
-          position: 'fixed', // fixed to viewport
-          top: 24,
-          right: 32,
-          background: '#dc3545',
-          border: 'none',
-          color: '#fff',
-          width: 44,
-          height: 44,
-          borderRadius: 10,
-          fontSize: 26,
-          cursor: 'pointer',
-          zIndex: 200,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.2s',
-        }}
-        title="تسجيل خروج"
-        aria-label="تسجيل خروج"
-        onMouseOver={e => (e.currentTarget.style.background = '#b71c1c')}
-        onMouseOut={e => (e.currentTarget.style.background = '#dc3545')}
-      >
-        <FiLogOut />
-      </button>
-      <h2 style={{
-        textAlign: 'center',
-        fontSize: '24px',
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: '24px',
-      }}>
-        ממשק ניהול התפריט
-      </h2>
+    <div style={{ 
+      padding: window.innerWidth < 768 ? '8px' : '16px', 
+      paddingBottom: window.innerWidth < 768 ? '100px' : '16px', // Space for mobile bottom nav
+      position: 'relative' 
+    }}>
       <div className="buttonsWrapper">
         <button
           onClick={() => setShowCategoryManager(prev => !prev)}
@@ -503,29 +469,6 @@ const MealsPage = () => {
         💾
       </button>
 
-      {/* Main Navigation Buttons */}
-      <div className="loginButtons" style={{ gap: '10px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <button
-          onClick={() => window.location.href = '/manage'}
-          className="loginButton secondary">
-          ⚙️ ניהול עסק
-        </button>
-        <button
-          onClick={() => window.location.href = '/orders'}
-          className="loginButton info">
-          💰 הזמנות נכנסות
-        </button>
-        <button
-          onClick={() => window.location.href = '/users'}
-          className="loginButton secondary">
-          🚘 ניהול נהגים
-        </button>
-        <button
-          onClick={() => window.location.href = '/analytics'}
-          className="loginButton warning">
-          📊 סטטיסטיקות
-        </button>
-      </div>
     </div>
   );
 };

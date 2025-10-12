@@ -17,7 +17,7 @@ const UserManagementPage = () => {
     name: '',
     phone: ''
   });
-  const { userRole } = useAuth();
+  const { userRole, activeBusinessId } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,12 +25,17 @@ const UserManagementPage = () => {
       navigate('/meals');
       return;
     }
-    fetchDrivers();
-  }, [userRole, navigate]);
+    if (activeBusinessId) {
+      fetchDrivers();
+    }
+  }, [userRole, navigate, activeBusinessId]);
 
   const fetchDrivers = async () => {
+    if (!activeBusinessId) return;
+    
     try {
-      const usersRef = collection(db, 'users');
+      // Use correct Firestore path according to rules: /menus/{businessId}/users/{uid}
+      const usersRef = collection(db, 'menus', activeBusinessId, 'users');
       const snapshot = await getDocs(usersRef);
       const driverUsers = [];
       
@@ -47,6 +52,8 @@ const UserManagementPage = () => {
       setDrivers(driverUsers);
     } catch (error) {
       console.error('Error fetching drivers:', error);
+      // Set empty array on error to prevent UI issues
+      setDrivers([]);
     }
   };
 
@@ -69,14 +76,15 @@ const UserManagementPage = () => {
         formData.password
       );
 
-      // Create user document in Firestore
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
+      // Create user document in Firestore - using correct path
+      await setDoc(doc(db, 'menus', activeBusinessId, 'users', userCredential.user.uid), {
         role: 'driver',
         email: formData.email,
         name: formData.name,
         phone: formData.phone,
         createdAt: new Date().toISOString(),
-        createdBy: auth.currentUser.uid
+        createdBy: auth.currentUser.uid,
+        businessId: activeBusinessId
       });
 
       // Reset form
@@ -103,8 +111,8 @@ const UserManagementPage = () => {
   const handleDeleteDriver = async (driverId) => {
     if (!window.confirm('هل أنت متأكد أنك تريد حذف هذا السائق؟')) return;
     try {
-      // Delete from Firestore
-      await deleteDoc(doc(db, 'users', driverId));
+      // Delete from Firestore - using correct path
+      await deleteDoc(doc(db, 'menus', activeBusinessId, 'users', driverId));
       // Optionally, delete from Firebase Auth (requires admin SDK in backend for full security)
       // If you want to delete from Auth here, you must be logged in as that user, which is not practical for admin panel.
       // So, we only delete from Firestore here.
@@ -132,44 +140,13 @@ const UserManagementPage = () => {
   };
 
   return (
-    <div style={{ padding: 20, maxWidth: 800, margin: '0 auto', position: 'relative' }}>
-      {/* Top-right logout icon, fixed and styled */}
-      <button
-        onClick={handleLogout}
-        style={{
-          position: 'fixed',
-          top: 24,
-          right: 32,
-          background: '#dc3545',
-          border: 'none',
-          color: '#fff',
-          width: 44,
-          height: 44,
-          borderRadius: 10,
-          fontSize: 26,
-          cursor: 'pointer',
-          zIndex: 200,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.2s',
-        }}
-        title="تسجيل خروج"
-        aria-label="تسجيل خروج"
-        onMouseOver={e => (e.currentTarget.style.background = '#b71c1c')}
-        onMouseOut={e => (e.currentTarget.style.background = '#dc3545')}
-      >
-        <FiLogOut />
-      </button>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        marginBottom: 30 
-      }}>
-        <h1 style={{ margin: 0, color: '#333', textAlign: 'center', flex: 1 }}>إدارة السائقين</h1>
-      </div>
+    <div style={{ 
+      padding: window.innerWidth < 768 ? '8px' : '16px', 
+      paddingBottom: window.innerWidth < 768 ? '100px' : '16px', // Space for mobile bottom nav
+      maxWidth: 800, 
+      margin: '0 auto', 
+      position: 'relative' 
+    }}>
 
       {/* Create Driver Form */}
       <div style={{ 
