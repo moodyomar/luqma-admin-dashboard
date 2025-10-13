@@ -130,6 +130,11 @@ const AnalyticsPage = () => {
     const totalSales = filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
     const avgOrderValue = filteredOrders.length > 0 ? totalSales / filteredOrders.length : 0;
     const orderCount = filteredOrders.length;
+    
+    // Completed Orders (delivered or served status)
+    const completedOrders = filteredOrders.filter(order => 
+      order.status === 'delivered' || order.status === 'served' || order.status === 'completed'
+    ).length;
 
     // Daily Sales Breakdown
     const dailySales = {};
@@ -280,6 +285,7 @@ const AnalyticsPage = () => {
       totalSales,
       avgOrderValue,
       orderCount,
+      completedOrders,
       dailySales: sortedDailySales,
       popularItems,
       peakHours,
@@ -565,6 +571,20 @@ const AnalyticsPage = () => {
           <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>عدد الطلبات</div>
           <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
             {analytics.orderCount.toLocaleString()}
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+          padding: '25px',
+          borderRadius: '15px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '32px', marginBottom: '10px' }}>✅</div>
+          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>الطلبات المكتملة</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+            {analytics.completedOrders.toLocaleString()}
           </div>
         </div>
 

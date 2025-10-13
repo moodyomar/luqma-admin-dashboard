@@ -328,8 +328,7 @@ const BusinessManagePage = () => {
   if (loading) return <p>טוען...</p>;
 
   return (
-    <div style={{ maxWidth: 440, margin: '10px auto', padding: 20, background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px #e0e0e0', display: 'flex', flexDirection: 'column', gap: 15 }}>
-      <h2 style={{ textAlign: 'center', marginBottom: 8, fontWeight: 700, color: '#222' }}>ניהול עסק</h2>
+    <div style={{ margin: '10px auto', padding: 20, background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px #e0e0e0', display: 'flex', flexDirection: 'column', gap: 15 }}>
       {/* Modern compact upper section */}
       <div
         style={{
@@ -635,10 +634,10 @@ const BusinessManagePage = () => {
             {/* Coupon filter buttons */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
               {[
-                { value: 'all', label: 'כל הקופונים' },
-                { value: 'active', label: 'פעילים' },
-                { value: 'inactive', label: 'לא פעילים' },
-                { value: 'expired', label: 'פגי תוקף' }
+                { value: 'all', label: 'הכל' },
+                { value: 'active', label: 'פעיל' },
+                { value: 'inactive', label: 'לא פעיל' },
+                { value: 'expired', label: 'פג תוקף' }
               ].map(filterOption => (
                 <button
                   key={filterOption.value}

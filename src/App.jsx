@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { useSidebar } from './contexts/SidebarContext';
 import BusinessSwitcher from './components/BusinessSwitcher';
 import AdminSidebar from './components/AdminSidebar';
 import DriverBottomNav from './components/DriverBottomNav';
@@ -12,8 +13,7 @@ import LoginPage from '../pages/LoginPage';
 import MealsPage from '../pages/MealsPage';
 import OrdersPage from '../pages/OrdersPage';
 import DriverOrdersPage from '../pages/DriverOrdersPage';
-import UserManagementPage from '../pages/UserManagementPage';
-import BusinessManagePage from '../pages/BusinessManagePage';
+import SettingsPage from '../pages/SettingsPage';
 import AnalyticsPage from '../pages/AnalyticsPage';
 import CouponManagementPage from '../pages/CouponManagementPage';
 import DashboardPage from '../pages/DashboardPage';
@@ -23,6 +23,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, userRole, loading, hasMultipleBusinesses } = useAuth();
+  const { isCollapsed } = useSidebar();
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
 
   // Handle window resize for responsive design
@@ -45,7 +46,7 @@ function App() {
       if (user) {
         // Only redirect if not already on a valid page
         const currentPath = location.pathname;
-        const validAdminPaths = ['/dashboard', '/orders', '/meals', '/users', '/manage', '/analytics', '/coupons'];
+        const validAdminPaths = ['/dashboard', '/orders', '/meals', '/settings', '/analytics', '/coupons'];
         const validDriverPaths = ['/driver/orders', '/driver/profile'];
         
         if (userRole === 'driver' && !validDriverPaths.includes(currentPath)) {
@@ -161,8 +162,7 @@ function App() {
                 {location.pathname === '/dashboard' && 'لوحة التحكم'}
                 {location.pathname === '/orders' && 'إدارة الطلبات'}
                 {location.pathname === '/meals' && 'إدارة القائمة'}
-                {location.pathname === '/users' && 'إدارة المستخدمين'}
-                {location.pathname === '/manage' && 'إعدادات العمل'}
+                {location.pathname === '/settings' && 'الإعدادات'}
                 {location.pathname === '/analytics' && 'التقارير والإحصائيات'}
                 {location.pathname === '/coupons' && 'إدارة الكوبونات'}
               </h1>
@@ -209,8 +209,7 @@ function App() {
                 {location.pathname === '/dashboard' && 'لوحة التحكم'}
                 {location.pathname === '/orders' && 'الطلبات'}
                 {location.pathname === '/meals' && 'إدارة القائمة'}
-                {location.pathname === '/users' && 'إدارة المستخدمين'}
-                {location.pathname === '/manage' && 'إعدادات العمل'}
+                {location.pathname === '/settings' && 'الإعدادات'}
                 {location.pathname === '/analytics' && 'التقارير والإحصائيات'}
                 {location.pathname === '/coupons' && 'إدارة الكوبونات'}
               </h1>
@@ -224,8 +223,8 @@ function App() {
 
         {/* Content with proper spacing */}
         <div style={{
-          paddingTop: '0',
-          paddingLeft: isLoginPage ? '0' : (user && userRole === 'admin' && !isLoginPage && !isMobile ? '280px' : '0'),
+          paddingTop: !isLoginPage && user && userRole === 'admin' && !isMobile ? '80px' : '0',
+          paddingLeft: isLoginPage ? '0' : (user && userRole === 'admin' && !isLoginPage && !isMobile ? (isCollapsed ? '64px' : '280px') : '0'),
           paddingRight: '0',
           paddingBottom: (user && userRole === 'driver' && !isLoginPage) || 
                         (user && userRole === 'admin' && !isLoginPage && isMobile && location.pathname !== '/orders') ? '80px' : '0',
@@ -259,18 +258,10 @@ function App() {
               </AuthGuard>
             } />
             
-            <Route path="/users" element={
+            <Route path="/settings" element={
               <AuthGuard>
                 <ProtectedRoute>
-                  <UserManagementPage />
-                </ProtectedRoute>
-              </AuthGuard>
-            } />
-            
-            <Route path="/manage" element={
-              <AuthGuard>
-                <ProtectedRoute>
-                  <BusinessManagePage />
+                  <SettingsPage />
                 </ProtectedRoute>
               </AuthGuard>
             } />

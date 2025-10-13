@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSidebar } from '../contexts/SidebarContext';
 import { 
   FiHome, 
   FiPackage, 
@@ -17,24 +18,21 @@ const AdminSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user, userRole } = useAuth();
-  const [isCollapsed, setIsCollapsed] = React.useState(window.innerWidth < 768);
+  const { isCollapsed, setIsCollapsed } = useSidebar();
 
   // Handle window resize
   React.useEffect(() => {
     const handleResize = () => {
-      setIsCollapsed(window.innerWidth < 768);
+      // Auto-collapse on mobile, but allow manual toggle on desktop
+      if (window.innerWidth < 768) {
+        setIsCollapsed(true);
+      }
+      // On desktop, keep the current state (collapsed or expanded)
     };
     
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Auto-collapse on mobile on mount
-  React.useEffect(() => {
-    if (window.innerWidth < 768) {
-      setIsCollapsed(true);
-    }
-  }, []);
+  }, [setIsCollapsed]);
 
   const menuItems = [
     {
@@ -66,17 +64,10 @@ const AdminSidebar = () => {
       adminOnly: true
     },
     {
-      id: 'users',
-      label: 'إدارة المستخدمين',
-      icon: FiUsers,
-      path: '/users',
-      adminOnly: true
-    },
-    {
       id: 'settings',
       label: 'الإعدادات',
       icon: FiSettings,
-      path: '/manage',
+      path: '/settings',
       adminOnly: true
     }
   ];
@@ -121,7 +112,7 @@ const AdminSidebar = () => {
         top: 0,
         left: 0,
         height: '100vh',
-        width: isCollapsed ? '80px' : '280px',
+        width: isCollapsed ? '64px' : '280px',
         backgroundColor: '#1a1a1a',
         color: 'white',
         zIndex: 1000,
@@ -135,12 +126,12 @@ const AdminSidebar = () => {
         
         {/* Header */}
         <div style={{
-          padding: '24px',
+          padding: isCollapsed ? '16px 8px' : '24px',
           borderBottom: '1px solid #333',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          minHeight: '80px'
+          justifyContent: isCollapsed ? 'center' : 'space-between',
+          minHeight: isCollapsed ? '64px' : '80px'
         }}>
           {!isCollapsed && (
             <div>
@@ -183,7 +174,8 @@ const AdminSidebar = () => {
               justifyContent: 'center',
               transition: 'all 0.2s ease',
               pointerEvents: 'auto',
-              zIndex: 1001
+              zIndex: 1001,
+              marginLeft: isCollapsed ? '0' : 'auto'
             }}
           >
             {isCollapsed ? <FiMenu size={20} /> : <FiX size={20} />}
@@ -213,7 +205,7 @@ const AdminSidebar = () => {
                   width: '100%',
                   display: 'flex',
                   alignItems: 'center',
-                  padding: '16px 24px',
+                  padding: isCollapsed ? '16px 8px' : '16px 24px',
                   border: 'none',
                   background: active ? '#007AFF' : 'transparent',
                   color: active ? '#fff' : '#ccc',
@@ -225,7 +217,8 @@ const AdminSidebar = () => {
                   fontWeight: active ? '500' : '400',
                   position: 'relative',
                   pointerEvents: 'auto',
-                  zIndex: 1001
+                  zIndex: 1001,
+                  justifyContent: isCollapsed ? 'center' : 'flex-start'
                 }}
               >
                 <Icon 
@@ -233,7 +226,10 @@ const AdminSidebar = () => {
                   style={{ 
                     marginLeft: isCollapsed ? '0' : '12px',
                     marginRight: isCollapsed ? '0' : 'auto',
-                    minWidth: '20px'
+                    minWidth: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }} 
                 />
                 {!isCollapsed && (
@@ -262,7 +258,7 @@ const AdminSidebar = () => {
 
         {/* Footer */}
         <div style={{
-          padding: '16px 24px',
+          padding: isCollapsed ? '16px 8px' : '16px 24px',
           borderTop: '1px solid #333'
         }}>
           <button
@@ -276,7 +272,7 @@ const AdminSidebar = () => {
               width: '100%',
               display: 'flex',
               alignItems: 'center',
-              padding: '12px 16px',
+              padding: isCollapsed ? '12px 8px' : '12px 16px',
               border: 'none',
               background: 'transparent',
               color: '#ff6b6b',
@@ -287,7 +283,8 @@ const AdminSidebar = () => {
               fontSize: '14px',
               fontWeight: '500',
               pointerEvents: 'auto',
-              zIndex: 1001
+              zIndex: 1001,
+              justifyContent: isCollapsed ? 'center' : 'flex-start'
             }}
           >
             <FiLogOut 
@@ -295,7 +292,10 @@ const AdminSidebar = () => {
               style={{ 
                 marginLeft: isCollapsed ? '0' : '12px',
                 marginRight: isCollapsed ? '0' : 'auto',
-                minWidth: '18px'
+                minWidth: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }} 
             />
             {!isCollapsed && (
@@ -307,13 +307,6 @@ const AdminSidebar = () => {
         </div>
       </div>
 
-      {/* Main Content Spacer - Only on desktop */}
-      {window.innerWidth >= 768 && (
-        <div style={{
-          width: isCollapsed ? '80px' : '280px',
-          transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-        }} />
-      )}
     </>
   );
 };

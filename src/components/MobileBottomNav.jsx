@@ -43,10 +43,10 @@ const MobileBottomNav = () => {
       adminOnly: true
     },
     {
-      id: 'users',
-      label: 'المستخدمين',
-      icon: FiUsers,
-      path: '/users',
+      id: 'settings',
+      label: 'الإعدادات',
+      icon: FiSettings,
+      path: '/settings',
       adminOnly: true
     }
   ];

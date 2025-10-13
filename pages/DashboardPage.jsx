@@ -109,7 +109,7 @@ const DashboardPage = () => {
             
             if (order.status === 'pending' || order.status === 'confirmed') {
               pendingOrders++;
-            } else if (order.status === 'completed' || order.status === 'delivered') {
+            } else if (order.status === 'completed' || order.status === 'delivered' || order.status === 'served') {
               completedOrders++;
             }
           });
