@@ -7,10 +7,11 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { IoMdCheckmark, IoMdClose, IoMdBicycle } from 'react-icons/io';
-import { FiLogOut } from 'react-icons/fi';
+import { FiLogOut, FiClock, FiPackage, FiCheckCircle } from 'react-icons/fi';
+import NotificationSystem from '../src/components/NotificationSystem';
 import './styles.css';
 
-const DriverOrderCard = React.memo(({ order }) => {
+const DriverOrderCard = React.memo(({ order, activeBusinessId }) => {
   const [loading, setLoading] = useState(false);
 
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
@@ -32,13 +33,13 @@ const DriverOrderCard = React.memo(({ order }) => {
   const handleOutForDelivery = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
       await updateDoc(ref, {
         status: 'out_for_delivery',
         outForDeliveryAt: new Date().toISOString(),
       });
     } catch (err) {
-      alert('שגיאה בעדכון ההזמנה.');
+      alert('خطأ في تحديث الطلب.');
     } finally {
       setLoading(false);
     }
@@ -48,13 +49,13 @@ const DriverOrderCard = React.memo(({ order }) => {
   const handleDelivered = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
       await updateDoc(ref, {
         status: 'delivered',
         deliveredAt: new Date().toISOString(),
       });
     } catch (err) {
-      alert('שגיאה בעדכון ההזמנה.');
+      alert('خطأ في تحديث الطلب.');
     } finally {
       setLoading(false);
     }
@@ -81,12 +82,12 @@ const DriverOrderCard = React.memo(({ order }) => {
           background: 
             order.status === 'ready' ? '#28a745' :
             order.status === 'out_for_delivery' ? '#ffc107' :
-            order.status === 'delivered' || order.status === 'completed' ? '#34C759' :
+            order.status === 'delivered' || order.status === 'completed' || order.status === 'served' ? '#34C759' :
             '#007bff'
         }}>
           {order.status === 'ready' ? 'جاهز' :
-           order.status === 'out_for_delivery' ? 'قيد التوصيل' :
-           order.status === 'delivered' || order.status === 'completed' ? 'تم التوصيل' :
+           order.status === 'out_for_delivery' ? (order.deliveryMethod === 'delivery' ? 'قيد التوصيل' : 'قيد الاستلام') :
+           order.status === 'delivered' || order.status === 'completed' || order.status === 'served' ? (order.deliveryMethod === 'delivery' ? 'تم التوصيل' : 'تم الاستلام') :
            'قيد التحضير'}
         </div>
       </div>
@@ -185,7 +186,7 @@ const DriverOrderCard = React.memo(({ order }) => {
             }}
           >
             <IoMdBicycle style={{ marginLeft: 8 }} />
-            بدء التوصيل
+            {order.deliveryMethod === 'delivery' ? 'بدء التوصيل' : 'بدء الاستلام'}
           </button>
         </div>
       )}
@@ -209,7 +210,7 @@ const DriverOrderCard = React.memo(({ order }) => {
             }}
           >
             <IoMdCheckmark style={{ marginLeft: 8 }} />
-            تم التوصيل
+            {order.deliveryMethod === 'delivery' ? 'تم التوصيل' : 'تم الاستلام'}
           </button>
         </div>
       )}
@@ -222,6 +223,7 @@ const DriverOrdersPage = () => {
   const { user, activeBusinessId } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -233,7 +235,29 @@ const DriverOrdersPage = () => {
           id: doc.id,
           ...doc.data(),
         }));
+        
+        // Debug logging
+        console.log('🚚 Driver Orders Debug:', {
+          totalOrders: updatedOrders.length,
+          deliveryOrders: updatedOrders.filter(o => o.deliveryMethod === 'delivery').length,
+          ordersByStatus: updatedOrders.reduce((acc, order) => {
+            acc[order.status] = (acc[order.status] || 0) + 1;
+            return acc;
+          }, {}),
+          ordersByDeliveryMethod: updatedOrders.reduce((acc, order) => {
+            acc[order.deliveryMethod] = (acc[order.deliveryMethod] || 0) + 1;
+            return acc;
+          }, {}),
+          sampleOrders: updatedOrders.slice(0, 3).map(o => ({
+            id: o.id,
+            status: o.status,
+            deliveryMethod: o.deliveryMethod,
+            customerName: o.customerName || o.name
+          }))
+        });
+        
         setOrders(updatedOrders);
+        setLoading(false);
       }
     );
     return () => unsubscribe();
@@ -248,22 +272,59 @@ const DriverOrdersPage = () => {
     return [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [orders]);
 
-  // Tab configs: label, filter, badgeCount
+  // Calculate driver-specific stats (only delivery orders)
+  const driverStats = useMemo(() => {
+    const deliveryOrders = orders.filter(order => order.deliveryMethod === 'delivery');
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const todayOrders = deliveryOrders.filter(order => {
+      const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+      return orderDate >= today && orderDate < tomorrow;
+    });
+    
+    const activeOrders = deliveryOrders.filter(order => 
+      ['preparing', 'ready', 'out_for_delivery'].includes(order.status)
+    );
+    
+    const completedOrders = deliveryOrders.filter(order => 
+      ['delivered', 'completed', 'served'].includes(order.status)
+    );
+    
+    const totalRevenue = completedOrders.reduce((sum, order) => 
+      sum + parseFloat(order.totalAmount || order.total || 0), 0
+    );
+    
+    return {
+      todayOrders: todayOrders.length,
+      activeOrders: activeOrders.length,
+      completedOrders: completedOrders.length,
+      totalRevenue: totalRevenue
+    };
+  }, [orders]);
+
+  // Tab configs: label, filter, badgeCount, icon - Similar to admin orders page
   const tabConfigs = [
     {
-      label: 'طلبات مكتمله',
-      filter: (order) => order.deliveryMethod === 'delivery' && ['delivered', 'completed'].includes(order.status),
-      badgeCount: 0,
+      label: 'جديدة',
+      icon: FiClock,
+      filter: (order) => order.deliveryMethod === 'delivery' && ['pending', 'new', 'confirmed'].includes(order.status),
+      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && ['pending', 'new', 'confirmed'].includes(order.status)).length,
     },
     {
       label: 'قيد التحضير',
-      filter: (order) => order.deliveryMethod === 'delivery' && order.status === 'preparing',
-      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && order.status === 'preparing').length,
+      icon: FiPackage,
+      filter: (order) => order.deliveryMethod === 'delivery' && ['preparing', 'ready', 'out_for_delivery'].includes(order.status),
+      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && ['preparing', 'ready', 'out_for_delivery'].includes(order.status)).length,
     },
     {
-      label: 'طلبات للتوصيل',
-      filter: (order) => order.deliveryMethod === 'delivery' && ['ready', 'out_for_delivery'].includes(order.status),
-      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && ['ready', 'out_for_delivery'].includes(order.status)).length,
+      label: 'سابقة',
+      icon: FiCheckCircle,
+      filter: (order) => order.deliveryMethod === 'delivery' && ['delivered', 'completed', 'served'].includes(order.status),
+      badgeCount: 0,
     },
   ];
 
@@ -271,6 +332,33 @@ const DriverOrdersPage = () => {
 
   return (
     <div className="orders-container" style={{ paddingBottom: 80 }}>
+      {/* Notification System */}
+      <NotificationSystem />
+      {/* Top bar actions: title + settings (left) + logout (right) */}
+      <div style={{ position: 'fixed', top: 16, left: 16, zIndex: 210 }}>
+        <button
+          onClick={() => navigate('/driver/profile')}
+          style={{
+            background: '#f2f2f7',
+            border: '1px solid #e5e5e7',
+            color: '#1d1d1f',
+            width: 44,
+            height: 44,
+            borderRadius: 10,
+            fontSize: 20,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+          }}
+          title="الإعدادات"
+          aria-label="الإعدادات"
+        >
+          ⚙️
+        </button>
+      </div>
+
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -279,7 +367,7 @@ const DriverOrdersPage = () => {
         padding: '0 20px'
       }}>
         <h1 className="orders-title" style={{ margin: 0, textAlign: 'center',width: '100%' }}>
-          {tabConfigs[tab].label}
+          لوحة السائق
         </h1>
         <button
           onClick={handleLogout}
@@ -311,72 +399,158 @@ const DriverOrdersPage = () => {
         </button>
       </div>
 
-      {filteredOrders.length === 0 ? (
-        <p className="orders-empty">لا توجد {tabConfigs[tab].label} حالياً.</p>
+      {/* Driver Dashboard Stats */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: '16px',
+        padding: '0 20px',
+        marginBottom: '24px'
+      }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          padding: '20px',
+          borderRadius: '12px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>📦</div>
+          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>طلبات اليوم</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+            {driverStats.todayOrders}
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          padding: '20px',
+          borderRadius: '12px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>🚚</div>
+          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>طلبات نشطة</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+            {driverStats.activeOrders}
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+          padding: '20px',
+          borderRadius: '12px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>✅</div>
+          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>مكتملة</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+            {driverStats.completedOrders}
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+          padding: '20px',
+          borderRadius: '12px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>💰</div>
+          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>إجمالي المبيعات</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+            {driverStats.totalRevenue.toLocaleString()}₪
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky bottom status bar */}
+      <div style={{ height: 60 }} />
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: '8px 16px',
+        background: '#fff',
+        borderTop: '1px solid #e5e5e7',
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 8,
+        zIndex: 1100,
+        boxShadow: '0 -4px 16px rgba(0,0,0,0.08)'
+      }}>
+        {tabConfigs.map((tabConfig, idx) => {
+          const IconComponent = tabConfig.icon;
+          return (
+            <button
+              key={tabConfig.label}
+              onClick={() => setTab(idx)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                borderRadius: 20,
+                border: 'none',
+                background: idx === tab ? '#007AFF' : 'transparent',
+                color: idx === tab ? '#fff' : '#8E8E93',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                minWidth: '80px',
+                position: 'relative',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <IconComponent size={16} />
+              <span style={{ whiteSpace: 'nowrap' }}>{tabConfig.label}</span>
+              {tabConfig.badgeCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  background: idx === tab ? 'rgba(255,255,255,0.9)' : '#FF3B30',
+                  color: idx === tab ? '#007AFF' : '#fff',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '2px solid #fff'
+                }}>
+                  {tabConfig.badgeCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+          جاري تحميل الطلبات...
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
+          <p style={{ margin: 0, fontSize: '16px' }}>لا توجد {tabConfigs[tab].label} حالياً</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#999' }}>
+            إجمالي الطلبات: {orders.length} | طلبات التوصيل: {orders.filter(o => o.deliveryMethod === 'delivery').length}
+          </p>
+        </div>
       ) : (
         <div className="orders-grid">
           {filteredOrders.map((order) => (
-            <DriverOrderCard key={order.uid || order.id} order={order} />
+            <DriverOrderCard key={order.uid || order.id} order={order} activeBusinessId={activeBusinessId} />
           ))}
         </div>
       )}
 
-      {/* Fixed bottom nav */}
-      <div style={{
-        position: 'fixed', 
-        bottom: 0, 
-        left: 0, 
-        width: '100%', 
-        background: '#fff', 
-        borderTop: '1px solid #eee',
-        display: 'flex', 
-        justifyContent: 'center', 
-        zIndex: 100, 
-        padding: '10px 0'
-      }}>
-        {tabConfigs.map((tabConfig, idx) => (
-          <div key={tabConfig.label} style={{ position: 'relative', display: 'inline-block' }}>
-            <button
-              onClick={() => setTab(idx)}
-              style={{
-                fontWeight: 600, 
-                fontSize: 16, 
-                color: tab === idx ? '#007aff' : '#888',
-                background: 'none', 
-                border: 'none', 
-                margin: '0 12px', 
-                cursor: 'pointer',
-                padding: '6px 10px',
-                borderBottom: tab === idx ? '2px solid #007aff' : 'none',
-                borderRadius: 0
-              }}
-            >
-              {tabConfig.label}
-            </button>
-            {tabConfig.badgeCount > 0 && idx !== 0 && (
-              <span style={{
-                position: 'absolute',
-                top: -6,
-                right: -24,
-                minWidth: 22,
-                height: 22,
-                background: '#E63119',
-                color: '#fff',
-                borderRadius: 11,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 14,
-                fontWeight: 700,
-                padding: '0 6px',
-                boxShadow: '0 1px 4px #aaa'
-              }}>
-                {tabConfig.badgeCount}
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
     </div>
   );
 };

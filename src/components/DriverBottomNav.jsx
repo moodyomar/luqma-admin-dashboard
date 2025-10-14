@@ -3,15 +3,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   FiShoppingBag, 
-  FiCheckCircle,
-  FiClock,
-  FiUser
+  FiSettings
 } from 'react-icons/fi';
 
 const DriverBottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
 
   const menuItems = [
     {
@@ -21,20 +19,15 @@ const DriverBottomNav = () => {
       path: '/driver/orders'
     },
     {
-      id: 'profile',
-      label: 'الملف الشخصي',
-      icon: FiUser,
+      id: 'settings',
+      label: 'الإعدادات',
+      icon: FiSettings,
       path: '/driver/profile'
     }
   ];
 
   const isActive = (path) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
   };
 
   return (
@@ -53,7 +46,7 @@ const DriverBottomNav = () => {
         borderTop: '1px solid #e5e5e7',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-around',
+        justifyContent: 'center',
         padding: '8px 0',
         zIndex: 1000,
         backdropFilter: 'blur(20px)',
@@ -72,15 +65,16 @@ const DriverBottomNav = () => {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '8px 16px',
+                padding: '8px 24px',
                 border: 'none',
                 background: 'transparent',
                 color: active ? '#007AFF' : '#8E8E93',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 borderRadius: '12px',
-                minWidth: '60px',
-                height: '60px'
+                minWidth: '80px',
+                height: '60px',
+                margin: '0 20px'
               }}
               onMouseOver={(e) => {
                 if (!active) {
@@ -110,47 +104,6 @@ const DriverBottomNav = () => {
             </button>
           );
         })}
-        
-        {/* Logout Button */}
-        <button
-          onClick={handleLogout}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '8px 16px',
-            border: 'none',
-            background: 'transparent',
-            color: '#FF3B30',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            borderRadius: '12px',
-            minWidth: '60px',
-            height: '60px'
-          }}
-          onMouseOver={(e) => {
-            e.target.style.backgroundColor = 'rgba(255, 59, 48, 0.1)';
-          }}
-          onMouseOut={(e) => {
-            e.target.style.backgroundColor = 'transparent';
-          }}
-        >
-          <FiCheckCircle 
-            size={24} 
-            style={{ 
-              marginBottom: '4px',
-              strokeWidth: '2'
-            }} 
-          />
-          <span style={{
-            fontSize: '11px',
-            fontWeight: '400',
-            fontFamily: 'system-ui'
-          }}>
-            خروج
-          </span>
-        </button>
       </div>
     </>
   );

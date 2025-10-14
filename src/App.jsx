@@ -13,6 +13,7 @@ import LoginPage from '../pages/LoginPage';
 import MealsPage from '../pages/MealsPage';
 import OrdersPage from '../pages/OrdersPage';
 import DriverOrdersPage from '../pages/DriverOrdersPage';
+import DriverProfilePage from '../pages/DriverProfilePage';
 import SettingsPage from '../pages/SettingsPage';
 import AnalyticsPage from '../pages/AnalyticsPage';
 import CouponManagementPage from '../pages/CouponManagementPage';
@@ -122,7 +123,7 @@ function App() {
               {isMobile && location.pathname !== '/orders' && <MobileBottomNav />}
             </>
           )}
-          {userRole === 'driver' && <DriverBottomNav />}
+          {userRole === 'driver' && !location.pathname.startsWith('/driver/orders') && <DriverBottomNav />}
         </>
       )}
 
@@ -286,6 +287,14 @@ function App() {
               <AuthGuard>
                 <ProtectedRoute>
                   <DriverOrdersPage />
+                </ProtectedRoute>
+              </AuthGuard>
+            } />
+            
+            <Route path="/driver/profile" element={
+              <AuthGuard>
+                <ProtectedRoute>
+                  <DriverProfilePage />
                 </ProtectedRoute>
               </AuthGuard>
             } />
