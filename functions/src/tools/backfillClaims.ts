@@ -14,7 +14,6 @@
  */
 
 import * as admin from "firebase-admin";
-import { addBusinessClaims } from "../setClaims";
 
 interface MembershipDoc {
   uid: string;
