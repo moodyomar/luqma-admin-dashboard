@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase/firebaseConfig';
-import { createUserWithEmailAndPassword, deleteUser as firebaseDeleteUser } from 'firebase/auth';
+import { deleteUser as firebaseDeleteUser } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -69,23 +70,30 @@ const UserManagementPage = () => {
     setLoading(true);
 
     try {
-      // Create Firebase Auth user
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        formData.email, 
-        formData.password
-      );
-
-      // Create user document in Firestore - using correct path
-      await setDoc(doc(db, 'menus', activeBusinessId, 'users', userCredential.user.uid), {
+      // Use callable cloud function to create or attach driver and set claims
+      const functions = getFunctions();
+      const inviteUser = httpsCallable(functions, 'inviteUser');
+      const result = await inviteUser({
+        businessId: activeBusinessId,
+        email: formData.email.trim(),
         role: 'driver',
-        email: formData.email,
-        name: formData.name,
-        phone: formData.phone,
-        createdAt: new Date().toISOString(),
-        createdBy: auth.currentUser.uid,
-        businessId: activeBusinessId
+        displayName: formData.name?.trim() || undefined,
       });
+
+      const { uid } = result.data || {};
+
+      // Create or update Firestore membership document (defensive; function also writes it)
+      if (uid) {
+        await setDoc(doc(db, 'menus', activeBusinessId, 'users', uid), {
+          role: 'driver',
+          email: formData.email,
+          name: formData.name,
+          phone: formData.phone,
+          createdAt: new Date().toISOString(),
+          createdBy: auth.currentUser.uid,
+          businessId: activeBusinessId
+        }, { merge: true });
+      }
 
       // Reset form
       setFormData({
@@ -98,10 +106,18 @@ const UserManagementPage = () => {
       // Refresh drivers list
       await fetchDrivers();
       
-      alert('✅ تم إنشاء حساب السائق بنجاح!');
+      alert('✅ تم إنشاء/ربط حساب السائق بنجاح!');
     } catch (error) {
       console.error('Error creating driver:', error);
-      alert(`❌ خطأ في إنشاء الحساب: ${error.message}`);
+      const msg = error?.message || '';
+      // Friendlier messages
+      if (msg.includes('permission-denied')) {
+        alert('❌ لا تملك صلاحية لإضافة سائقين لهذا العمل.');
+      } else if (msg.includes('already')) {
+        alert('ℹ️ البريد مستخدم مسبقاً، تم محاولة ربطه بالعمل الحالي.');
+      } else {
+        alert(`❌ خطأ في إنشاء الحساب: ${msg}`);
+      }
     } finally {
       setLoading(false);
     }
