@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase/firebaseConfig';
 import { deleteUser as firebaseDeleteUser } from 'firebase/auth';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
+import { firebaseApp } from '../firebase/firebaseConfig';
 import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -71,7 +72,11 @@ const UserManagementPage = () => {
 
     try {
       // Use callable cloud function to create or attach driver and set claims
-      const functions = getFunctions();
+      const functions = getFunctions(firebaseApp, import.meta.env.VITE_FIREBASE_REGION || 'us-central1');
+      // Ensure correct origin in local/dev to avoid manual fetch to URL and CORS
+      if (import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+      }
       const inviteUser = httpsCallable(functions, 'inviteUser');
       const result = await inviteUser({
         businessId: activeBusinessId,
