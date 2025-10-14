@@ -175,3 +175,9 @@ justify-content: space-between;
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

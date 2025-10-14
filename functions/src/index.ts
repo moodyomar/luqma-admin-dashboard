@@ -6,6 +6,8 @@ admin.initializeApp();
 // Export Cloud Functions
 export { inviteUser } from "./inviteUser";
 export { addBusinessClaims, removeBusinessClaims, forceTokenRefresh } from "./setClaims";
+export { removeDriver } from "./removeDriver";
+
 
 
 

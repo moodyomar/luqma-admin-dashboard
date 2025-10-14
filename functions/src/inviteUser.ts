@@ -8,6 +8,8 @@ interface InviteUserRequest {
   phone?: string;
   role: "admin" | "driver";
   displayName?: string;
+  // Optional password for email users; if omitted, a strong random password is generated
+  password?: string;
 }
 
 interface InviteUserResponse {
@@ -126,12 +128,14 @@ export const inviteUser = functions.https.onCall(
 
         if (data.email) {
           createRequest.email = data.email;
-          // Generate random password for email users
-          createRequest.password = Math.random().toString(36).slice(-12) + "!A1";
+          // Use provided password when available; otherwise generate a strong random one
+          createRequest.password = data.password && data.password.length >= 6
+            ? data.password
+            : Math.random().toString(36).slice(-12) + "!A1";
         }
 
-        if (data.phone) {
-          createRequest.phoneNumber = data.phone;
+        if (data.phone && data.phone.trim()) {
+          createRequest.phoneNumber = data.phone.trim();
         }
 
         const newUser = await admin.auth().createUser(createRequest);
@@ -207,6 +211,7 @@ export const inviteUser = functions.https.onCall(
     };
   }
 );
+
 
 
 

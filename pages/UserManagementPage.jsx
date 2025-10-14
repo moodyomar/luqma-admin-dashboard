@@ -3,7 +3,7 @@ import { auth, db } from '../firebase/firebaseConfig';
 import { deleteUser as firebaseDeleteUser } from 'firebase/auth';
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 import { firebaseApp } from '../firebase/firebaseConfig';
-import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -13,6 +13,7 @@ import { FiLogOut, FiUser, FiMail, FiTrash2, FiPhone } from 'react-icons/fi';
 const UserManagementPage = () => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deletingDriver, setDeletingDriver] = useState(null); // Track which driver is being deleted
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -27,9 +28,25 @@ const UserManagementPage = () => {
       navigate('/meals');
       return;
     }
-    if (activeBusinessId) {
-      fetchDrivers();
-    }
+    if (!activeBusinessId) return;
+
+    // Real-time sync with Firestore membership collection
+    const usersRef = collection(db, 'menus', activeBusinessId, 'users');
+    const unsubscribe = onSnapshot(usersRef, (snapshot) => {
+      const driverUsers = [];
+      snapshot.forEach((docSnap) => {
+        const userData = docSnap.data();
+        if (userData.role === 'driver') {
+          driverUsers.push({ id: docSnap.id, ...userData });
+        }
+      });
+      setDrivers(driverUsers);
+    }, (error) => {
+      console.error('Error listening to drivers:', error);
+      setDrivers([]);
+    });
+
+    return () => unsubscribe();
   }, [userRole, navigate, activeBusinessId]);
 
   const fetchDrivers = async () => {
@@ -78,11 +95,28 @@ const UserManagementPage = () => {
         connectFunctionsEmulator(functions, 'localhost', 5001);
       }
       const inviteUser = httpsCallable(functions, 'inviteUser');
+      // Format phone number to E.164 if provided
+      let formattedPhone = undefined;
+      if (formData.phone?.trim()) {
+        const phone = formData.phone.trim();
+        // If it starts with 0, replace with +972 (Israel country code)
+        if (phone.startsWith('0')) {
+          formattedPhone = '+972' + phone.substring(1);
+        } else if (!phone.startsWith('+')) {
+          // If no country code, assume Israel
+          formattedPhone = '+972' + phone;
+        } else {
+          formattedPhone = phone;
+        }
+      }
+
       const result = await inviteUser({
         businessId: activeBusinessId,
         email: formData.email.trim(),
+        password: formData.password, // Send the password
         role: 'driver',
         displayName: formData.name?.trim() || undefined,
+        phone: formattedPhone, // Send formatted phone or undefined
       });
 
       const { uid } = result.data || {};
@@ -108,8 +142,7 @@ const UserManagementPage = () => {
         phone: ''
       });
 
-      // Refresh drivers list
-      await fetchDrivers();
+      // Drivers list will auto-refresh via real-time listener
       
       alert('✅ تم إنشاء/ربط حساب السائق بنجاح!');
     } catch (error) {
@@ -128,20 +161,24 @@ const UserManagementPage = () => {
     }
   };
 
-  // Delete driver from Firestore and Firebase Auth
+  // Delete driver via Cloud Function (ensures permissions and claims cleanup)
   const handleDeleteDriver = async (driverId) => {
     if (!window.confirm('هل أنت متأكد أنك تريد حذف هذا السائق؟')) return;
+    
+    setDeletingDriver(driverId); // Set loading state
     try {
-      // Delete from Firestore - using correct path
-      await deleteDoc(doc(db, 'menus', activeBusinessId, 'users', driverId));
-      // Optionally, delete from Firebase Auth (requires admin SDK in backend for full security)
-      // If you want to delete from Auth here, you must be logged in as that user, which is not practical for admin panel.
-      // So, we only delete from Firestore here.
-      await fetchDrivers();
+      const functions = getFunctions(firebaseApp, import.meta.env.VITE_FIREBASE_REGION || 'us-central1');
+      if (import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+      }
+      const removeDriverFn = httpsCallable(functions, 'removeDriver');
+      await removeDriverFn({ businessId: activeBusinessId, uid: driverId, deleteAuthUser: false });
       alert('تم حذف السائق بنجاح.');
     } catch (error) {
       alert('حدث خطأ أثناء حذف السائق.');
       console.error('Error deleting driver:', error);
+    } finally {
+      setDeletingDriver(null); // Clear loading state
     }
   };
 
@@ -150,14 +187,34 @@ const UserManagementPage = () => {
     navigate('/login');
   };
 
-  // Helper to format date in en-IL
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const dateObj = new Date(dateString);
-    if (!isNaN(dateObj)) {
+  // Helper to format date in en-IL - handles Firestore timestamps
+  const formatDate = (dateInput) => {
+    if (!dateInput) return '';
+    
+    let dateObj;
+    
+    // Handle Firestore timestamp objects
+    if (dateInput && typeof dateInput === 'object') {
+      if (dateInput.seconds && dateInput.nanoseconds !== undefined) {
+        // Firestore timestamp
+        dateObj = new Date(dateInput.seconds * 1000);
+      } else if (dateInput.toDate && typeof dateInput.toDate === 'function') {
+        // Firestore Timestamp object
+        dateObj = dateInput.toDate();
+      } else {
+        // Other object, try to convert
+        dateObj = new Date(dateInput);
+      }
+    } else {
+      // String or number
+      dateObj = new Date(dateInput);
+    }
+    
+    if (!isNaN(dateObj) && dateObj instanceof Date) {
       return dateObj.toLocaleDateString('en-IL', { year: 'numeric', month: '2-digit', day: '2-digit' });
     }
-    return dateString;
+    
+    return '';
   };
 
   return (
@@ -239,7 +296,7 @@ const UserManagementPage = () => {
             />
             <input
               type="tel"
-              placeholder="رقم الهاتف"
+              placeholder="رقم الهاتف (اختياري)"
               value={formData.phone}
               onChange={(e) => handleInputChange('phone', e.target.value)}
               style={{
@@ -258,16 +315,28 @@ const UserManagementPage = () => {
             style={{
               marginTop: 15,
               padding: '12px 24px',
-              background: '#28a745',
+              background: loading ? '#6c757d' : '#28a745',
               color: 'white',
               border: 'none',
               borderRadius: 6,
               cursor: loading ? 'not-allowed' : 'pointer',
               fontSize: 16,
               fontWeight: 600,
-              opacity: loading ? 0.7 : 1
+              opacity: loading ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8
             }}
           >
+            {loading && <div style={{ 
+              width: 16, 
+              height: 16, 
+              border: '2px solid transparent', 
+              borderTop: '2px solid white', 
+              borderRadius: '50%', 
+              animation: 'spin 1s linear infinite' 
+            }}></div>}
             {loading ? 'جاري الإنشاء...' : 'إضافة سائق'}
           </button>
         </form>
@@ -326,21 +395,23 @@ const UserManagementPage = () => {
                   </div>
                   <button
                     onClick={() => handleDeleteDriver(driver.id)}
+                    disabled={deletingDriver === driver.id}
                     style={{
-                      background: '#dc3545',
+                      background: deletingDriver === driver.id ? '#6c757d' : '#dc3545',
                       color: '#fff',
                       border: 'none',
                       borderRadius: 6,
                       padding: '6px 10px',
-                      cursor: 'pointer',
+                      cursor: deletingDriver === driver.id ? 'not-allowed' : 'pointer',
                       fontSize: 16,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 4
+                      gap: 4,
+                      opacity: deletingDriver === driver.id ? 0.7 : 1
                     }}
-                    title="حذف السائق"
+                    title={deletingDriver === driver.id ? 'جاري الحذف...' : 'حذف السائق'}
                   >
-                    <FiTrash2 /> حذف
+                    <FiTrash2 /> {deletingDriver === driver.id ? 'جاري الحذف...' : 'حذف'}
                   </button>
                 </div>
               </div>
