@@ -56,6 +56,18 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
             <strong style={{ fontSize: 17, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{meal.name?.ar || '—'}</strong>
+            {meal.preorderHours && (
+              <span style={{ 
+                fontSize: 11, 
+                background: '#ff9800', 
+                color: 'white', 
+                padding: '2px 6px', 
+                borderRadius: 4,
+                fontWeight: 600
+              }}>
+                ⏰ {meal.preorderHours}h
+              </span>
+            )}
             <span style={{ fontSize: 18, color: '#888' }}>{expanded ? '⌃' : '⌄'}</span>
           </div>
           <span style={{ color: '#666', fontSize: 13 }}>₪{meal.price || '0'}</span>
@@ -189,7 +201,30 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               value={meal?.image || ''}
               onChange={(e) => handleFieldChange('image', null, e.target.value)}
             />
+            {/* Row 3 - Preorder Hours */}
+            <input
+              type="number"
+              className="meal-settings-input"
+              placeholder="ساعات الطلب المسبق | שעות הזמנה מראש"
+              value={meal?.preorderHours || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                const updated = { ...meal };
+                if (value === '' || value === '0') {
+                  delete updated.preorderHours;
+                } else if (!isNaN(value) && Number(value) > 0) {
+                  updated.preorderHours = Number(value);
+                }
+                onChange(updated);
+              }}
+              style={{ gridColumn: '1 / -1' }}
+            />
           </div>
+          {meal?.preorderHours && (
+            <p style={{ fontSize: 12, color: '#ff9800', margin: '4px 0', textAlign: 'center', fontWeight: 600 }}>
+              ⏰ يحتاج طلب مسبق {meal.preorderHours} ساعات | דורש הזמנה מראש {meal.preorderHours} שעות
+            </p>
+          )}
 
           <OptionsEditor
             options={meal?.options || []}

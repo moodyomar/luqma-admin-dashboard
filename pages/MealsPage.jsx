@@ -125,7 +125,7 @@ const MealsPage = () => {
               };
             });
 
-            return {
+            const cleanedMeal = {
               ...meal,
               available: typeof meal.available === 'boolean' ? meal.available : true,
               name: {
@@ -141,6 +141,13 @@ const MealsPage = () => {
               id: meal?.id || `id_${Date.now()}`,
               options: cleanedOptions,
             };
+
+            // Add preorderHours only if it's a valid positive number
+            if (meal.preorderHours && !isNaN(meal.preorderHours) && Number(meal.preorderHours) > 0) {
+              cleanedMeal.preorderHours = Number(meal.preorderHours);
+            }
+
+            return cleanedMeal;
           }),
         ])
       ),

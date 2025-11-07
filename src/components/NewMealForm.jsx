@@ -9,6 +9,7 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
         descHe: '',
         image: '',
         available: true,
+        preorderHours: '',
     });
 
     const handleChange = (field, value) => {
@@ -31,11 +32,17 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
             order: 0,
         };
 
+        // Add preorderHours only if it's a valid positive number
+        if (form.preorderHours && !isNaN(form.preorderHours) && Number(form.preorderHours) > 0) {
+            newMeal.preorderHours = Number(form.preorderHours);
+        }
+
         onAdd(categoryId, newMeal);
         setForm({
             nameAr: '', nameHe: '', price: '',
             descAr: '', descHe: '', image: '',
-            available: true
+            available: true,
+            preorderHours: ''
         });
         setVisible(false);
     };
@@ -67,8 +74,18 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
                 <input placeholder="لينك صوره | לינק תמונה" value={form.image} onChange={(e) => handleChange('image', e.target.value)} />
                 <input placeholder="وصف المنتج/وجبه" value={form.descAr} onChange={(e) => handleChange('descAr', e.target.value)} />
                 <input placeholder="תיאור מוצר/מנה" value={form.descHe} onChange={(e) => handleChange('descHe', e.target.value)} />
+                <input 
+                    type="number" 
+                    placeholder="ساعات الطلب المسبق | שעות הזמנה מראש" 
+                    value={form.preorderHours} 
+                    onChange={(e) => handleChange('preorderHours', e.target.value)}
+                    style={{ gridColumn: '1 / -1' }}
+                />
               
             </div>
+            <p style={{ fontSize: 12, color: '#666', margin: '8px 0 0', textAlign: 'center' }}>
+                💡 اترك فارغًا للوجبات الفورية | השאר ריק למנות מיידיות
+            </p>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
                 <button
