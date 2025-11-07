@@ -40,6 +40,7 @@ const BusinessManagePage = () => {
     workingHours: { open: '', close: '' },
     contact: { instagram: '', phone: '', website: '' },
     prepTimeOptions: [], // new field
+    deliveryCities: [], // NEW FIELD for delivery cities
     storeStatusMode: 'auto', // NEW FIELD
     features: { // NEW FIELD for delivery methods
       enablePickup: false,
@@ -55,6 +56,7 @@ const BusinessManagePage = () => {
   });
   const [newPrepValue, setNewPrepValue] = useState('');
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
+  const [newCity, setNewCity] = useState('');
   const [showContact, setShowContact] = useState(false);
   
   // Coupon management state
@@ -94,6 +96,8 @@ const BusinessManagePage = () => {
         };
         // Get prepTimeOptions from config if available
         const prepTimeOptions = data.config?.prepTimeOptions || [];
+        // Get deliveryCities from config if available
+        const deliveryCities = data.config?.deliveryCities || [];
         // Get deliveryFee from config if available
         const deliveryFee = data.config?.deliveryFee ?? '';
         // Get storeStatusMode from config if available
@@ -126,6 +130,7 @@ const BusinessManagePage = () => {
           workingHours: { open, close },
           contact,
           prepTimeOptions,
+          deliveryCities,
           storeStatusMode,
           features, // This will override the initial false values
         });
@@ -206,6 +211,36 @@ const BusinessManagePage = () => {
     }));
   };
 
+  // Add delivery city
+  const addDeliveryCity = () => {
+    const trimmedCity = newCity.trim();
+    if (!trimmedCity) return;
+    
+    // Check if city already exists (case-insensitive)
+    const cityExists = (form.deliveryCities || []).some(
+      city => city.toLowerCase() === trimmedCity.toLowerCase()
+    );
+    
+    if (cityExists) {
+      alert('העיר כבר קיימת ברשימה');
+      return;
+    }
+    
+    setForm(prev => ({
+      ...prev,
+      deliveryCities: [...(prev.deliveryCities || []), trimmedCity]
+    }));
+    setNewCity('');
+  };
+
+  // Remove delivery city
+  const removeDeliveryCity = (idx) => {
+    setForm(prev => ({
+      ...prev,
+      deliveryCities: prev.deliveryCities.filter((_, i) => i !== idx)
+    }));
+  };
+
   // Auto-save features to Firebase
   const saveFeatureToFirebase = async (features) => {
     try {
@@ -235,6 +270,7 @@ const BusinessManagePage = () => {
         'config.workingHours': form.workingHours,
         'config.contact': form.contact,
         'config.prepTimeOptions': form.prepTimeOptions,
+        'config.deliveryCities': form.deliveryCities,
         'config.storeStatusMode': form.storeStatusMode,
         'config.features': form.features,
       };
@@ -391,6 +427,110 @@ const BusinessManagePage = () => {
               <option value="closed">مغلق الآن</option>
             </select>
           </div>
+        </div>
+
+        {/* Delivery Cities Section */}
+        <div style={{ marginTop: 18, width: '100%' }}>
+          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>ערים למשלוח</label>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
+            הוסף ערים שאליהן אתה יכול לבצע משלוח. הלקוחות יוכלו לבחור רק מהערים שהוספת.
+          </div>
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0', width: '100%', justifyContent: 'flex-start', alignItems: 'center', rowGap: 10, minHeight: 40
+          }}>
+            {(form.deliveryCities || []).length === 0 ? (
+              <span style={{ fontSize: 13, color: '#999', fontStyle: 'italic' }}>לא הוגדרו ערים עדיין</span>
+            ) : (
+              (form.deliveryCities || []).map((city, idx) => (
+                <span key={idx} style={{ 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                  color: '#fff',
+                  borderRadius: 8, 
+                  padding: '6px 12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  fontSize: 14, 
+                  fontWeight: 500,
+                  justifyContent: 'center', 
+                  minWidth: 60, 
+                  margin: '0 2px',
+                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
+                }}>
+                  {city}
+                  <button 
+                    onClick={() => removeDeliveryCity(idx)} 
+                    style={{ 
+                      marginRight: 8, 
+                      background: 'rgba(255,255,255,0.2)', 
+                      border: 'none', 
+                      color: '#fff', 
+                      fontWeight: 700, 
+                      cursor: 'pointer', 
+                      fontSize: 16, 
+                      lineHeight: 1,
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
+                    onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+                  >×</button>
+                </span>
+              ))
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
+            <input
+              type="text"
+              value={newCity}
+              onChange={e => setNewCity(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addDeliveryCity();
+                }
+              }}
+              placeholder="שם העיר (למשל: חיפה)"
+              style={{ 
+                flex: 1,
+                height: 44, 
+                padding: '0 12px', 
+                borderRadius: 10, 
+                border: '1px solid #e0e0e0', 
+                fontSize: 16, 
+                background: '#fff', 
+                textAlign: 'right', 
+                boxSizing: 'border-box' 
+              }}
+            />
+            <button
+              onClick={addDeliveryCity}
+              disabled={!newCity.trim() || (form.deliveryCities || []).length >= 20}
+              style={{ 
+                width: '90px', 
+                height: 44, 
+                borderRadius: 10, 
+                background: (!newCity.trim() || (form.deliveryCities || []).length >= 20) ? '#ccc' : '#667eea', 
+                color: '#fff', 
+                border: 'none', 
+                fontWeight: 600, 
+                fontSize: 16, 
+                cursor: (!newCity.trim() || (form.deliveryCities || []).length >= 20) ? 'not-allowed' : 'pointer', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                transition: 'all 0.2s ease',
+                boxShadow: (!newCity.trim() || (form.deliveryCities || []).length >= 20) ? 'none' : '0 2px 8px rgba(102, 126, 234, 0.3)'
+              }}
+            >הוסף</button>
+          </div>
+          {(form.deliveryCities || []).length >= 20 && (
+            <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 20 ערים</div>
+          )}
         </div>
         
         {/* Features/Delivery Methods Section */}
