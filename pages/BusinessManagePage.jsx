@@ -56,7 +56,7 @@ const BusinessManagePage = () => {
   });
   const [newPrepValue, setNewPrepValue] = useState('');
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
-  const [newCity, setNewCity] = useState('');
+  const [newCity, setNewCity] = useState({ he: '', ar: '' });
   const [showContact, setShowContact] = useState(false);
   
   // Coupon management state
@@ -213,12 +213,23 @@ const BusinessManagePage = () => {
 
   // Add delivery city
   const addDeliveryCity = () => {
-    const trimmedCity = newCity.trim();
-    if (!trimmedCity) return;
+    const trimmedHe = newCity.he.trim();
+    const trimmedAr = newCity.ar.trim();
     
-    // Check if city already exists (case-insensitive)
+    // Both fields are required
+    if (!trimmedHe || !trimmedAr) {
+      alert('יש למלא את שם העיר בשתי השפות');
+      return;
+    }
+    
+    // Check if city already exists (case-insensitive, check both languages)
     const cityExists = (form.deliveryCities || []).some(
-      city => city.toLowerCase() === trimmedCity.toLowerCase()
+      city => {
+        const existingHe = typeof city === 'string' ? city : city.he;
+        const existingAr = typeof city === 'string' ? '' : city.ar;
+        return existingHe.toLowerCase() === trimmedHe.toLowerCase() || 
+               existingAr.toLowerCase() === trimmedAr.toLowerCase();
+      }
     );
     
     if (cityExists) {
@@ -228,9 +239,9 @@ const BusinessManagePage = () => {
     
     setForm(prev => ({
       ...prev,
-      deliveryCities: [...(prev.deliveryCities || []), trimmedCity]
+      deliveryCities: [...(prev.deliveryCities || []), { he: trimmedHe, ar: trimmedAr }]
     }));
-    setNewCity('');
+    setNewCity({ he: '', ar: '' });
   };
 
   // Remove delivery city
@@ -431,9 +442,9 @@ const BusinessManagePage = () => {
 
         {/* Delivery Cities Section */}
         <div style={{ marginTop: 18, width: '100%' }}>
-          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>ערים למשלוח</label>
+          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>ערים למשלוח (דו-לשוני)</label>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
-            הוסף ערים שאליהן אתה יכול לבצע משלוח. הלקוחות יוכלו לבחור רק מהערים שהוספת.
+            הוסף ערים שאליהן אתה יכול לבצע משלוח בעברית ובערבית. הלקוחות יראו את השם בשפה שבחרו באפליקציה.
           </div>
           <div style={{
             display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0', width: '100%', justifyContent: 'flex-start', alignItems: 'center', rowGap: 10, minHeight: 40
@@ -441,92 +452,137 @@ const BusinessManagePage = () => {
             {(form.deliveryCities || []).length === 0 ? (
               <span style={{ fontSize: 13, color: '#999', fontStyle: 'italic' }}>לא הוגדרו ערים עדיין</span>
             ) : (
-              (form.deliveryCities || []).map((city, idx) => (
-                <span key={idx} style={{ 
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-                  color: '#fff',
-                  borderRadius: 8, 
-                  padding: '6px 12px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  fontSize: 14, 
-                  fontWeight: 500,
-                  justifyContent: 'center', 
-                  minWidth: 60, 
-                  margin: '0 2px',
-                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
-                }}>
-                  {city}
-                  <button 
-                    onClick={() => removeDeliveryCity(idx)} 
-                    style={{ 
-                      marginRight: 8, 
-                      background: 'rgba(255,255,255,0.2)', 
-                      border: 'none', 
-                      color: '#fff', 
-                      fontWeight: 700, 
-                      cursor: 'pointer', 
-                      fontSize: 16, 
-                      lineHeight: 1,
-                      width: 20,
-                      height: 20,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
-                    onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
-                  >×</button>
-                </span>
-              ))
+              (form.deliveryCities || []).map((city, idx) => {
+                const cityHe = typeof city === 'string' ? city : city.he;
+                const cityAr = typeof city === 'string' ? '' : city.ar;
+                return (
+                  <span key={idx} style={{ 
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                    color: '#fff',
+                    borderRadius: 8, 
+                    padding: '8px 12px', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'flex-start', 
+                    fontSize: 14, 
+                    fontWeight: 500,
+                    minWidth: 80, 
+                    margin: '0 2px',
+                    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+                    position: 'relative'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, direction: 'rtl' }}>{cityHe}</span>
+                        {cityAr && <span style={{ fontSize: 12, opacity: 0.9, direction: 'rtl' }}>{cityAr}</span>}
+                      </div>
+                      <button 
+                        onClick={() => removeDeliveryCity(idx)} 
+                        style={{ 
+                          background: 'rgba(255,255,255,0.2)', 
+                          border: 'none', 
+                          color: '#fff', 
+                          fontWeight: 700, 
+                          cursor: 'pointer', 
+                          fontSize: 16, 
+                          lineHeight: 1,
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s ease',
+                          flexShrink: 0
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
+                        onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+                      >×</button>
+                    </div>
+                  </span>
+                );
+              })
             )}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
-            <input
-              type="text"
-              value={newCity}
-              onChange={e => setNewCity(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addDeliveryCity();
-                }
-              }}
-              placeholder="שם העיר (למשל: חיפה)"
-              style={{ 
-                flex: 1,
-                height: 44, 
-                padding: '0 12px', 
-                borderRadius: 10, 
-                border: '1px solid #e0e0e0', 
-                fontSize: 16, 
-                background: '#fff', 
-                textAlign: 'right', 
-                boxSizing: 'border-box' 
-              }}
-            />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8, width: '100%', paddingRight: 2, paddingLeft: 2 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="text"
+                value={newCity.he}
+                onChange={e => setNewCity(prev => ({ ...prev, he: e.target.value }))}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newCity.he.trim() && newCity.ar.trim()) {
+                      addDeliveryCity();
+                    }
+                  }
+                }}
+                placeholder="שם העיר בעברית (למשל: חיפה)"
+                style={{ 
+                  flex: 1,
+                  height: 44, 
+                  padding: '0 12px', 
+                  borderRadius: 10, 
+                  border: '1px solid #e0e0e0', 
+                  fontSize: 15, 
+                  background: '#fff', 
+                  textAlign: 'right', 
+                  boxSizing: 'border-box',
+                  direction: 'rtl'
+                }}
+              />
+              <span style={{ fontSize: 12, color: '#888', fontWeight: 600, minWidth: 20 }}>🇮🇱</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="text"
+                value={newCity.ar}
+                onChange={e => setNewCity(prev => ({ ...prev, ar: e.target.value }))}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newCity.he.trim() && newCity.ar.trim()) {
+                      addDeliveryCity();
+                    }
+                  }
+                }}
+                placeholder="اسم المدينة بالعربية (مثلاً: حيفا)"
+                style={{ 
+                  flex: 1,
+                  height: 44, 
+                  padding: '0 12px', 
+                  borderRadius: 10, 
+                  border: '1px solid #e0e0e0', 
+                  fontSize: 15, 
+                  background: '#fff', 
+                  textAlign: 'right', 
+                  boxSizing: 'border-box',
+                  direction: 'rtl'
+                }}
+              />
+              <span style={{ fontSize: 12, color: '#888', fontWeight: 600, minWidth: 20 }}>🇵🇸</span>
+            </div>
             <button
               onClick={addDeliveryCity}
-              disabled={!newCity.trim() || (form.deliveryCities || []).length >= 20}
+              disabled={!newCity.he.trim() || !newCity.ar.trim() || (form.deliveryCities || []).length >= 20}
               style={{ 
-                width: '90px', 
+                width: '100%', 
                 height: 44, 
                 borderRadius: 10, 
-                background: (!newCity.trim() || (form.deliveryCities || []).length >= 20) ? '#ccc' : '#667eea', 
+                background: (!newCity.he.trim() || !newCity.ar.trim() || (form.deliveryCities || []).length >= 20) ? '#ccc' : '#667eea', 
                 color: '#fff', 
                 border: 'none', 
                 fontWeight: 600, 
                 fontSize: 16, 
-                cursor: (!newCity.trim() || (form.deliveryCities || []).length >= 20) ? 'not-allowed' : 'pointer', 
+                cursor: (!newCity.he.trim() || !newCity.ar.trim() || (form.deliveryCities || []).length >= 20) ? 'not-allowed' : 'pointer', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
                 transition: 'all 0.2s ease',
-                boxShadow: (!newCity.trim() || (form.deliveryCities || []).length >= 20) ? 'none' : '0 2px 8px rgba(102, 126, 234, 0.3)'
+                boxShadow: (!newCity.he.trim() || !newCity.ar.trim() || (form.deliveryCities || []).length >= 20) ? 'none' : '0 2px 8px rgba(102, 126, 234, 0.3)'
               }}
-            >הוסף</button>
+            >הוסף עיר</button>
           </div>
           {(form.deliveryCities || []).length >= 20 && (
             <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 20 ערים</div>
