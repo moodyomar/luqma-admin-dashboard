@@ -56,7 +56,7 @@ const BusinessManagePage = () => {
   });
   const [newPrepValue, setNewPrepValue] = useState('');
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
-  const [newCity, setNewCity] = useState({ he: '', ar: '' });
+  const [newCity, setNewCity] = useState({ he: '', ar: '', deliveryFee: '' });
   const [showContact, setShowContact] = useState(false);
   
   // Coupon management state
@@ -215,10 +215,17 @@ const BusinessManagePage = () => {
   const addDeliveryCity = () => {
     const trimmedHe = newCity.he.trim();
     const trimmedAr = newCity.ar.trim();
+    const deliveryFee = newCity.deliveryFee.trim();
     
-    // Both fields are required
+    // Both language fields are required
     if (!trimmedHe || !trimmedAr) {
       alert('יש למלא את שם העיר בשתי השפות');
+      return;
+    }
+    
+    // Validate delivery fee if provided
+    if (deliveryFee && (isNaN(Number(deliveryFee)) || Number(deliveryFee) < 0)) {
+      alert('דמי משלוח חייבים להיות מספר חיובי');
       return;
     }
     
@@ -237,11 +244,17 @@ const BusinessManagePage = () => {
       return;
     }
     
+    const cityData = { 
+      he: trimmedHe, 
+      ar: trimmedAr,
+      ...(deliveryFee && { deliveryFee: Number(deliveryFee) })
+    };
+    
     setForm(prev => ({
       ...prev,
-      deliveryCities: [...(prev.deliveryCities || []), { he: trimmedHe, ar: trimmedAr }]
+      deliveryCities: [...(prev.deliveryCities || []), cityData]
     }));
-    setNewCity({ he: '', ar: '' });
+    setNewCity({ he: '', ar: '', deliveryFee: '' });
   };
 
   // Remove delivery city
@@ -444,7 +457,7 @@ const BusinessManagePage = () => {
         <div style={{ marginTop: 18, width: '100%' }}>
           <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>ערים למשלוח (דו-לשוני)</label>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
-            הוסף ערים שאליהן אתה יכול לבצע משלוח בעברית ובערבית. הלקוחות יראו את השם בשפה שבחרו באפליקציה.
+            הוסף ערים שאליהן אתה יכול לבצע משלוח בעברית ובערבית. ניתן להגדיר דמי משלוח שונים לכל עיר (אופציונלי - אם לא מוגדר, ישתמש בדמי המשלוח ברירת מחדל).
           </div>
           <div style={{
             display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0', width: '100%', justifyContent: 'flex-start', alignItems: 'center', rowGap: 10, minHeight: 40
@@ -455,6 +468,7 @@ const BusinessManagePage = () => {
               (form.deliveryCities || []).map((city, idx) => {
                 const cityHe = typeof city === 'string' ? city : city.he;
                 const cityAr = typeof city === 'string' ? '' : city.ar;
+                const cityDeliveryFee = typeof city === 'string' ? null : city.deliveryFee;
                 return (
                   <span key={idx} style={{ 
                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
@@ -475,6 +489,21 @@ const BusinessManagePage = () => {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
                         <span style={{ fontSize: 14, fontWeight: 600, direction: 'rtl' }}>{cityHe}</span>
                         {cityAr && <span style={{ fontSize: 12, opacity: 0.9, direction: 'rtl' }}>{cityAr}</span>}
+                        {cityDeliveryFee !== null && cityDeliveryFee !== undefined && (
+                          <span style={{ 
+                            fontSize: 11, 
+                            opacity: 0.95, 
+                            direction: 'rtl',
+                            background: 'rgba(255,255,255,0.2)',
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            marginTop: 2,
+                            display: 'inline-block',
+                            width: 'fit-content'
+                          }}>
+                            משלוח: ₪{cityDeliveryFee}
+                          </span>
+                        )}
                       </div>
                       <button 
                         onClick={() => removeDeliveryCity(idx)} 
@@ -562,6 +591,40 @@ const BusinessManagePage = () => {
                 }}
               />
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600, minWidth: 20 }}>🇵🇸</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="number"
+                value={newCity.deliveryFee}
+                onChange={e => setNewCity(prev => ({ ...prev, deliveryFee: e.target.value }))}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newCity.he.trim() && newCity.ar.trim()) {
+                      addDeliveryCity();
+                    }
+                  }
+                }}
+                placeholder="דמי משלוח (אופציונלי - ₪)"
+                min="0"
+                step="0.5"
+                style={{ 
+                  flex: 1,
+                  height: 44, 
+                  padding: '0 12px', 
+                  borderRadius: 10, 
+                  border: '1px solid #e0e0e0', 
+                  fontSize: 15, 
+                  background: '#fff', 
+                  textAlign: 'right', 
+                  boxSizing: 'border-box',
+                  direction: 'rtl'
+                }}
+              />
+              <span style={{ fontSize: 12, color: '#888', fontWeight: 600, minWidth: 20 }}>🚚</span>
+            </div>
+            <div style={{ fontSize: 11, color: '#666', marginTop: -4, marginBottom: 4, textAlign: 'right' }}>
+              💡 אם לא מוגדר דמי משלוח לעיר, ישתמש בדמי המשלוח ברירת מחדל (₪{form.deliveryFee || 0})
             </div>
             <button
               onClick={addDeliveryCity}
