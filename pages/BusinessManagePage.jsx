@@ -58,6 +58,7 @@ const BusinessManagePage = () => {
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
   const [newCity, setNewCity] = useState({ he: '', ar: '', deliveryFee: '' });
   const [showContact, setShowContact] = useState(false);
+  const [showDeliveryCities, setShowDeliveryCities] = useState(false);
   
   // Coupon management state
   const [showCoupons, setShowCoupons] = useState(false);
@@ -453,9 +454,30 @@ const BusinessManagePage = () => {
           </div>
         </div>
 
-        {/* Delivery Cities Section */}
-        <div style={{ marginTop: 18, width: '100%' }}>
-          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>ערים למשלוח (דו-לשוני)</label>
+        {/* Delivery Cities Section - Collapsible */}
+        <div style={{ marginTop: 18, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
+          <button
+            type="button"
+            onClick={() => setShowDeliveryCities(v => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#007bff',
+              fontWeight: 600,
+              fontSize: 16,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 6,
+              padding: 0
+            }}
+          >
+            ערים למשלוח (דו-לשוני)
+            <span style={{ fontSize: 16 }}>{showDeliveryCities ? '▲' : '▼'}</span>
+          </button>
+          {showDeliveryCities && (
+            <>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
             הוסף ערים שאליהן אתה יכול לבצע משלוח בעברית ובערבית. ניתן להגדיר דמי משלוח שונים לכל עיר (אופציונלי - אם לא מוגדר, ישתמש בדמי המשלוח ברירת מחדל).
           </div>
@@ -474,59 +496,66 @@ const BusinessManagePage = () => {
                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
                     color: '#fff',
                     borderRadius: 8, 
-                    padding: '8px 12px', 
+                    padding: '6px 8px', 
                     display: 'flex', 
                     flexDirection: 'column',
-                    alignItems: 'flex-start', 
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     fontSize: 14, 
                     fontWeight: 500,
-                    minWidth: 80, 
+                    minWidth: 70, 
                     margin: '0 2px',
                     boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
                     position: 'relative'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', gap: 8 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, direction: 'rtl' }}>{cityHe}</span>
-                        {cityAr && <span style={{ fontSize: 12, opacity: 0.9, direction: 'rtl' }}>{cityAr}</span>}
-                        {cityDeliveryFee !== null && cityDeliveryFee !== undefined && (
-                          <span style={{ 
-                            fontSize: 11, 
-                            opacity: 0.95, 
-                            direction: 'rtl',
-                            background: 'rgba(255,255,255,0.2)',
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            marginTop: 2,
-                            display: 'inline-block',
-                            width: 'fit-content'
-                          }}>
-                            משלוח: ₪{cityDeliveryFee}
-                          </span>
-                        )}
-                      </div>
-                      <button 
-                        onClick={() => removeDeliveryCity(idx)} 
-                        style={{ 
-                          background: 'rgba(255,255,255,0.2)', 
-                          border: 'none', 
-                          color: '#fff', 
-                          fontWeight: 700, 
-                          cursor: 'pointer', 
-                          fontSize: 16, 
-                          lineHeight: 1,
-                          width: 20,
-                          height: 20,
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.2s ease',
-                          flexShrink: 0
-                        }}
-                        onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
-                        onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
-                      >×</button>
+                    {/* Delivery fee at top-left corner */}
+                    {cityDeliveryFee !== null && cityDeliveryFee !== undefined && (
+                      <span style={{ 
+                        position: 'absolute',
+                        top: 4,
+                        left: 4,
+                        fontSize: 10, 
+                        fontWeight: 700,
+                        background: 'rgba(255,255,255,0.25)',
+                        padding: '2px 5px',
+                        borderRadius: 4,
+                        lineHeight: 1
+                      }}>
+                        ₪{cityDeliveryFee}
+                      </span>
+                    )}
+                    
+                    {/* Delete button at top-right corner */}
+                    <button 
+                      onClick={() => removeDeliveryCity(idx)} 
+                      style={{ 
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        background: 'rgba(255,255,255,0.2)', 
+                        border: 'none', 
+                        color: '#fff', 
+                        fontWeight: 700, 
+                        cursor: 'pointer', 
+                        fontSize: 14, 
+                        lineHeight: 1,
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s ease',
+                        padding: 0
+                      }}
+                      onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
+                      onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+                    >×</button>
+                    
+                    {/* City names centered */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', marginTop: cityDeliveryFee ? 8 : 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, direction: 'rtl', textAlign: 'center' }}>{cityHe}</span>
+                      {cityAr && <span style={{ fontSize: 11, opacity: 0.9, direction: 'rtl', textAlign: 'center' }}>{cityAr}</span>}
                     </div>
                   </span>
                 );
@@ -649,6 +678,8 @@ const BusinessManagePage = () => {
           </div>
           {(form.deliveryCities || []).length >= 20 && (
             <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 20 ערים</div>
+          )}
+            </>
           )}
         </div>
         
