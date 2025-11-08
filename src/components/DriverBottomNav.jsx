@@ -42,7 +42,6 @@ const DriverBottomNav = () => {
         left: 0,
         right: 0,
         height: '80px',
-        backgroundColor: '#fff',
         borderTop: '1px solid #e5e5e7',
         display: 'flex',
         alignItems: 'center',

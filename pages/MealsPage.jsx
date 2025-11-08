@@ -454,11 +454,10 @@ const MealsPage = () => {
         style={{
           position: 'fixed',
           left: '20px',
-          top: '50%',
+          top: '82%',
           transform: 'translateY(-50%)',
           width: '50px',
           height: '50px',
-          borderRadius: '50%',
           background: saving ? '#6c757d' : '#28a745',
           border: 'none',
           color: 'white',

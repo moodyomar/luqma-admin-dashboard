@@ -910,8 +910,7 @@ const OrdersPage = () => {
             gap: '3px',
             whiteSpace: 'nowrap',
             flex: '0 0 auto',
-            minWidth: '120px',
-            whiteSpace: 'nowrap'
+            minWidth: '120px'
           }}
         >
           🍽️ اكل بالمطعم ({orders.filter(order => order.deliveryMethod === 'eat_in' && !['delivered', 'completed', 'cancelled'].includes(order.status)).length})
@@ -1030,7 +1029,6 @@ const OrdersPage = () => {
         left: 0,
         right: 0,
         height: '70px',
-        backgroundColor: '#fff',
         borderTop: '1px solid #e5e5e7',
         display: 'flex',
         alignItems: 'center',
