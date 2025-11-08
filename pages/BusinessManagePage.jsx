@@ -59,6 +59,7 @@ const BusinessManagePage = () => {
   const [newCity, setNewCity] = useState({ he: '', ar: '', deliveryFee: '' });
   const [showContact, setShowContact] = useState(false);
   const [showDeliveryCities, setShowDeliveryCities] = useState(false);
+  const [editingCityIndex, setEditingCityIndex] = useState(null);
   
   // Coupon management state
   const [showCoupons, setShowCoupons] = useState(false);
@@ -264,6 +265,81 @@ const BusinessManagePage = () => {
       ...prev,
       deliveryCities: prev.deliveryCities.filter((_, i) => i !== idx)
     }));
+  };
+
+  // Edit delivery city - populate form with existing city data
+  const startEditingCity = (idx) => {
+    const city = form.deliveryCities[idx];
+    const cityHe = typeof city === 'string' ? city : city.he;
+    const cityAr = typeof city === 'string' ? '' : city.ar;
+    const cityDeliveryFee = typeof city === 'string' ? '' : (city.deliveryFee || '');
+    
+    setNewCity({
+      he: cityHe,
+      ar: cityAr,
+      deliveryFee: cityDeliveryFee.toString()
+    });
+    setEditingCityIndex(idx);
+  };
+
+  // Update existing city
+  const updateDeliveryCity = () => {
+    if (editingCityIndex === null) return;
+    
+    const trimmedHe = newCity.he.trim();
+    const trimmedAr = newCity.ar.trim();
+    const deliveryFee = newCity.deliveryFee.trim();
+    
+    // Both language fields are required
+    if (!trimmedHe || !trimmedAr) {
+      alert('יש למלא את שם העיר בשתי השפות');
+      return;
+    }
+    
+    // Validate delivery fee if provided
+    if (deliveryFee && (isNaN(Number(deliveryFee)) || Number(deliveryFee) < 0)) {
+      alert('דמי משלוח חייבים להיות מספר חיובי');
+      return;
+    }
+    
+    // Check if city already exists (excluding the one being edited)
+    const cityExists = (form.deliveryCities || []).some(
+      (city, idx) => {
+        if (idx === editingCityIndex) return false; // Skip the city being edited
+        const existingHe = typeof city === 'string' ? city : city.he;
+        const existingAr = typeof city === 'string' ? '' : city.ar;
+        return existingHe.toLowerCase() === trimmedHe.toLowerCase() || 
+               existingAr.toLowerCase() === trimmedAr.toLowerCase();
+      }
+    );
+    
+    if (cityExists) {
+      alert('העיר כבר קיימת ברשימה');
+      return;
+    }
+    
+    const cityData = { 
+      he: trimmedHe, 
+      ar: trimmedAr,
+      ...(deliveryFee && { deliveryFee: Number(deliveryFee) })
+    };
+    
+    setForm(prev => ({
+      ...prev,
+      deliveryCities: prev.deliveryCities.map((city, idx) => 
+        idx === editingCityIndex ? cityData : city
+      )
+    }));
+    
+    // Reset form
+    setNewCity({ he: '', ar: '', deliveryFee: '' });
+    setEditingCityIndex(null);
+  };
+
+  // Cancel editing
+  const cancelEditingCity = () => {
+    setNewCity({ he: '', ar: '', deliveryFee: '' });
+    setEditingCityIndex(null);
   };
 
   // Auto-save features to Firebase
@@ -492,22 +568,45 @@ const BusinessManagePage = () => {
                 const cityAr = typeof city === 'string' ? '' : city.ar;
                 const cityDeliveryFee = typeof city === 'string' ? null : city.deliveryFee;
                 return (
-                  <span key={idx} style={{ 
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-                    color: '#fff',
-                    borderRadius: 8, 
-                    padding: '6px 8px', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14, 
-                    fontWeight: 500,
-                    minWidth: 70, 
-                    margin: '0 2px',
-                    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
-                    position: 'relative'
-                  }}>
+                  <span 
+                    key={idx} 
+                    onClick={() => startEditingCity(idx)}
+                    style={{ 
+                      background: editingCityIndex === idx 
+                        ? 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' 
+                        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                      color: '#fff',
+                      borderRadius: 8, 
+                      padding: '6px 8px', 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14, 
+                      fontWeight: 500,
+                      minWidth: 70, 
+                      margin: '0 2px',
+                      boxShadow: editingCityIndex === idx 
+                        ? '0 4px 12px rgba(245, 87, 108, 0.5)' 
+                        : '0 2px 8px rgba(102, 126, 234, 0.3)',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      transform: editingCityIndex === idx ? 'scale(1.05)' : 'scale(1)'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (editingCityIndex !== idx) {
+                        e.currentTarget.style.transform = 'scale(1.03)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.5)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (editingCityIndex !== idx) {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
+                      }
+                    }}
+                  >
                     {/* Delivery fee at top-left corner */}
                     {cityDeliveryFee !== null && cityDeliveryFee !== undefined && (
                       <span style={{ 
@@ -527,7 +626,10 @@ const BusinessManagePage = () => {
                     
                     {/* Delete button at top-right corner */}
                     <button 
-                      onClick={() => removeDeliveryCity(idx)} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeDeliveryCity(idx);
+                      }} 
                       style={{ 
                         position: 'absolute',
                         top: 4,
@@ -572,7 +674,7 @@ const BusinessManagePage = () => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     if (newCity.he.trim() && newCity.ar.trim()) {
-                      addDeliveryCity();
+                      editingCityIndex !== null ? updateDeliveryCity() : addDeliveryCity();
                     }
                   }
                 }}
@@ -601,7 +703,7 @@ const BusinessManagePage = () => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     if (newCity.he.trim() && newCity.ar.trim()) {
-                      addDeliveryCity();
+                      editingCityIndex !== null ? updateDeliveryCity() : addDeliveryCity();
                     }
                   }
                 }}
@@ -630,7 +732,7 @@ const BusinessManagePage = () => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     if (newCity.he.trim() && newCity.ar.trim()) {
-                      addDeliveryCity();
+                      editingCityIndex !== null ? updateDeliveryCity() : addDeliveryCity();
                     }
                   }
                 }}
@@ -655,26 +757,73 @@ const BusinessManagePage = () => {
             <div style={{ fontSize: 11, color: '#666', marginTop: -4, marginBottom: 4, textAlign: 'right' }}>
               💡 אם לא מוגדר דמי משלוח לעיר, ישתמש בדמי המשלוח ברירת מחדל (₪{form.deliveryFee || 0})
             </div>
-            <button
-              onClick={addDeliveryCity}
-              disabled={!newCity.he.trim() || !newCity.ar.trim() || (form.deliveryCities || []).length >= 20}
-              style={{ 
-                width: '100%', 
-                height: 44, 
-                borderRadius: 10, 
-                background: (!newCity.he.trim() || !newCity.ar.trim() || (form.deliveryCities || []).length >= 20) ? '#ccc' : '#667eea', 
-                color: '#fff', 
-                border: 'none', 
-                fontWeight: 600, 
-                fontSize: 16, 
-                cursor: (!newCity.he.trim() || !newCity.ar.trim() || (form.deliveryCities || []).length >= 20) ? 'not-allowed' : 'pointer', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                transition: 'all 0.2s ease',
-                boxShadow: (!newCity.he.trim() || !newCity.ar.trim() || (form.deliveryCities || []).length >= 20) ? 'none' : '0 2px 8px rgba(102, 126, 234, 0.3)'
-              }}
-            >הוסף עיר</button>
+            {editingCityIndex !== null && (
+              <div style={{ 
+                background: '#fff3cd', 
+                border: '1px solid #ffc107', 
+                borderRadius: 8, 
+                padding: '8px 12px', 
+                marginBottom: 8,
+                fontSize: 13,
+                color: '#856404',
+                textAlign: 'center',
+                fontWeight: 600
+              }}>
+                ✏️ עריכת עיר - לחץ "עדכן" לשמירה או "ביטול" לביטול
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={editingCityIndex !== null ? updateDeliveryCity : addDeliveryCity}
+                disabled={!newCity.he.trim() || !newCity.ar.trim() || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)}
+                style={{ 
+                  flex: editingCityIndex !== null ? 1 : 'auto',
+                  width: editingCityIndex !== null ? 'auto' : '100%',
+                  height: 44, 
+                  borderRadius: 10, 
+                  background: (!newCity.he.trim() || !newCity.ar.trim() || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)) 
+                    ? '#ccc' 
+                    : (editingCityIndex !== null ? '#f5576c' : '#667eea'), 
+                  color: '#fff', 
+                  border: 'none', 
+                  fontWeight: 600, 
+                  fontSize: 16, 
+                  cursor: (!newCity.he.trim() || !newCity.ar.trim() || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)) ? 'not-allowed' : 'pointer', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  boxShadow: (!newCity.he.trim() || !newCity.ar.trim() || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)) 
+                    ? 'none' 
+                    : (editingCityIndex !== null ? '0 2px 8px rgba(245, 87, 108, 0.3)' : '0 2px 8px rgba(102, 126, 234, 0.3)')
+                }}
+              >
+                {editingCityIndex !== null ? '✓ עדכן עיר' : 'הוסף עיר'}
+              </button>
+              {editingCityIndex !== null && (
+                <button
+                  onClick={cancelEditingCity}
+                  style={{ 
+                    flex: 1,
+                    height: 44, 
+                    borderRadius: 10, 
+                    background: '#6c757d', 
+                    color: '#fff', 
+                    border: 'none', 
+                    fontWeight: 600, 
+                    fontSize: 16, 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 8px rgba(108, 117, 125, 0.3)'
+                  }}
+                >
+                  ✕ ביטול
+                </button>
+              )}
+            </div>
           </div>
           {(form.deliveryCities || []).length >= 20 && (
             <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 20 ערים</div>
