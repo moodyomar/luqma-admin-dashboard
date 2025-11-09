@@ -136,6 +136,28 @@ const AnalyticsPage = () => {
       order.status === 'delivered' || order.status === 'served' || order.status === 'completed'
     ).length;
 
+    // Cancelled Orders
+    const cancelledOrders = filteredOrders.filter(order => 
+      order.status === 'cancelled' || order.status === 'canceled'
+    ).length;
+    const cancellationRate = orderCount > 0 ? (cancelledOrders / orderCount * 100) : 0;
+
+    // Average Prep Time (for completed orders with prep time data)
+    const ordersWithPrepTime = filteredOrders.filter(order => 
+      (order.status === 'delivered' || order.status === 'served' || order.status === 'completed') &&
+      order.acceptedAt && order.readyAt
+    );
+    const avgPrepTime = ordersWithPrepTime.length > 0
+      ? ordersWithPrepTime.reduce((sum, order) => {
+          const prepMinutes = (new Date(order.readyAt) - new Date(order.acceptedAt)) / (1000 * 60);
+          return sum + prepMinutes;
+        }, 0) / ordersWithPrepTime.length
+      : 0;
+
+    // Revenue per hour (total sales divided by hours in period)
+    const hoursInPeriod = days * 24;
+    const revenuePerHour = totalSales / hoursInPeriod;
+
     // Daily Sales Breakdown
     const dailySales = {};
     filteredOrders.forEach(order => {
@@ -286,6 +308,10 @@ const AnalyticsPage = () => {
       avgOrderValue,
       orderCount,
       completedOrders,
+      cancelledOrders,
+      cancellationRate,
+      avgPrepTime,
+      revenuePerHour,
       dailySales: sortedDailySales,
       popularItems,
       peakHours,
@@ -542,8 +568,10 @@ const AnalyticsPage = () => {
       {/* Key Metrics Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '20px',
+        gridTemplateColumns: window.innerWidth < 768 
+          ? 'repeat(2, 1fr)' 
+          : 'repeat(auto-fit, minmax(250px, 1fr))',
+        gap: window.innerWidth < 768 ? '12px' : '20px',
         marginBottom: '40px'
       }}>
         <div style={{
@@ -575,7 +603,7 @@ const AnalyticsPage = () => {
         </div>
 
         <div style={{
-          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+          background: 'linear-gradient(135deg, #5f72bd 0%, #9921e8 100%)',
           padding: '25px',
           borderRadius: '15px',
           color: 'white',
@@ -589,10 +617,10 @@ const AnalyticsPage = () => {
         </div>
 
         <div style={{
-          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+          background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
           padding: '25px',
           borderRadius: '15px',
-          color: 'white',
+          color: '#333',
           textAlign: 'center'
         }}>
           <div style={{ fontSize: '32px', marginBottom: '10px' }}>📈</div>
@@ -603,7 +631,7 @@ const AnalyticsPage = () => {
         </div>
 
         <div style={{
-          background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           padding: '25px',
           borderRadius: '15px',
           color: 'white',
@@ -611,8 +639,64 @@ const AnalyticsPage = () => {
         }}>
           <div style={{ fontSize: '32px', marginBottom: '10px' }}>⏰</div>
           <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>أوقات الذروة</div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', lineHeight: 1.4 }}>
+            {analytics.peakHours.slice(0, 2).map(([hour, stats], idx) => {
+              const startHour = String(hour).padStart(2, '0');
+              const endHour = String((parseInt(hour) + 1) % 24).padStart(2, '0');
+              return (
+                <div key={hour} style={{ marginBottom: idx < 1 ? '6px' : '0' }}>
+                  {startHour}:00-{endHour}:00
+                  <span style={{ fontSize: '14px', opacity: 0.85, marginRight: '6px' }}>
+                    ({stats.orders})
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
+          padding: '25px',
+          borderRadius: '15px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '32px', marginBottom: '10px' }}>❌</div>
+          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>معدل الإلغاء</div>
           <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
-            {analytics.peakHours[0]?.[0]}:00
+            {analytics.cancellationRate.toFixed(1)}%
+          </div>
+          <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '5px' }}>
+            ({analytics.cancelledOrders} طلب)
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #f78ca0 0%, #f9748f 100%)',
+          padding: '25px',
+          borderRadius: '15px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚡</div>
+          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>متوسط وقت التحضير</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+            {analytics.avgPrepTime > 0 ? `${analytics.avgPrepTime.toFixed(0)} دقيقة` : 'لا توجد بيانات'}
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%)',
+          padding: '25px',
+          borderRadius: '15px',
+          color: 'white',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '32px', marginBottom: '10px' }}>💵</div>
+          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>الإيرادات في الساعة</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+            {analytics.revenuePerHour.toFixed(1)}₪
           </div>
         </div>
       </div>
@@ -620,43 +704,53 @@ const AnalyticsPage = () => {
       {/* Charts Section */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-        gap: '30px',
+        gridTemplateColumns: window.innerWidth < 768 
+          ? '1fr' 
+          : 'repeat(auto-fit, minmax(400px, 1fr))',
+        gap: window.innerWidth < 768 ? '20px' : '30px',
         marginBottom: '40px'
       }}>
         {/* Daily Sales Chart */}
         <div style={{
           background: 'white',
-          padding: '25px',
+          padding: window.innerWidth < 768 ? '15px' : '25px',
           borderRadius: '15px',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-          border: '1px solid #eee'
+          border: '1px solid #eee',
+          overflow: 'hidden'
         }}>
-          <h3 style={{ marginBottom: '20px', color: '#333' }}>📅 المبيعات اليومية</h3>
+          <h3 style={{ marginBottom: '20px', color: '#333', fontSize: window.innerWidth < 768 ? '16px' : '18px' }}>📅 المبيعات اليومية</h3>
           <div style={{ 
             height: '200px', 
             display: 'flex', 
             alignItems: 'end', 
-            gap: '10px',
+            gap: window.innerWidth < 768 ? '4px' : '10px',
             paddingTop: '10px',
-            marginTop: '10px'
+            marginTop: '10px',
+            overflowX: 'auto',
+            overflowY: 'hidden'
           }}>
             {analytics.dailySales.map(([date, data], index) => {
               const maxSales = Math.max(...analytics.dailySales.map(([,d]) => d.sales));
-              const height = (data.sales / maxSales) * 160; // Reduced from 180 to account for padding
+              const height = (data.sales / maxSales) * 160;
               return (
-                <div key={date} style={{ flex: 1, textAlign: 'center' }}>
+                <div key={date} style={{ 
+                  flex: window.innerWidth < 768 ? '0 0 auto' : '1',
+                  minWidth: window.innerWidth < 768 ? '40px' : 'auto',
+                  textAlign: 'center' 
+                }}>
                   <div style={{
                     height: `${height}px`,
                     background: 'linear-gradient(to top, #007bff, #0056b3)',
                     borderRadius: '4px 4px 0 0',
                     marginBottom: '10px',
-                    minHeight: '4px'
+                    minHeight: '4px',
+                    width: '100%'
                   }} />
-                  <div style={{ fontSize: '12px', color: '#666' }}>
+                  <div style={{ fontSize: window.innerWidth < 768 ? '10px' : '12px', color: '#666', whiteSpace: 'nowrap' }}>
                     {data.displayDate}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
+                  <div style={{ fontSize: window.innerWidth < 768 ? '9px' : '11px', color: '#999', marginTop: '2px' }}>
                     {data.sales.toFixed(0)}₪
                   </div>
                 </div>
