@@ -33,13 +33,18 @@ const DriverOrderCard = React.memo(({ order, activeBusinessId }) => {
   const handleOutForDelivery = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
+      const orderId = order.id || order.uid;
+      if (!orderId) {
+        throw new Error('Order ID is missing');
+      }
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', orderId);
       await updateDoc(ref, {
         status: 'out_for_delivery',
         outForDeliveryAt: new Date().toISOString(),
       });
     } catch (err) {
-      alert('خطأ في تحديث الطلب.');
+      console.error('Error updating order:', err);
+      alert('خطأ في تحديث الطلب: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -49,13 +54,18 @@ const DriverOrderCard = React.memo(({ order, activeBusinessId }) => {
   const handleDelivered = async () => {
     setLoading(true);
     try {
-      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
+      const orderId = order.id || order.uid;
+      if (!orderId) {
+        throw new Error('Order ID is missing');
+      }
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', orderId);
       await updateDoc(ref, {
         status: 'delivered',
         deliveredAt: new Date().toISOString(),
       });
     } catch (err) {
-      alert('خطأ في تحديث الطلب.');
+      console.error('Error updating order:', err);
+      alert('خطأ في تحديث الطلب: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -402,7 +412,7 @@ const DriverOrdersPage = () => {
       {/* Driver Dashboard Stats */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gridTemplateColumns: 'repeat(2, 1fr)',
         gap: '16px',
         padding: '0 20px',
         marginBottom: '24px'
