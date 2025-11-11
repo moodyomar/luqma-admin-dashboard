@@ -41,9 +41,9 @@ service cloud.firestore {
     // GLOBAL USERS COLLECTION (for push notifications & mobile app)
     // ========================================
     match /users/{uid} {
-      // CRITICAL: Allow authenticated users to read their own document
-      // AND allow admins to read all users (for promotional notifications)
-      allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+      // CRITICAL: Allow any authenticated user to read user documents
+      // Mobile app and admin dashboard both need this access
+      allow read: if isAuthed();
       
       // CRITICAL: Allow users to create their own document (first-time registration with push token)
       allow create: if isAuthed() && 
