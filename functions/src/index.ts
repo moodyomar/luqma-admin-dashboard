@@ -7,6 +7,7 @@ admin.initializeApp();
 export { inviteUser } from "./inviteUser";
 export { addBusinessClaims, removeBusinessClaims, forceTokenRefresh } from "./setClaims";
 export { removeDriver } from "./removeDriver";
+export { sendPromotionalNotification } from "./sendPromotionalNotification";
 
 
 

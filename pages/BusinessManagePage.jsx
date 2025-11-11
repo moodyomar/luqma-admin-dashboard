@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from '../src/contexts/AuthContext';
 import { 
@@ -12,7 +13,9 @@ import {
   IoMdClose,
   IoMdCalendar,
   IoMdPeople,
-  IoMdPricetag
+  IoMdPricetag,
+  IoMdNotifications,
+  IoMdSend
 } from 'react-icons/io';
 import {
   getAllCoupons,
@@ -68,6 +71,17 @@ const BusinessManagePage = () => {
   const [showCouponForm, setShowCouponForm] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [couponFilter, setCouponFilter] = useState('all');
+  
+  // Promotional notification state
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationForm, setNotificationForm] = useState({
+    title: '',
+    body: '',
+    targetAudience: 'all',
+    selectedUsers: []
+  });
+  const [sendingNotification, setSendingNotification] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -461,6 +475,79 @@ const BusinessManagePage = () => {
       loadCoupons();
     }
   }, [showCoupons]);
+
+  // Notification management functions
+  const loadUsers = async () => {
+    try {
+      const usersRef = collection(db, 'users');
+      const usersSnap = await getDocs(query(usersRef, where('businessId', '==', activeBusinessId)));
+      const usersData = usersSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAllUsers(usersData);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      toast.error('שגיאה בטעינת המשתמשים');
+    }
+  };
+
+  const handleSendNotification = async () => {
+    if (!notificationForm.title.trim() || !notificationForm.body.trim()) {
+      toast.error('אנא מלא את כל השדות הנדרשים');
+      return;
+    }
+
+    if (notificationForm.title.length > 65) {
+      toast.error('כותרת ההודעה ארוכה מדי (מקסימום 65 תווים)');
+      return;
+    }
+
+    if (notificationForm.body.length > 240) {
+      toast.error('גוף ההודעה ארוך מדי (מקסימום 240 תווים)');
+      return;
+    }
+
+    if (notificationForm.targetAudience === 'specific' && notificationForm.selectedUsers.length === 0) {
+      toast.error('אנא בחר לפחות משתמש אחד');
+      return;
+    }
+
+    try {
+      setSendingNotification(true);
+      const functions = getFunctions();
+      const sendPromoNotification = httpsCallable(functions, 'sendPromotionalNotification');
+      
+      const result = await sendPromoNotification({
+        title: notificationForm.title,
+        body: notificationForm.body,
+        targetUsers: notificationForm.targetAudience === 'all' ? 'all' : notificationForm.selectedUsers,
+        businessId: activeBusinessId
+      });
+
+      toast.success(`הודעה נשלחה בהצלחה ל-${result.data.sentTo} משתמשים!`);
+      
+      // Reset form
+      setNotificationForm({
+        title: '',
+        body: '',
+        targetAudience: 'all',
+        selectedUsers: []
+      });
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      toast.error('שגיאה בשליחת ההודעה: ' + (error.message || 'שגיאה לא ידועה'));
+    } finally {
+      setSendingNotification(false);
+    }
+  };
+
+  // Load users when notification section is opened
+  useEffect(() => {
+    if (showNotifications && allUsers.length === 0) {
+      loadUsers();
+    }
+  }, [showNotifications]);
 
   if (loading) return <p>טוען...</p>;
 
@@ -1155,6 +1242,274 @@ const BusinessManagePage = () => {
                   ))}
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Promotional Notifications Section */}
+      <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => setShowNotifications(v => !v)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#007bff',
+            fontWeight: 600,
+            fontSize: 18,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: 8,
+            gap: 6,
+          }}
+        >
+          <IoMdNotifications size={20} />
+          {showNotifications ? 'הסתר שליחת הודעות' : 'שליחת הודעות ללקוחות 📢'}
+          <span style={{ fontSize: 18 }}>{showNotifications ? '▲' : '▼'}</span>
+        </button>
+        
+        {showNotifications && (
+          <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 12 }}>
+            <Toaster position="top-center" />
+            
+            <div style={{ fontSize: 13, color: '#666', marginBottom: 16, textAlign: 'right', lineHeight: 1.6 }}>
+              שלח הודעות Push לכל הלקוחות או למשתמשים ספציפיים בלחיצת כפתור
+            </div>
+
+            {/* Notification Form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Title Input */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
+                  כותרת ההודעה * ({notificationForm.title.length}/65)
+                </label>
+                <input
+                  type="text"
+                  value={notificationForm.title}
+                  onChange={(e) => setNotificationForm(prev => ({ ...prev, title: e.target.value.slice(0, 65) }))}
+                  placeholder="עסקת השבוע! 🎉 | عرض الأسبوع!"
+                  maxLength={65}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    border: '2px solid ' + (notificationForm.title.length > 65 ? '#FF3B30' : '#e0e0e0'),
+                    borderRadius: 8,
+                    fontSize: 15,
+                    background: '#fff',
+                    textAlign: 'right',
+                    boxSizing: 'border-box',
+                    direction: 'rtl'
+                  }}
+                  required
+                />
+              </div>
+
+              {/* Body Textarea */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
+                  גוף ההודעה * ({notificationForm.body.length}/240)
+                </label>
+                <textarea
+                  value={notificationForm.body}
+                  onChange={(e) => setNotificationForm(prev => ({ ...prev, body: e.target.value.slice(0, 240) }))}
+                  placeholder="קבל 20% הנחה על כל המנות היום בלבד! | احصل على خصم 20% على جميع الأطباق اليوم فقط!"
+                  rows={4}
+                  maxLength={240}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    border: '2px solid ' + (notificationForm.body.length > 240 ? '#FF3B30' : '#e0e0e0'),
+                    borderRadius: 8,
+                    fontSize: 15,
+                    background: '#fff',
+                    textAlign: 'right',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                    direction: 'rtl'
+                  }}
+                  required
+                />
+              </div>
+
+              {/* Target Audience */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
+                  קהל יעד
+                </label>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'flex-start', direction: 'rtl' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '8px 12px', background: notificationForm.targetAudience === 'all' ? '#007aff' : '#fff', color: notificationForm.targetAudience === 'all' ? '#fff' : '#333', borderRadius: 8, border: '2px solid ' + (notificationForm.targetAudience === 'all' ? '#007aff' : '#e0e0e0'), fontWeight: 500, transition: 'all 0.2s' }}>
+                    <input
+                      type="radio"
+                      name="targetAudience"
+                      value="all"
+                      checked={notificationForm.targetAudience === 'all'}
+                      onChange={(e) => setNotificationForm(prev => ({ ...prev, targetAudience: e.target.value, selectedUsers: [] }))}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 14 }}>כל המשתמשים</span>
+                  </label>
+                  
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '8px 12px', background: notificationForm.targetAudience === 'specific' ? '#007aff' : '#fff', color: notificationForm.targetAudience === 'specific' ? '#fff' : '#333', borderRadius: 8, border: '2px solid ' + (notificationForm.targetAudience === 'specific' ? '#007aff' : '#e0e0e0'), fontWeight: 500, transition: 'all 0.2s' }}>
+                    <input
+                      type="radio"
+                      name="targetAudience"
+                      value="specific"
+                      checked={notificationForm.targetAudience === 'specific'}
+                      onChange={(e) => setNotificationForm(prev => ({ ...prev, targetAudience: e.target.value }))}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 14 }}>משתמשים ספציפיים</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Specific Users Selection */}
+              {notificationForm.targetAudience === 'specific' && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
+                    בחר משתמשים ({notificationForm.selectedUsers.length} נבחרו)
+                  </label>
+                  <div style={{ 
+                    maxHeight: 200, 
+                    overflowY: 'auto', 
+                    border: '2px solid #e0e0e0', 
+                    borderRadius: 8, 
+                    padding: 8,
+                    background: '#fff'
+                  }}>
+                    {allUsers.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: 16, color: '#666', fontSize: 13 }}>
+                        טוען משתמשים...
+                      </div>
+                    ) : (
+                      allUsers.map(user => (
+                        <label key={user.id} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 8, 
+                          padding: '8px 12px', 
+                          cursor: 'pointer',
+                          borderRadius: 6,
+                          background: notificationForm.selectedUsers.includes(user.id) ? '#e3f2fd' : 'transparent',
+                          transition: 'all 0.2s',
+                          direction: 'rtl'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={notificationForm.selectedUsers.includes(user.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNotificationForm(prev => ({ 
+                                  ...prev, 
+                                  selectedUsers: [...prev.selectedUsers, user.id] 
+                                }));
+                              } else {
+                                setNotificationForm(prev => ({ 
+                                  ...prev, 
+                                  selectedUsers: prev.selectedUsers.filter(id => id !== user.id) 
+                                }));
+                              }
+                            }}
+                            style={{ width: 16, height: 16, cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: 14, color: '#333', flex: 1 }}>
+                            {user.phone || user.email || user.displayName || user.id}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Section */}
+              <div style={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                borderRadius: 12, 
+                padding: 16,
+                marginTop: 8
+              }}>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 8, textAlign: 'right', fontWeight: 600 }}>
+                  👁️ תצוגה מקדימה
+                </div>
+                <div style={{ 
+                  background: 'rgba(255,255,255,0.15)', 
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: 10, 
+                  padding: 12,
+                  border: '1px solid rgba(255,255,255,0.2)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, direction: 'rtl' }}>
+                    <IoMdNotifications size={24} color="#fff" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 4, textAlign: 'right' }}>
+                        {notificationForm.title || 'כותרת ההודעה תופיע כאן'}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 1.4, textAlign: 'right' }}>
+                        {notificationForm.body || 'גוף ההודעה יופיע כאן'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Send Button */}
+              <button
+                onClick={handleSendNotification}
+                disabled={sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()}
+                style={{
+                  width: '100%',
+                  height: 50,
+                  background: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
+                    ? '#ccc' 
+                    : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'all 0.2s',
+                  boxShadow: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
+                    ? 'none' 
+                    : '0 4px 15px rgba(102, 126, 234, 0.4)',
+                  transform: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) ? 'scale(1)' : 'scale(1)'
+                }}
+                onMouseEnter={(e) => {
+                  if (!sendingNotification && notificationForm.title.trim() && notificationForm.body.trim()) {
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
+                    ? 'none' 
+                    : '0 4px 15px rgba(102, 126, 234, 0.4)';
+                }}
+              >
+                {sendingNotification ? (
+                  <>
+                    <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    שולח...
+                  </>
+                ) : (
+                  <>
+                    <IoMdSend size={18} />
+                    שלח הודעה לכל המשתמשים
+                  </>
+                )}
+              </button>
+
+              <div style={{ fontSize: 11, color: '#666', textAlign: 'center', marginTop: -8 }}>
+                💡 הודעות יישלחו רק למשתמשים עם הודעות Push מופעלות
+              </div>
+            </div>
           </div>
         )}
       </div>
