@@ -38,13 +38,24 @@ service cloud.firestore {
     }
 
     // ========================================
-    // LEGACY GLOBAL USERS COLLECTION (for backwards compatibility)
+    // GLOBAL USERS COLLECTION (for push notifications & mobile app)
     // ========================================
     match /users/{uid} {
-      // Allow users to read their own document
-      allow read: if isAuthed() && request.auth.uid == uid;
-      // Only super admins can write (for migration purposes)
-      allow write: if isAdmin();
+      // CRITICAL: Allow authenticated users to read their own document
+      // AND allow admins to read all users (for promotional notifications)
+      allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+      
+      // CRITICAL: Allow users to create their own document (first-time registration with push token)
+      allow create: if isAuthed() && 
+                      (request.auth.uid == uid || 
+                       (request.resource.data.phone != null && 
+                        request.resource.data.phone is string));
+      
+      // Allow users to update their own document (push token updates)
+      allow update: if isAuthed() && (request.auth.uid == uid || isAdmin());
+      
+      // Only allow users to delete their own document
+      allow delete: if isAuthed() && request.auth.uid == uid;
     }
 
     // ========================================

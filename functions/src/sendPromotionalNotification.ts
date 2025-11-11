@@ -61,24 +61,14 @@ export const sendPromotionalNotification = functions.https.onCall(
 
       // Determine target users
       if (data.targetUsers === "all") {
-        // Get all users for the business
-        const businessId = data.businessId || context.auth.token.businessIds?.[0];
-        
-        if (!businessId) {
-          throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Business ID is required"
-          );
-        }
-
+        // Get all users from the global users collection (where push tokens are stored)
         const usersSnapshot = await db
           .collection("users")
-          .where("businessId", "==", businessId)
           .get();
 
         userIds = usersSnapshot.docs.map((doc) => doc.id);
         
-        functions.logger.info(`Sending notification to all users in business ${businessId}: ${userIds.length} users`);
+        functions.logger.info(`Sending notification to all users: ${userIds.length} users`);
       } else if (Array.isArray(data.targetUsers)) {
         userIds = data.targetUsers;
         functions.logger.info(`Sending notification to specific users: ${userIds.length} users`);
@@ -97,7 +87,7 @@ export const sendPromotionalNotification = functions.https.onCall(
         };
       }
 
-      // Fetch FCM tokens for all target users
+      // Fetch FCM tokens for all target users from the global users collection
       const tokens: string[] = [];
       const batchSize = 10; // Firestore 'in' query limit
 
@@ -110,7 +100,18 @@ export const sendPromotionalNotification = functions.https.onCall(
 
         userDocs.forEach((doc) => {
           const userData = doc.data();
-          if (userData.fcmToken) {
+          
+          // Check for pushTokens array (new structure)
+          if (userData.pushTokens && Array.isArray(userData.pushTokens)) {
+            userData.pushTokens.forEach((tokenObj: any) => {
+              // Only add active tokens
+              if (tokenObj.active && tokenObj.token) {
+                tokens.push(tokenObj.token);
+              }
+            });
+          }
+          // Fallback to old single token fields
+          else if (userData.fcmToken) {
             tokens.push(userData.fcmToken);
           } else if (userData.pushToken) {
             tokens.push(userData.pushToken);

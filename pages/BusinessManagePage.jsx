@@ -479,12 +479,14 @@ const BusinessManagePage = () => {
   // Notification management functions
   const loadUsers = async () => {
     try {
+      // Load users from the global users collection (where push tokens are stored)
       const usersRef = collection(db, 'users');
-      const usersSnap = await getDocs(query(usersRef, where('businessId', '==', activeBusinessId)));
+      const usersSnap = await getDocs(usersRef);
       const usersData = usersSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      console.log(`Loaded ${usersData.length} users from global collection`);
       setAllUsers(usersData);
     } catch (error) {
       console.error('Error loading users:', error);
