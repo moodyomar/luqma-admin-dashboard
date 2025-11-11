@@ -15,21 +15,21 @@ service cloud.firestore {
     function hasBiz(bid) {
       return isAuthed() && 
              request.auth.token.businessIds != null &&
-             (bid in request.auth.token.businessIds);
+             bid in request.auth.token.businessIds;
     }
 
     // Check if user has admin role
     function isAdmin() {
       return isAuthed() && 
              request.auth.token.roles != null &&
-             ('admin' in request.auth.token.roles);
+             'admin' in request.auth.token.roles;
     }
 
     // Check if user has driver role
     function isDriver() {
       return isAuthed() && 
              request.auth.token.roles != null &&
-             ('driver' in request.auth.token.roles);
+             'driver' in request.auth.token.roles;
     }
 
     // Check if user is admin for specific business
