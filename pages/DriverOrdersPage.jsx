@@ -11,7 +11,7 @@ import { FiLogOut, FiClock, FiPackage, FiCheckCircle } from 'react-icons/fi';
 import NotificationSystem from '../src/components/NotificationSystem';
 import './styles.css';
 
-const DriverOrderCard = React.memo(({ order, activeBusinessId }) => {
+const DriverOrderCard = React.memo(({ order, activeBusinessId, orderTimers }) => {
   const [loading, setLoading] = useState(false);
 
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
@@ -101,6 +101,53 @@ const DriverOrderCard = React.memo(({ order, activeBusinessId }) => {
            'قيد التحضير'}
         </div>
       </div>
+
+      {/* Restaurant Estimated Prep Time - Countdown Timer */}
+      {order.status === 'preparing' && orderTimers && orderTimers[order.id || order.uid] !== undefined && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '10px 14px',
+          marginTop: '12px',
+          background: orderTimers[order.id || order.uid] <= 0
+            ? 'linear-gradient(135deg, #c8e6c9 0%, #81c784 100%)'
+            : orderTimers[order.id || order.uid] <= 300 
+              ? 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)' 
+              : 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+          borderRadius: '8px',
+          border: orderTimers[order.id || order.uid] <= 0
+            ? '2px solid #4caf50'
+            : orderTimers[order.id || order.uid] <= 300 
+              ? '1px solid #ef5350' 
+              : '1px solid #90caf9',
+          animation: orderTimers[order.id || order.uid] <= 0 ? 'pulse 1.5s infinite' : 'none'
+        }}>
+          {orderTimers[order.id || order.uid] <= 0 ? (
+            <>
+              <span style={{ fontSize: '18px', marginLeft: '8px' }}>✅</span>
+              <span style={{ 
+                fontSize: '15px', 
+                fontWeight: '700', 
+                color: '#2e7d32'
+              }}>
+                الوجبة جاهزة الآن! 🎉
+              </span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '16px', marginLeft: '6px' }}>⏱️</span>
+              <span style={{ 
+                fontSize: '14px', 
+                fontWeight: '600', 
+                color: orderTimers[order.id || order.uid] <= 300 ? '#c62828' : '#1976d2'
+              }}>
+                وقت متبقي: {Math.floor(orderTimers[order.id || order.uid] / 60)}:{String(orderTimers[order.id || order.uid] % 60).padStart(2, '0')} دقيقة
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="row">
         <div>
@@ -234,6 +281,7 @@ const DriverOrdersPage = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [orderTimers, setOrderTimers] = useState({}); // Track countdown timers for each order
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -272,6 +320,57 @@ const DriverOrdersPage = () => {
     );
     return () => unsubscribe();
   }, [activeBusinessId]);
+
+  // Timer countdown - update every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOrderTimers(prevTimers => {
+        const newTimers = { ...prevTimers };
+        Object.keys(newTimers).forEach(orderId => {
+          if (newTimers[orderId] > 0) {
+            newTimers[orderId] = newTimers[orderId] - 1;
+          } else {
+            delete newTimers[orderId]; // Remove completed timers
+          }
+        });
+        return newTimers;
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initialize timers for orders that are preparing
+  useEffect(() => {
+    const newTimers = {};
+    const now = new Date();
+    
+    orders.forEach(order => {
+      const orderId = order.id || order.uid;
+      
+      // Only start timer for orders that are preparing and don't already have a timer
+      if (order.status === 'preparing' && !orderTimers[orderId]) {
+        // Use the prep time that was set when order was accepted
+        let prepTimeMinutes = order.prepTimeMinutes || 15; // default 15 minutes if not set
+        
+        // Calculate actual remaining time based on when order was accepted
+        let remainingSeconds = prepTimeMinutes * 60;
+        
+        // If we have acceptedAt timestamp, calculate elapsed time
+        if (order.acceptedAt || order.preparingStartedAt) {
+          const startTime = new Date(order.acceptedAt || order.preparingStartedAt);
+          const elapsedSeconds = Math.floor((now - startTime) / 1000);
+          remainingSeconds = Math.max(0, (prepTimeMinutes * 60) - elapsedSeconds);
+        }
+        
+        newTimers[orderId] = remainingSeconds;
+      }
+    });
+    
+    if (Object.keys(newTimers).length > 0) {
+      setOrderTimers(prev => ({ ...prev, ...newTimers }));
+    }
+  }, [orders]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -592,7 +691,7 @@ const DriverOrdersPage = () => {
       ) : (
         <div className="orders-grid">
           {filteredOrders.map((order) => (
-            <DriverOrderCard key={order.uid || order.id} order={order} activeBusinessId={activeBusinessId} />
+            <DriverOrderCard key={order.uid || order.id} order={order} activeBusinessId={activeBusinessId} orderTimers={orderTimers} />
           ))}
         </div>
       )}

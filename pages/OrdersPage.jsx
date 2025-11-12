@@ -743,6 +743,8 @@ const OrdersPage = () => {
   // Initialize timers for orders that are preparing
   useEffect(() => {
     const newTimers = {};
+    const now = new Date();
+    
     orders.forEach(order => {
       const orderId = order.id || order.uid;
       
@@ -751,9 +753,17 @@ const OrdersPage = () => {
         // Use the prep time that was set when order was accepted
         let prepTimeMinutes = order.prepTimeMinutes || 15; // default 15 minutes if not set
         
-        // Convert to seconds and start timer
-        const prepTimeSeconds = prepTimeMinutes * 60;
-        newTimers[orderId] = prepTimeSeconds;
+        // Calculate actual remaining time based on when order was accepted
+        let remainingSeconds = prepTimeMinutes * 60;
+        
+        // If we have acceptedAt timestamp, calculate elapsed time
+        if (order.acceptedAt || order.preparingStartedAt) {
+          const startTime = new Date(order.acceptedAt || order.preparingStartedAt);
+          const elapsedSeconds = Math.floor((now - startTime) / 1000);
+          remainingSeconds = Math.max(0, (prepTimeMinutes * 60) - elapsedSeconds);
+        }
+        
+        newTimers[orderId] = remainingSeconds;
       }
     });
     
