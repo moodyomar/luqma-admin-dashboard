@@ -785,11 +785,31 @@ const OrdersPage = () => {
       });
     }
     
-    // Sort by newest first (latest orders first)
+    // Sort orders: prioritize by status for better workflow
     return filtered.sort((a, b) => {
-      const timeA = new Date(a.createdAt);
-      const timeB = new Date(b.createdAt);
-      return timeB - timeA;
+      // Status priority (lower number = higher priority = shown first)
+      const statusPriority = {
+        'pending': 1,        // New orders - highest priority
+        'preparing': 2,      // Being prepared - need attention
+        'ready': 3,          // Ready for pickup - need driver
+        'out_for_delivery': 4, // With driver - lowest priority for restaurant
+        'delivered': 5,
+        'completed': 5,
+        'served': 5,
+        'cancelled': 6
+      };
+      
+      const priorityA = statusPriority[a.status] || 999;
+      const priorityB = statusPriority[b.status] || 999;
+      
+      // If same status, sort by newest first
+      if (priorityA === priorityB) {
+        const timeA = new Date(a.createdAt);
+        const timeB = new Date(b.createdAt);
+        return timeB - timeA;
+      }
+      
+      return priorityA - priorityB;
     });
   }, [orders, activeFilter, searchTerm]);
 

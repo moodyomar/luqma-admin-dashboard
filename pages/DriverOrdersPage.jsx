@@ -279,7 +279,27 @@ const DriverOrdersPage = () => {
   };
 
   const sortedOrders = useMemo(() => {
-    return [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return [...orders].sort((a, b) => {
+      // Status priority for drivers (lower number = higher priority = shown first)
+      const statusPriority = {
+        'ready': 1,            // Ready for pickup - HIGHEST PRIORITY
+        'preparing': 2,        // Being prepared - driver can wait
+        'out_for_delivery': 3, // Already with driver - lower priority
+        'delivered': 4,
+        'completed': 4,
+        'served': 4,
+      };
+      
+      const priorityA = statusPriority[a.status] || 999;
+      const priorityB = statusPriority[b.status] || 999;
+      
+      // If same status, sort by newest first
+      if (priorityA === priorityB) {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      
+      return priorityA - priorityB;
+    });
   }, [orders]);
 
   // Calculate driver-specific stats (only delivery orders)
@@ -316,19 +336,20 @@ const DriverOrdersPage = () => {
     };
   }, [orders]);
 
-  // Tab configs: label, filter, badgeCount, icon - Similar to admin orders page
+  // Tab configs: Drivers only see orders after restaurant accepts them (preparing onwards)
   const tabConfigs = [
-    {
-      label: 'جديدة',
-      icon: FiClock,
-      filter: (order) => order.deliveryMethod === 'delivery' && ['pending', 'new', 'confirmed'].includes(order.status),
-      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && ['pending', 'new', 'confirmed'].includes(order.status)).length,
-    },
     {
       label: 'قيد التحضير',
       icon: FiPackage,
-      filter: (order) => order.deliveryMethod === 'delivery' && ['preparing', 'ready', 'out_for_delivery'].includes(order.status),
-      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && ['preparing', 'ready', 'out_for_delivery'].includes(order.status)).length,
+      filter: (order) => order.deliveryMethod === 'delivery' && order.status === 'preparing',
+      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && order.status === 'preparing').length,
+    },
+    {
+      label: 'جاهز',
+      icon: IoMdBicycle,
+      filter: (order) => order.deliveryMethod === 'delivery' && ['ready', 'out_for_delivery'].includes(order.status),
+      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && ['ready', 'out_for_delivery'].includes(order.status)).length,
+      highlight: true, // Add special styling to make it stand out
     },
     {
       label: 'سابقة',
@@ -419,56 +440,68 @@ const DriverOrdersPage = () => {
       }}>
         <div style={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '20px',
+          padding: '16px 18px',
           borderRadius: '12px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>📦</div>
-          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>طلبات اليوم</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '26px', marginBottom: '6px' }}>📦</div>
+          <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px' }}>طلبات اليوم</div>
+          <div style={{ fontSize: '19px', fontWeight: 'bold' }}>
             {driverStats.todayOrders}
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-          padding: '20px',
+          padding: '16px 18px',
           borderRadius: '12px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>🚚</div>
-          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>طلبات نشطة</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '26px', marginBottom: '6px' }}>🚚</div>
+          <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px' }}>طلبات نشطة</div>
+          <div style={{ fontSize: '19px', fontWeight: 'bold' }}>
             {driverStats.activeOrders}
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-          padding: '20px',
+          padding: '16px 18px',
           borderRadius: '12px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>✅</div>
-          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>مكتملة</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '26px', marginBottom: '6px' }}>✅</div>
+          <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px' }}>مكتملة</div>
+          <div style={{ fontSize: '19px', fontWeight: 'bold' }}>
             {driverStats.completedOrders}
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-          padding: '20px',
+          padding: '16px 18px',
           borderRadius: '12px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>💰</div>
-          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>إجمالي المبيعات</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '26px', marginBottom: '6px' }}>💰</div>
+          <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '4px' }}>إجمالي المبيعات</div>
+          <div style={{ fontSize: '19px', fontWeight: 'bold' }}>
             {driverStats.totalRevenue.toLocaleString()}₪
           </div>
         </div>
@@ -492,6 +525,7 @@ const DriverOrdersPage = () => {
       }}>
         {tabConfigs.map((tabConfig, idx) => {
           const IconComponent = tabConfig.icon;
+          const isHighlightTab = tabConfig.highlight && tabConfig.badgeCount > 0;
           return (
             <button
               key={tabConfig.label}
@@ -503,18 +537,19 @@ const DriverOrdersPage = () => {
                 gap: 6,
                 padding: '8px 12px',
                 borderRadius: 20,
-                border: 'none',
-                background: idx === tab ? '#007AFF' : 'transparent',
-                color: idx === tab ? '#fff' : '#8E8E93',
+                border: isHighlightTab && idx !== tab ? '2px solid #28a745' : 'none',
+                background: idx === tab ? (isHighlightTab ? '#28a745' : '#007AFF') : (isHighlightTab ? 'rgba(40, 167, 69, 0.1)' : 'transparent'),
+                color: idx === tab ? '#fff' : (isHighlightTab ? '#28a745' : '#8E8E93'),
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
                 minWidth: '80px',
                 position: 'relative',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                boxShadow: isHighlightTab && idx !== tab ? '0 2px 8px rgba(40, 167, 69, 0.2)' : 'none'
               }}
             >
-              <IconComponent size={16} />
+              <IconComponent size={16} style={{ strokeWidth: isHighlightTab ? 2.5 : 2 }} />
               <span style={{ whiteSpace: 'nowrap' }}>{tabConfig.label}</span>
               {tabConfig.badgeCount > 0 && (
                 <span style={{
@@ -524,14 +559,15 @@ const DriverOrdersPage = () => {
                   minWidth: 18,
                   height: 18,
                   borderRadius: 9,
-                  background: idx === tab ? 'rgba(255,255,255,0.9)' : '#FF3B30',
-                  color: idx === tab ? '#007AFF' : '#fff',
+                  background: '#FF3B30', // Always red for high visibility
+                  color: '#fff',
                   fontSize: 11,
                   fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  border: '2px solid #fff'
+                  border: '2px solid #fff',
+                  boxShadow: '0 2px 4px rgba(255, 59, 48, 0.3)'
                 }}>
                   {tabConfig.badgeCount}
                 </span>

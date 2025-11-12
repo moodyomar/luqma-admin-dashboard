@@ -1,9 +1,12 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { auth } from '../../firebase/firebaseConfig';
+import { signOut } from 'firebase/auth';
 import { 
   FiShoppingBag, 
-  FiSettings
+  FiSettings,
+  FiLogOut
 } from 'react-icons/fi';
 
 const DriverBottomNav = () => {
@@ -23,6 +26,13 @@ const DriverBottomNav = () => {
       label: 'الإعدادات',
       icon: FiSettings,
       path: '/driver/profile'
+    },
+    {
+      id: 'logout',
+      label: 'تسجيل الخروج',
+      icon: FiLogOut,
+      action: 'logout',
+      color: '#FF3B30'
     }
   ];
 
@@ -53,12 +63,26 @@ const DriverBottomNav = () => {
       }}>
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const active = isActive(item.path);
+          const active = item.path && isActive(item.path);
+          const itemColor = item.color || (active ? '#007AFF' : '#8E8E93');
           
           return (
             <button
               key={item.id}
-              onClick={() => navigate(item.path)}
+              onClick={async () => {
+                if (item.action === 'logout') {
+                  if (window.confirm('هل تريد تسجيل الخروج؟')) {
+                    try {
+                      await signOut(auth);
+                      navigate('/login');
+                    } catch (error) {
+                      console.error('Logout error:', error);
+                    }
+                  }
+                } else {
+                  navigate(item.path);
+                }
+              }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -67,7 +91,7 @@ const DriverBottomNav = () => {
                 padding: '8px 24px',
                 border: 'none',
                 background: 'transparent',
-                color: active ? '#007AFF' : '#8E8E93',
+                color: itemColor,
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 borderRadius: '12px',
@@ -77,12 +101,14 @@ const DriverBottomNav = () => {
               }}
               onMouseOver={(e) => {
                 if (!active) {
-                  e.target.style.backgroundColor = 'rgba(0, 122, 255, 0.1)';
+                  e.currentTarget.style.backgroundColor = item.action === 'logout' 
+                    ? 'rgba(255, 59, 48, 0.1)' 
+                    : 'rgba(0, 122, 255, 0.1)';
                 }
               }}
               onMouseOut={(e) => {
                 if (!active) {
-                  e.target.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.backgroundColor = 'transparent';
                 }
               }}
             >

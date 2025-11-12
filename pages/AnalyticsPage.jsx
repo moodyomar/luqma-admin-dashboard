@@ -572,81 +572,97 @@ const AnalyticsPage = () => {
           ? 'repeat(2, 1fr)' 
           : 'repeat(auto-fit, minmax(250px, 1fr))',
         gap: window.innerWidth < 768 ? '12px' : '20px',
-        marginBottom: '40px'
+        marginBottom: '40px',
+        gridAutoRows: '1fr' // Make all cards same height
       }}>
         <div style={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '25px',
+          padding: '18px 20px',
           borderRadius: '15px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '10px' }}>💰</div>
-          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>إجمالي المبيعات</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>💰</div>
+          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>إجمالي المبيعات</div>
+          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
             {analytics.totalSales.toLocaleString()}₪
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-          padding: '25px',
+          padding: '18px 20px',
           borderRadius: '15px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '10px' }}>📦</div>
-          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>عدد الطلبات</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>📦</div>
+          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>عدد الطلبات</div>
+          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
             {analytics.orderCount.toLocaleString()}
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #5f72bd 0%, #9921e8 100%)',
-          padding: '25px',
+          padding: '18px 20px',
           borderRadius: '15px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '10px' }}>✅</div>
-          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>الطلبات المكتملة</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>✅</div>
+          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>الطلبات المكتملة</div>
+          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
             {analytics.completedOrders.toLocaleString()}
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-          padding: '25px',
+          padding: '18px 20px',
           borderRadius: '15px',
           color: '#333',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '10px' }}>📈</div>
-          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>متوسط قيمة الطلب</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>📈</div>
+          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>متوسط قيمة الطلب</div>
+          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
             {analytics.avgOrderValue.toFixed(0)}₪
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '25px',
+          padding: '18px 20px',
           borderRadius: '15px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '10px' }}>⏰</div>
-          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>أوقات الذروة</div>
-          <div style={{ fontSize: '18px', fontWeight: 'bold', lineHeight: 1.4 }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>⏰</div>
+          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>أوقات الذروة</div>
+          <div style={{ fontSize: '17px', fontWeight: 'bold', lineHeight: 1.4 }}>
             {analytics.peakHours.slice(0, 2).map(([hour, stats], idx) => {
               const startHour = String(hour).padStart(2, '0');
               const endHour = String((parseInt(hour) + 1) % 24).padStart(2, '0');
               return (
                 <div key={hour} style={{ marginBottom: idx < 1 ? '6px' : '0' }}>
                   {startHour}:00-{endHour}:00
-                  <span style={{ fontSize: '14px', opacity: 0.85, marginRight: '6px' }}>
+                  <span style={{ fontSize: '13px', opacity: 0.85, marginRight: '6px' }}>
                     ({stats.orders})
                   </span>
                 </div>
@@ -657,45 +673,54 @@ const AnalyticsPage = () => {
 
         <div style={{
           background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
-          padding: '25px',
+          padding: '18px 20px',
           borderRadius: '15px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '10px' }}>❌</div>
-          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>معدل الإلغاء</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>❌</div>
+          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>معدل الإلغاء</div>
+          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
             {analytics.cancellationRate.toFixed(1)}%
           </div>
-          <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '5px' }}>
+          <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>
             ({analytics.cancelledOrders} طلب)
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #f78ca0 0%, #f9748f 100%)',
-          padding: '25px',
+          padding: '18px 20px',
           borderRadius: '15px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚡</div>
-          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>متوسط وقت التحضير</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>⚡</div>
+          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>متوسط وقت التحضير</div>
+          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
             {analytics.avgPrepTime > 0 ? `${analytics.avgPrepTime.toFixed(0)} دقيقة` : 'لا توجد بيانات'}
           </div>
         </div>
 
         <div style={{
           background: 'linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%)',
-          padding: '25px',
+          padding: '18px 20px',
           borderRadius: '15px',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '10px' }}>💵</div>
-          <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '5px' }}>الإيرادات في الساعة</div>
-          <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>💵</div>
+          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>الإيرادات في الساعة</div>
+          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
             {analytics.revenuePerHour.toFixed(1)}₪
           </div>
         </div>

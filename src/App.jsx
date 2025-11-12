@@ -18,6 +18,9 @@ import SettingsPage from '../pages/SettingsPage';
 import AnalyticsPage from '../pages/AnalyticsPage';
 import CouponManagementPage from '../pages/CouponManagementPage';
 import DashboardPage from '../pages/DashboardPage';
+import { FiLogOut } from 'react-icons/fi';
+import { auth } from '../firebase/firebaseConfig';
+import { signOut } from 'firebase/auth';
 import '../src/styles/admin.css'
 
 function App() {
@@ -193,6 +196,39 @@ function App() {
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
           }}>
+            {/* Logout Button - Left Side */}
+            <button
+              onClick={async () => {
+                if (window.confirm('هل تريد تسجيل الخروج؟')) {
+                  try {
+                    await signOut(auth);
+                    navigate('/login');
+                  } catch (error) {
+                    console.error('Logout error:', error);
+                  }
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '8px',
+                border: 'none',
+                background: 'transparent',
+                color: '#FF3B30',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                transition: 'all 0.2s ease',
+                minWidth: '40px',
+                height: '40px'
+              }}
+              onMouseDown={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 59, 48, 0.1)'}
+              onMouseUp={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <FiLogOut size={20} />
+            </button>
+
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{
                 margin: 0,
