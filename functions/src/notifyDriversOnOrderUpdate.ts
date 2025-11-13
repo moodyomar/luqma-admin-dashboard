@@ -115,7 +115,9 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
         return null;
       }
       
-      logger.info(`Found ${tokens.length} driver push tokens`);
+      // Remove duplicate tokens
+      const uniqueTokens = [...new Set(tokens)];
+      logger.info(`Found ${tokens.length} driver push tokens (${uniqueTokens.length} unique)`);
       
       // Prepare notification based on status
       let title: string;
@@ -132,7 +134,7 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       }
       
       // Prepare Expo push notification messages
-      const messages = tokens.map((token: string) => ({
+      const messages = uniqueTokens.map((token: string) => ({
         to: token,
         sound: "default",
         title: title,
@@ -149,12 +151,12 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       await sendExpoPushNotifications(messages);
       
       logger.info(
-        `Sent ${tokens.length} notifications to drivers for order ${orderId}`
+        `Sent ${uniqueTokens.length} notifications to drivers for order ${orderId}`
       );
       
       return {
         success: true,
-        sentTo: tokens.length,
+        sentTo: uniqueTokens.length,
       };
     } catch (error) {
       logger.error("Error sending driver notification:", error);
@@ -235,14 +237,16 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
         return null;
       }
       
-      logger.info(`Found ${tokens.length} driver push tokens for new order`);
+      // Remove duplicate tokens
+      const uniqueTokens = [...new Set(tokens)];
+      logger.info(`Found ${tokens.length} driver push tokens for new order (${uniqueTokens.length} unique)`);
       
       // Notification for new order
       const title = "طلب جديد! 🎉";
       const body = `طلب توصيل جديد - ${orderData.customerName || orderData.name || "عميل"}`;
       
       // Prepare Expo push notification messages
-      const messages = tokens.map((token: string) => ({
+      const messages = uniqueTokens.map((token: string) => ({
         to: token,
         sound: "default",
         title: title,
@@ -259,12 +263,12 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
       await sendExpoPushNotifications(messages);
       
       logger.info(
-        `Sent ${tokens.length} notifications to drivers for new order ${orderId}`
+        `Sent ${uniqueTokens.length} notifications to drivers for new order ${orderId}`
       );
       
       return {
         success: true,
-        sentTo: tokens.length,
+        sentTo: uniqueTokens.length,
       };
     } catch (error) {
       logger.error("Error sending new order notification:", error);
