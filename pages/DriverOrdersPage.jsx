@@ -446,9 +446,15 @@ const DriverOrdersPage = () => {
     {
       label: 'جاهز',
       icon: IoMdBicycle,
-      filter: (order) => order.deliveryMethod === 'delivery' && ['ready', 'out_for_delivery'].includes(order.status),
-      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && ['ready', 'out_for_delivery'].includes(order.status)).length,
+      filter: (order) => order.deliveryMethod === 'delivery' && order.status === 'ready',
+      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && order.status === 'ready').length,
       highlight: true, // Add special styling to make it stand out
+    },
+    {
+      label: 'قيد التوصيل',
+      icon: FiClock,
+      filter: (order) => order.deliveryMethod === 'delivery' && order.status === 'out_for_delivery',
+      badgeCount: sortedOrders.filter(order => order.deliveryMethod === 'delivery' && order.status === 'out_for_delivery').length,
     },
     {
       label: 'سابقة',
