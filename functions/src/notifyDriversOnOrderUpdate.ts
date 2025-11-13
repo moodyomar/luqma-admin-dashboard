@@ -3,6 +3,32 @@ import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
 /**
+ * Helper: Send push notifications via Expo Push API
+ */
+async function sendExpoPushNotifications(messages: any[]) {
+  const fetch = require("node-fetch");
+  
+  const chunks = [];
+  for (let i = 0; i < messages.length; i += 100) {
+    chunks.push(messages.slice(i, i + 100));
+  }
+  
+  for (const chunk of chunks) {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(chunk),
+    });
+    
+    const data = await response.json();
+    logger.info("Expo push response:", data);
+  }
+}
+
+/**
  * Cloud Function to automatically notify DRIVERS when order status changes
  * Triggers on: order status changes to "preparing" or "ready"
  * Only notifies for delivery orders
@@ -41,7 +67,6 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
     
     try {
       const db = admin.firestore();
-      const messaging = admin.messaging();
       
       // Get all drivers for this business
       const driversSnapshot = await db
@@ -95,7 +120,6 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       // Prepare notification based on status
       let title: string;
       let body: string;
-      let sound: string = "default";
       
       if (newStatus === "preparing") {
         title = "طلب جديد قيد التحضير 📦";
@@ -103,74 +127,34 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       } else if (newStatus === "ready") {
         title = "طلب جاهز للتوصيل! ✅";
         body = `الطلب #${orderId.slice(0, 6)} جاهز الآن - ${afterData.address || ""}`;
-        sound = "luqma.mp3"; // Custom sound for ready orders
       } else {
         return null;
       }
       
-      // Prepare notification payload
-      const message: admin.messaging.MulticastMessage = {
-        notification: {
-          title,
-          body,
-        },
+      // Prepare Expo push notification messages
+      const messages = tokens.map((token: string) => ({
+        to: token,
+        sound: "default",
+        title: title,
+        body: body,
         data: {
           type: "order_status_change",
           orderId: orderId,
           businessId: businessId,
           status: newStatus,
-          customerName: afterData.customerName || afterData.name || "",
-          address: afterData.address || "",
-          total: String(afterData.total || afterData.price || 0),
-          timestamp: new Date().toISOString(),
         },
-        tokens: tokens,
-        android: {
-          priority: "high",
-          notification: {
-            sound: sound,
-            clickAction: "FLUTTER_NOTIFICATION_CLICK",
-            channelId: "default",
-            priority: "high" as any,
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: sound,
-              badge: 1,
-              alert: {
-                title,
-                body,
-              },
-              "content-available": 1,
-            },
-          },
-        },
-      };
+      }));
       
-      // Send the notification
-      const response = await messaging.sendEachForMulticast(message);
+      // Send via Expo Push API
+      await sendExpoPushNotifications(messages);
       
       logger.info(
-        `Notification sent for order ${orderId}. Success: ${response.successCount}, Failed: ${response.failureCount}`
+        `Sent ${tokens.length} notifications to drivers for order ${orderId}`
       );
-      
-      // Log failed tokens for debugging
-      if (response.failureCount > 0) {
-        response.responses.forEach((resp, idx) => {
-          if (!resp.success) {
-            logger.error(
-              `Failed to send to token ${tokens[idx]}: ${resp.error?.message}`
-            );
-          }
-        });
-      }
       
       return {
         success: true,
-        sentTo: response.successCount,
-        failed: response.failureCount,
+        sentTo: tokens.length,
       };
     } catch (error) {
       logger.error("Error sending driver notification:", error);
@@ -206,7 +190,6 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
     
     try {
       const db = admin.firestore();
-      const messaging = admin.messaging();
       
       // Get all drivers for this business
       const driversSnapshot = await db
@@ -258,56 +241,30 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
       const title = "طلب جديد! 🎉";
       const body = `طلب توصيل جديد - ${orderData.customerName || orderData.name || "عميل"}`;
       
-      const message: admin.messaging.MulticastMessage = {
-        notification: {
-          title,
-          body,
-        },
+      // Prepare Expo push notification messages
+      const messages = tokens.map((token: string) => ({
+        to: token,
+        sound: "default",
+        title: title,
+        body: body,
         data: {
           type: "new_order",
           orderId: orderId,
           businessId: businessId,
           status: orderData.status,
-          customerName: orderData.customerName || orderData.name || "",
-          address: orderData.address || "",
-          total: String(orderData.total || orderData.price || 0),
-          timestamp: new Date().toISOString(),
         },
-        tokens: tokens,
-        android: {
-          priority: "high",
-          notification: {
-            sound: "default",
-            clickAction: "FLUTTER_NOTIFICATION_CLICK",
-            channelId: "default",
-            priority: "high" as any,
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: "default",
-              badge: 1,
-              alert: {
-                title,
-                body,
-              },
-              "content-available": 1,
-            },
-          },
-        },
-      };
+      }));
       
-      const response = await messaging.sendEachForMulticast(message);
+      // Send via Expo Push API
+      await sendExpoPushNotifications(messages);
       
       logger.info(
-        `New order notification sent. Success: ${response.successCount}, Failed: ${response.failureCount}`
+        `Sent ${tokens.length} notifications to drivers for new order ${orderId}`
       );
       
       return {
         success: true,
-        sentTo: response.successCount,
-        failed: response.failureCount,
+        sentTo: tokens.length,
       };
     } catch (error) {
       logger.error("Error sending new order notification:", error);
