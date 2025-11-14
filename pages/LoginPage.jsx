@@ -14,7 +14,7 @@ const LoginPage = () => {
 
   // Professional, efficient, scalable redirect based on role
   if (!loading && userRole === 'admin') {
-    return <Navigate to="/meals" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   if (!loading && userRole === 'driver') {
     return <Navigate to="/driver/orders" replace />;

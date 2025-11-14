@@ -67,7 +67,7 @@ const ProtectedRoute = ({
     if (userRole === 'driver') {
       return <Navigate to="/driver/orders" replace />;
     } else if (userRole === 'admin') {
-      return <Navigate to="/meals" replace />;
+      return <Navigate to="/dashboard" replace />;
     } else {
       return <Navigate to={redirectTo} replace />;
     }
