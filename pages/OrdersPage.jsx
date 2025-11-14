@@ -67,7 +67,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       <div class="divider"></div>
 
       <p>👤 <strong>${order.name || '—'}</strong></p>
-      <p>📞 <strong>${order.phone ? `<a href="tel:${order.phone}" style="color: #007aff; text-decoration: none;">${order.phone}</a>` : '—'}</strong></p>
+      <p>📞 <strong>${order.phone ? `<a href="tel:${order.phone}" style="color: #007aff; text-decoration: none;">${order.phone.replace(/^\+/, '')}</a>` : '—'}</strong></p>
+      ${order.deliveryMethod === 'delivery' && order.assignedDriverName ? `<p>🚗 <strong>السائق: ${order.assignedDriverName}</strong></p>` : ''}
       <p>🚚 التوصيل: <strong>${deliveryString || '—'}</strong></p>
       ${order.deliveryMethod === 'delivery' ? 
         `<p>📍 العنوان: <strong>${order.address || '—'}</strong></p>` : 
@@ -216,8 +217,7 @@ ${paymentString === 'اونلاين' ?
         color: config.color,
         fontSize: '12px',
         fontWeight: 'bold',
-        border: `1px solid ${config.color}20`,
-        marginBottom: '10px'
+        border: `1px solid ${config.color}20`
       }}>
         <span>{config.icon}</span>
         <span>{config.text}</span>
@@ -292,8 +292,36 @@ ${paymentString === 'اونلاين' ?
         </div>
       )}
 
-      {/* Status Badge */}
-      {getStatusBadge()}
+      {/* Status Badge and Driver Name Row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+        {/* Status Badge - Right Side (First) */}
+        <div>
+          {getStatusBadge()}
+        </div>
+        {/* Driver Name - Left Side (Second) */}
+        {order.deliveryMethod === 'delivery' && order.assignedDriverName && (
+          <div style={{ 
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '6px 12px',
+            borderRadius: '20px',
+            background: '#e8f5e9',
+            border: '1px solid #4caf50',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            color: '#2e7d32'
+          }}>
+            <span>🚗</span>
+            <span>{order.assignedDriverName}</span>
+            {order.assignedAt && (
+              <span style={{ fontSize: '10px', color: '#666', marginRight: 2 }}>
+                ({new Date(order.assignedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Countdown Timer */}
       {order.status === 'preparing' && estimatedPrepTime && (
@@ -331,7 +359,7 @@ ${paymentString === 'اونلاين' ?
             {order.phone ? (
               <a href={`tel:${order.phone}`} style={{ color: '#007aff', textDecoration: 'none', fontWeight: 'inherit', display: 'flex', alignItems: 'center' }}>
                 <span style={{ marginLeft: 8 }}>📞</span>
-                {order.phone}
+                {order.phone.replace(/^\+/, '')}
               </a>
             ) : (
               <>
@@ -352,6 +380,18 @@ ${paymentString === 'اونلاين' ?
         <div>
           <span className="label">💳 {paymentString === 'اونلاين' ? 'وضع الطلب:' : 'الدفع:'}</span>
           <span className="value">{paymentString === 'اونلاين' ? 'مدفوع' : paymentString || '—'}</span>
+        </div>
+      </div>
+
+      {/* Products and Price row */}
+      <div className="row">
+        <div>
+          <span className="label">📦 عدد المنتجات:</span>
+          <span className="value">{order.cart?.length || 0}</span>
+        </div>
+        <div>
+          <span className="label">💰 السعر:</span>
+          <span className="value order-price">₪{order.total || order.price}</span>
         </div>
       </div>
 
@@ -377,17 +417,6 @@ ${paymentString === 'اونلاين' ?
           📝 ملاحظات الموقع: {order.extraNotes}
         </p>
       )}
-
-      <div className="row">
-        <div>
-          <span className="label">📦 عدد المنتجات:</span>
-          <span className="value">{order.cart?.length || 0}</span>
-        </div>
-        <div>
-          <span className="label">💰 السعر:</span>
-          <span className="value order-price">₪{order.total || order.price}</span>
-        </div>
-      </div>
 
       {order.cart?.length > 0 && (
         <div className="order-meals">
