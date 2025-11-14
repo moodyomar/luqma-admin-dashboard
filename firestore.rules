@@ -15,21 +15,21 @@ service cloud.firestore {
     function hasBiz(bid) {
       return isAuthed() && 
              request.auth.token.businessIds != null &&
-             bid in request.auth.token.businessIds;
+             request.auth.token.businessIds.hasAny([bid]);
     }
 
     // Check if user has admin role
     function isAdmin() {
       return isAuthed() && 
              request.auth.token.roles != null &&
-             'admin' in request.auth.token.roles;
+             request.auth.token.roles.hasAny(['admin']);
     }
 
     // Check if user has driver role
     function isDriver() {
       return isAuthed() && 
              request.auth.token.roles != null &&
-             'driver' in request.auth.token.roles;
+             request.auth.token.roles.hasAny(['driver']);
     }
 
     // Check if user is admin for specific business
@@ -99,8 +99,13 @@ service cloud.firestore {
         allow update: if hasBiz(businessId) && (
           isAdmin() || 
           (isDriver() && (
+            // Driver can update if:
+            // 1. Order is assigned to them, OR
+            // 2. Order is unassigned (field doesn't exist, is null, or is empty string)
             resource.data.assignedDriverId == request.auth.uid ||
-            (!resource.data.assignedDriverId || resource.data.assignedDriverId == null)
+            !('assignedDriverId' in resource.data) ||
+            resource.data.assignedDriverId == null ||
+            resource.data.assignedDriverId == ''
           ))
         );
         
