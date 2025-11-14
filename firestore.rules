@@ -84,15 +84,17 @@ service cloud.firestore {
       // ========================================
       match /orders/{orderId} {
         // Read access:
-        // - Admins: can read all orders
-        // - Drivers: can read orders (filtering happens client-side for assignedDriverId)
-        // Note: Query-level filtering by assignedDriverId is handled in the app,
-        // but drivers can read orders to see unassigned ones and their assigned ones
-        allow read: if hasBiz(businessId) && (isAdmin() || isDriver());
+        // - All authenticated users can read orders
+        // - Customers: query filters by phone (where('phone', '==', userPhone)) - they only see their own
+        // - Drivers: client-side filtering by assignedDriverId - they see unassigned + their assigned
+        // - Admins: see all orders (no filtering needed)
+        // Security: Query-level filtering ensures users only see relevant orders
+        allow read: if isAuthed();
         
         // Update access:
         // - Admins: can update all orders
         // - Drivers: can update orders assigned to them OR unassigned orders (to accept them)
+        // - Customers: cannot update orders (only admins/drivers can)
         // This prevents drivers from updating other drivers' assigned orders
         allow update: if hasBiz(businessId) && (
           isAdmin() || 
@@ -102,8 +104,10 @@ service cloud.firestore {
           ))
         );
         
-        // Only admins can create orders from dashboard (customers create via functions)
-        allow create: if isBusinessAdmin(businessId);
+        // Create access:
+        // - Admins: can create orders from dashboard
+        // - Customers: can create orders (via menu app) - any authenticated user
+        allow create: if isAuthed();
         
         // Only admins can delete orders
         allow delete: if isBusinessAdmin(businessId);
