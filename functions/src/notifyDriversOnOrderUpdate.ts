@@ -68,28 +68,40 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
     try {
       const db = admin.firestore();
       
-      // Get all drivers for this business
-      const driversSnapshot = await db
-        .collection("menus")
-        .doc(businessId)
-        .collection("users")
-        .where("role", "==", "driver")
-        .get();
+      // Check if order is assigned to a specific driver
+      const assignedDriverId = afterData.assignedDriverId;
       
-      if (driversSnapshot.empty) {
-        logger.warn(`No drivers found for business ${businessId}`);
-        return null;
+      let targetDriverIds: string[] = [];
+      
+      if (assignedDriverId) {
+        // Order is assigned - notify only the assigned driver
+        logger.info(`Order ${orderId} is assigned to driver ${assignedDriverId}, sending notification to assigned driver only`);
+        targetDriverIds = [assignedDriverId];
+      } else {
+        // Order is unassigned - notify all drivers (backward compatibility)
+        logger.info(`Order ${orderId} is unassigned, sending notification to all drivers`);
+        const driversSnapshot = await db
+          .collection("menus")
+          .doc(businessId)
+          .collection("users")
+          .where("role", "==", "driver")
+          .get();
+        
+        if (driversSnapshot.empty) {
+          logger.warn(`No drivers found for business ${businessId}`);
+          return null;
+        }
+        
+        targetDriverIds = driversSnapshot.docs.map(doc => doc.id);
+        logger.info(`Found ${targetDriverIds.length} drivers for business ${businessId}`);
       }
       
-      const driverIds = driversSnapshot.docs.map(doc => doc.id);
-      logger.info(`Found ${driverIds.length} drivers for business ${businessId}`);
-      
-      // Fetch push tokens for all drivers
+      // Fetch push tokens for target driver(s)
       const tokens: string[] = [];
       const batchSize = 10;
       
-      for (let i = 0; i < driverIds.length; i += batchSize) {
-        const batch = driverIds.slice(i, i + batchSize);
+      for (let i = 0; i < targetDriverIds.length; i += batchSize) {
+        const batch = targetDriverIds.slice(i, i + batchSize);
         const userDocs = await db
           .collection("users")
           .where(admin.firestore.FieldPath.documentId(), "in", batch)
@@ -111,13 +123,13 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       }
       
       if (tokens.length === 0) {
-        logger.warn(`No push tokens found for drivers in business ${businessId}`);
+        logger.warn(`No push tokens found for ${assignedDriverId ? 'assigned driver' : 'drivers'} in business ${businessId}`);
         return null;
       }
       
       // Remove duplicate tokens
       const uniqueTokens = [...new Set(tokens)];
-      logger.info(`Found ${tokens.length} driver push tokens (${uniqueTokens.length} unique)`);
+      logger.info(`Found ${tokens.length} driver push tokens (${uniqueTokens.length} unique) for ${assignedDriverId ? 'assigned driver' : 'all drivers'}`);
       
       // Prepare notification based on status
       let title: string;
@@ -193,27 +205,40 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
     try {
       const db = admin.firestore();
       
-      // Get all drivers for this business
-      const driversSnapshot = await db
-        .collection("menus")
-        .doc(businessId)
-        .collection("users")
-        .where("role", "==", "driver")
-        .get();
+      // Check if order is assigned to a specific driver
+      const assignedDriverId = orderData.assignedDriverId;
       
-      if (driversSnapshot.empty) {
-        logger.warn(`No drivers found for business ${businessId}`);
-        return null;
+      let targetDriverIds: string[] = [];
+      
+      if (assignedDriverId) {
+        // Order is assigned - notify only the assigned driver
+        logger.info(`New order ${orderId} is assigned to driver ${assignedDriverId}, sending notification to assigned driver only`);
+        targetDriverIds = [assignedDriverId];
+      } else {
+        // Order is unassigned - notify all drivers (backward compatibility)
+        logger.info(`New order ${orderId} is unassigned, sending notification to all drivers`);
+        const driversSnapshot = await db
+          .collection("menus")
+          .doc(businessId)
+          .collection("users")
+          .where("role", "==", "driver")
+          .get();
+        
+        if (driversSnapshot.empty) {
+          logger.warn(`No drivers found for business ${businessId}`);
+          return null;
+        }
+        
+        targetDriverIds = driversSnapshot.docs.map(doc => doc.id);
+        logger.info(`Found ${targetDriverIds.length} drivers for business ${businessId}`);
       }
       
-      const driverIds = driversSnapshot.docs.map(doc => doc.id);
-      
-      // Fetch push tokens
+      // Fetch push tokens for target driver(s)
       const tokens: string[] = [];
       const batchSize = 10;
       
-      for (let i = 0; i < driverIds.length; i += batchSize) {
-        const batch = driverIds.slice(i, i + batchSize);
+      for (let i = 0; i < targetDriverIds.length; i += batchSize) {
+        const batch = targetDriverIds.slice(i, i + batchSize);
         const userDocs = await db
           .collection("users")
           .where(admin.firestore.FieldPath.documentId(), "in", batch)
@@ -233,13 +258,13 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
       }
       
       if (tokens.length === 0) {
-        logger.warn(`No push tokens found for drivers in business ${businessId}`);
+        logger.warn(`No push tokens found for ${assignedDriverId ? 'assigned driver' : 'drivers'} in business ${businessId}`);
         return null;
       }
       
       // Remove duplicate tokens
       const uniqueTokens = [...new Set(tokens)];
-      logger.info(`Found ${tokens.length} driver push tokens for new order (${uniqueTokens.length} unique)`);
+      logger.info(`Found ${tokens.length} driver push tokens for new order (${uniqueTokens.length} unique) for ${assignedDriverId ? 'assigned driver' : 'all drivers'}`);
       
       // Notification for new order
       const title = "طلب جديد! 🎉";

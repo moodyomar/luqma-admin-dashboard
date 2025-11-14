@@ -83,12 +83,32 @@ service cloud.firestore {
       // ORDERS SUBCOLLECTION
       // ========================================
       match /orders/{orderId} {
-        // Business members can read all orders
-        allow read: if hasBiz(businessId);
-        // Admins and drivers can update order status
-        allow update: if hasBiz(businessId) && (isAdmin() || isDriver());
+        // Read access:
+        // - Admins: can read all orders
+        // - Drivers: can read unassigned orders OR orders assigned to them
+        allow read: if hasBiz(businessId) && (
+          isAdmin() || 
+          (isDriver() && (
+            !resource.data.assignedDriverId || 
+            resource.data.assignedDriverId == null ||
+            resource.data.assignedDriverId == request.auth.uid
+          ))
+        );
+        
+        // Update access:
+        // - Admins: can update all orders
+        // - Drivers: can update orders assigned to them OR unassigned orders (to accept them)
+        allow update: if hasBiz(businessId) && (
+          isAdmin() || 
+          (isDriver() && (
+            resource.data.assignedDriverId == request.auth.uid ||
+            (!resource.data.assignedDriverId || resource.data.assignedDriverId == null)
+          ))
+        );
+        
         // Only admins can create orders from dashboard (customers create via functions)
         allow create: if isBusinessAdmin(businessId);
+        
         // Only admins can delete orders
         allow delete: if isBusinessAdmin(businessId);
       }
