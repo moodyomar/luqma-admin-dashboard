@@ -11,6 +11,32 @@ import { FiLogOut, FiClock, FiPackage, FiCheckCircle } from 'react-icons/fi';
 import NotificationSystem from '../src/components/NotificationSystem';
 import './styles.css';
 
+// Helper function to check if an order is a future/scheduled order
+const isFutureOrder = (order) => {
+  if (!order.deliveryDateTime) return false;
+  if (order.status !== 'pending') return false; // Only pending orders can be future orders
+  
+  try {
+    // Handle Firestore Timestamp
+    let scheduledTime;
+    if (order.deliveryDateTime?.toDate && typeof order.deliveryDateTime.toDate === 'function') {
+      scheduledTime = order.deliveryDateTime.toDate();
+    } else if (order.deliveryDateTime instanceof Date) {
+      scheduledTime = order.deliveryDateTime;
+    } else {
+      scheduledTime = new Date(order.deliveryDateTime);
+    }
+    
+    if (isNaN(scheduledTime.getTime())) return false;
+    
+    const now = new Date();
+    return scheduledTime > now;
+  } catch (error) {
+    console.warn('Error checking future order:', error);
+    return false;
+  }
+};
+
 const DriverOrderCard = React.memo(({ order, activeBusinessId, orderTimers }) => {
   const [loading, setLoading] = useState(false);
 
@@ -378,7 +404,10 @@ const DriverOrdersPage = () => {
   };
 
   const sortedOrders = useMemo(() => {
-    return [...orders].sort((a, b) => {
+    // Filter out future orders - drivers shouldn't see scheduled orders until they're due
+    const regularOrders = orders.filter(order => !isFutureOrder(order));
+    
+    return regularOrders.sort((a, b) => {
       // Status priority for drivers (lower number = higher priority = shown first)
       const statusPriority = {
         'ready': 1,            // Ready for pickup - HIGHEST PRIORITY
@@ -401,9 +430,11 @@ const DriverOrdersPage = () => {
     });
   }, [orders]);
 
-  // Calculate driver-specific stats (only delivery orders)
+  // Calculate driver-specific stats (only delivery orders, exclude future orders)
   const driverStats = useMemo(() => {
-    const deliveryOrders = orders.filter(order => order.deliveryMethod === 'delivery');
+    const deliveryOrders = orders.filter(order => 
+      order.deliveryMethod === 'delivery' && !isFutureOrder(order)
+    );
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);

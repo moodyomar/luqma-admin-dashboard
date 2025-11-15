@@ -13,6 +13,32 @@ import {
   FiPackage
 } from 'react-icons/fi';
 
+// Helper function to check if an order is a future/scheduled order
+const isFutureOrder = (order) => {
+  if (!order.deliveryDateTime) return false;
+  if (order.status !== 'pending') return false; // Only pending orders can be future orders
+  
+  try {
+    // Handle Firestore Timestamp
+    let scheduledTime;
+    if (order.deliveryDateTime?.toDate && typeof order.deliveryDateTime.toDate === 'function') {
+      scheduledTime = order.deliveryDateTime.toDate();
+    } else if (order.deliveryDateTime instanceof Date) {
+      scheduledTime = order.deliveryDateTime;
+    } else {
+      scheduledTime = new Date(order.deliveryDateTime);
+    }
+    
+    if (isNaN(scheduledTime.getTime())) return false;
+    
+    const now = new Date();
+    return scheduledTime > now;
+  } catch (error) {
+    console.warn('Error checking future order:', error);
+    return false;
+  }
+};
+
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { activeBusinessId } = useAuth();
@@ -88,14 +114,17 @@ const DashboardPage = () => {
           
           todayOrdersSnapshot.forEach(doc => {
             const order = { id: doc.id, ...doc.data() };
-            todayOrders.push(order);
-            todayRevenue += parseFloat(order.totalAmount || order.total || 0);
-            console.log('📦 Processing Today Order:', {
-              id: order.id,
-              createdAt: order.createdAt,
-              status: order.status,
-              total: order.total || order.totalAmount
-            });
+            // Exclude future orders from today's metrics
+            if (!isFutureOrder(order)) {
+              todayOrders.push(order);
+              todayRevenue += parseFloat(order.totalAmount || order.total || 0);
+              console.log('📦 Processing Today Order:', {
+                id: order.id,
+                createdAt: order.createdAt,
+                status: order.status,
+                total: order.total || order.totalAmount
+              });
+            }
           });
 
           // Process all orders for stats
@@ -105,32 +134,38 @@ const DashboardPage = () => {
 
           allOrdersSnapshot.forEach(doc => {
             const order = { id: doc.id, ...doc.data() };
-            totalRevenue += parseFloat(order.totalAmount || order.total || 0);
-            
-            if (order.status === 'pending' || order.status === 'confirmed') {
-              pendingOrders++;
-            } else if (order.status === 'completed' || order.status === 'delivered' || order.status === 'served') {
-              completedOrders++;
+            // Exclude future orders from stats
+            if (!isFutureOrder(order)) {
+              totalRevenue += parseFloat(order.totalAmount || order.total || 0);
+              
+              if (order.status === 'pending' || order.status === 'confirmed') {
+                pendingOrders++;
+              } else if (order.status === 'completed' || order.status === 'delivered' || order.status === 'served') {
+                completedOrders++;
+              }
             }
           });
 
-          // Process recent orders
+          // Process recent orders (exclude future orders)
           const recentOrders = [];
           recentOrdersSnapshot.forEach(doc => {
             const orderData = { id: doc.id, ...doc.data() };
-            recentOrders.push(orderData);
-            console.log('🔍 Dashboard Order Data:', {
-              id: orderData.id,
-              customerName: orderData.customerName,
-              customer: orderData.customer,
-              name: orderData.name,
-              customerPhone: orderData.customerPhone,
-              phone: orderData.phone,
-              totalAmount: orderData.totalAmount,
-              total: orderData.total,
-              status: orderData.status,
-              createdAt: orderData.createdAt
-            });
+            // Exclude future orders from recent orders list
+            if (!isFutureOrder(orderData)) {
+              recentOrders.push(orderData);
+              console.log('🔍 Dashboard Order Data:', {
+                id: orderData.id,
+                customerName: orderData.customerName,
+                customer: orderData.customer,
+                name: orderData.name,
+                customerPhone: orderData.customerPhone,
+                phone: orderData.phone,
+                totalAmount: orderData.totalAmount,
+                total: orderData.total,
+                status: orderData.status,
+                createdAt: orderData.createdAt
+              });
+            }
           });
 
           // If no today's orders found via query, try filtering all orders by date
@@ -138,22 +173,24 @@ const DashboardPage = () => {
           if (finalTodayOrders === 0) {
             console.log('🔄 No orders found via date query, trying client-side filtering...');
             const clientSideTodayOrders = allOrdersSnapshot.docs.filter(doc => {
-              const orderData = doc.data();
+              const orderData = { id: doc.id, ...doc.data() };
               const orderDate = orderData.createdAt?.toDate ? orderData.createdAt.toDate() : new Date(orderData.createdAt);
               const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
               const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
               const isToday = orderDateOnly.getTime() === todayOnly.getTime();
               
-              if (isToday) {
+              // Exclude future orders
+              if (isToday && !isFutureOrder(orderData)) {
                 console.log('✅ Found today order via client-side filtering:', {
                   id: doc.id,
                   createdAt: orderData.createdAt,
                   orderDate: orderDate.toISOString(),
                   todayDate: today.toISOString()
                 });
+                return true;
               }
               
-              return isToday;
+              return false;
             });
             
             finalTodayOrders = clientSideTodayOrders.length;

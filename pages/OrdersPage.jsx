@@ -9,6 +9,32 @@ import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css';
 import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle } from 'react-icons/io';
 
+// Helper function to check if an order is a future/scheduled order
+const isFutureOrder = (order) => {
+  if (!order.deliveryDateTime) return false;
+  if (order.status !== 'pending') return false; // Only pending orders can be future orders
+  
+  try {
+    // Handle Firestore Timestamp
+    let scheduledTime;
+    if (order.deliveryDateTime?.toDate && typeof order.deliveryDateTime.toDate === 'function') {
+      scheduledTime = order.deliveryDateTime.toDate();
+    } else if (order.deliveryDateTime instanceof Date) {
+      scheduledTime = order.deliveryDateTime;
+    } else {
+      scheduledTime = new Date(order.deliveryDateTime);
+    }
+    
+    if (isNaN(scheduledTime.getTime())) return false;
+    
+    const now = new Date();
+    return scheduledTime > now;
+  } catch (error) {
+    console.warn('Error checking future order:', error);
+    return false;
+  }
+};
+
 const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId }) => {
 
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
@@ -637,7 +663,7 @@ const OrdersPage = () => {
   const [prevOrdersCount, setPrevOrdersCount] = useState(0);
   const isFirstLoad = useRef(true); // 🟡 new flag
   const knownOrderIds = useRef(new Set()); // Track known order IDs to detect truly new orders
-  const [viewType, setViewType] = useState('new'); // 'new', 'active', 'past'
+  const [viewType, setViewType] = useState('new'); // 'new', 'active', 'past', 'future'
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'delivery', 'pickup', 'eat_in'
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
   const [orderTimers, setOrderTimers] = useState({}); // Track countdown timers for each order
@@ -801,8 +827,24 @@ const OrdersPage = () => {
     }
   }, [orders]);
 
+  // Separate future orders from regular orders
+  const { futureOrders, regularOrders } = useMemo(() => {
+    const future = [];
+    const regular = [];
+    
+    orders.forEach(order => {
+      if (isFutureOrder(order)) {
+        future.push(order);
+      } else {
+        regular.push(order);
+      }
+    });
+    
+    return { futureOrders: future, regularOrders: regular };
+  }, [orders]);
+
   const sortedOrders = useMemo(() => {
-    let filtered = [...orders];
+    let filtered = [...regularOrders]; // Only work with regular orders (exclude future orders)
     
     // Apply delivery method filter
     if (activeFilter !== 'all') {
@@ -817,7 +859,9 @@ const OrdersPage = () => {
         const nameMatch = order.name?.toLowerCase().includes(searchLower);
         const phoneMatch = order.phone?.includes(searchTerm);
         const idMatch = (order.uid || order.id)?.toLowerCase().includes(searchLower);
-        const itemsMatch = order.items?.some(item => 
+        const itemsMatch = order.cart?.some(item => 
+          (item.name?.ar || item.name)?.toLowerCase().includes(searchLower)
+        ) || order.items?.some(item => 
           item.name?.toLowerCase().includes(searchLower)
         );
         return nameMatch || phoneMatch || idMatch || itemsMatch;
@@ -850,7 +894,24 @@ const OrdersPage = () => {
       
       return priorityA - priorityB;
     });
-  }, [orders, activeFilter, searchTerm]);
+  }, [regularOrders, activeFilter, searchTerm]);
+
+  // Sort future orders by scheduled time (soonest first)
+  const sortedFutureOrders = useMemo(() => {
+    return futureOrders.sort((a, b) => {
+      try {
+        const getTime = (order) => {
+          if (order.deliveryDateTime?.toDate) {
+            return order.deliveryDateTime.toDate().getTime();
+          }
+          return new Date(order.deliveryDateTime).getTime();
+        };
+        return getTime(a) - getTime(b);
+      } catch {
+        return 0;
+      }
+    });
+  }, [futureOrders]);
 
   const newOrders = sortedOrders.filter(order => order.status === 'pending');
   const activeOrders = sortedOrders.filter(order =>
@@ -1069,6 +1130,16 @@ const OrdersPage = () => {
             ))}
           </div>
         )
+      ) : viewType === 'future' ? (
+        sortedFutureOrders.length === 0 ? (
+          <p className="orders-empty">لا يوجد طلبات مجدولة.</p>
+        ) : (
+          <div className="orders-grid">
+            {sortedFutureOrders.map((order, index) => (
+              <OrderCard key={`future-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} />
+            ))}
+          </div>
+        )
       ) : (
         pastOrders.length === 0 ? (
           <p className="orders-empty">لا يوجد طلبات سابقة.</p>
@@ -1215,6 +1286,66 @@ const OrdersPage = () => {
             color: viewType === 'active' ? '#34C759' : '#666'
           }}>
             طلبات قيد التحضير
+          </span>
+        </button>
+
+        <button
+          onClick={() => setViewType('future')}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            transition: 'all 0.2s ease',
+            position: 'relative'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = '#f5f5f5';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = 'transparent';
+          }}
+        >
+          <div style={{ position: 'relative' }}>
+            <span style={{ 
+              fontSize: '20px', 
+              color: viewType === 'future' ? '#4A90E2' : '#666'
+            }}>
+              📅
+            </span>
+            {sortedFutureOrders.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                backgroundColor: '#4A90E2',
+                color: 'white',
+                borderRadius: '50%',
+                width: '18px',
+                height: '18px',
+                fontSize: '10px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'system-ui'
+              }}>
+                {sortedFutureOrders.length > 9 ? '9+' : sortedFutureOrders.length}
+              </div>
+            )}
+          </div>
+          <span style={{ 
+            fontSize: '11px', 
+            fontWeight: '500',
+            color: viewType === 'future' ? '#4A90E2' : '#666'
+          }}>
+            طلبات مجدولة
           </span>
         </button>
 
