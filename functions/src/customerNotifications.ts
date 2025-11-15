@@ -7,6 +7,59 @@ import * as admin from "firebase-admin";
  */
 
 // ==========================================
+// HELPER: CHECK IF ORDER IS A FUTURE ORDER (not yet due)
+// Returns true if order has a deliveryDateTime that is still in the future
+// Returns false if order has no deliveryDateTime or if it's already due
+// ==========================================
+function isFutureOrderNotYetDue(orderData: any): boolean {
+  const deliveryDateTime = orderData.deliveryDateTime;
+  
+  // If no deliveryDateTime, it's not a future order (regular order)
+  if (!deliveryDateTime) {
+    return false;
+  }
+  
+  try {
+    let deliveryDate: Date;
+    
+    // Handle Firestore Timestamp
+    if (deliveryDateTime.toDate && typeof deliveryDateTime.toDate === 'function') {
+      deliveryDate = deliveryDateTime.toDate();
+    }
+    // Handle Date object
+    else if (deliveryDateTime instanceof Date) {
+      deliveryDate = deliveryDateTime;
+    }
+    // Handle ISO string or timestamp number
+    else {
+      deliveryDate = new Date(deliveryDateTime);
+    }
+    
+    // Check if date is valid
+    if (isNaN(deliveryDate.getTime())) {
+      console.log("Invalid deliveryDateTime, treating as regular order");
+      return false;
+    }
+    
+    // Check if delivery date is still in the future
+    const now = new Date();
+    const isStillFuture = deliveryDate > now;
+    
+    if (isStillFuture) {
+      console.log(`Order has future deliveryDateTime: ${deliveryDate.toISOString()}, not yet due`);
+    } else {
+      console.log(`Order deliveryDateTime has passed: ${deliveryDate.toISOString()}, order is now due`);
+    }
+    
+    return isStillFuture;
+  } catch (error) {
+    console.error("Error checking if order is future order:", error);
+    // On error, treat as regular order (don't skip notification)
+    return false;
+  }
+}
+
+// ==========================================
 // HELPER: SEND NOTIFICATION TO USER (CUSTOMER)
 // ==========================================
 async function sendNotificationToUser(
@@ -120,7 +173,16 @@ export const onOrderCreated = onDocumentCreated("menus/{brandId}/orders/{orderId
 
     console.log(`New order created: ${orderId}`);
 
-    // Send "Order Confirmed" notification to CUSTOMER
+    // FUTURE ORDER LOGIC:
+    // - If order has deliveryDateTime in the future → Skip notification now
+    // - If order has no deliveryDateTime OR deliveryDateTime has passed → Send notification (normal behavior)
+    // - Regular orders (no deliveryDateTime) work exactly as before
+    if (isFutureOrderNotYetDue(order)) {
+      console.log(`Order ${orderId} is a future order (scheduled for later), skipping immediate notification. Will notify when scheduled time arrives.`);
+      return null;
+    }
+
+    // REGULAR ORDER: Send "Order Confirmed" notification immediately (normal behavior)
     const content = {
       ar: {
         title: "تم تأكيد طلبك 🎉",
@@ -169,6 +231,16 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
     console.log(
       `Order ${event.params.orderId} status changed: ${before.status} → ${after.status}`
     );
+
+    // FUTURE ORDER LOGIC:
+    // - If order has deliveryDateTime that is STILL in the future → Skip notification
+    // - If order has deliveryDateTime that has PASSED (now due) → Send notification (normal behavior)
+    // - If order has no deliveryDateTime → Send notification (normal behavior, regular order)
+    // This ensures future orders only get notifications when their scheduled time arrives
+    if (isFutureOrderNotYetDue(after)) {
+      console.log(`Order ${event.params.orderId} is a future order (scheduled time hasn't arrived yet), skipping notification. Will notify when scheduled time arrives.`);
+      return null;
+    }
 
     const { status, phone, uid: orderId, deliveryMethod } = after;
 

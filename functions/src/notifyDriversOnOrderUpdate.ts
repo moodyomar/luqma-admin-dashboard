@@ -3,6 +3,59 @@ import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
 /**
+ * Helper: Check if order is a future order (not yet due)
+ * Returns true if order has a deliveryDateTime that is still in the future
+ * Returns false if order has no deliveryDateTime or if it's already due
+ */
+function isFutureOrderNotYetDue(orderData: any): boolean {
+  const deliveryDateTime = orderData.deliveryDateTime;
+  
+  // If no deliveryDateTime, it's not a future order (regular order)
+  if (!deliveryDateTime) {
+    return false;
+  }
+  
+  try {
+    let deliveryDate: Date;
+    
+    // Handle Firestore Timestamp
+    if (deliveryDateTime.toDate && typeof deliveryDateTime.toDate === 'function') {
+      deliveryDate = deliveryDateTime.toDate();
+    }
+    // Handle Date object
+    else if (deliveryDateTime instanceof Date) {
+      deliveryDate = deliveryDateTime;
+    }
+    // Handle ISO string or timestamp number
+    else {
+      deliveryDate = new Date(deliveryDateTime);
+    }
+    
+    // Check if date is valid
+    if (isNaN(deliveryDate.getTime())) {
+      logger.info("Invalid deliveryDateTime, treating as regular order");
+      return false;
+    }
+    
+    // Check if delivery date is still in the future
+    const now = new Date();
+    const isStillFuture = deliveryDate > now;
+    
+    if (isStillFuture) {
+      logger.info(`Order has future deliveryDateTime: ${deliveryDate.toISOString()}, not yet due`);
+    } else {
+      logger.info(`Order deliveryDateTime has passed: ${deliveryDate.toISOString()}, order is now due`);
+    }
+    
+    return isStillFuture;
+  } catch (error) {
+    logger.error("Error checking if order is future order:", error);
+    // On error, treat as regular order (don't skip notification)
+    return false;
+  }
+}
+
+/**
  * Helper: Send push notifications via Expo Push API
  */
 async function sendExpoPushNotifications(messages: any[]) {
@@ -52,6 +105,16 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
   
   const newStatus = afterData.status;
   const deliveryMethod = afterData.deliveryMethod;
+  
+  // FUTURE ORDER LOGIC:
+  // - If order has deliveryDateTime that is STILL in the future → Skip notification
+  // - If order has deliveryDateTime that has PASSED (now due) → Send notification (normal behavior)
+  // - If order has no deliveryDateTime → Send notification (normal behavior, regular order)
+  // This ensures future orders only get notifications when their scheduled time arrives
+  if (isFutureOrderNotYetDue(afterData)) {
+    logger.info(`Order ${orderId} is a future order (scheduled time hasn't arrived yet), skipping notification. Will notify when scheduled time arrives.`);
+    return null;
+  }
   
   // Only notify for delivery orders
   if (deliveryMethod !== "delivery") {
@@ -189,6 +252,15 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
   const businessId = event.params.businessId;
   const orderId = event.params.orderId;
   const orderData = snap.data();
+    
+    // FUTURE ORDER LOGIC:
+    // - If order has deliveryDateTime in the future → Skip notification now
+    // - If order has no deliveryDateTime OR deliveryDateTime has passed → Send notification (normal behavior)
+    // - Regular orders (no deliveryDateTime) work exactly as before
+    if (isFutureOrderNotYetDue(orderData)) {
+      logger.info(`Order ${orderId} is a future order (scheduled for later), skipping immediate notification. Will notify when scheduled time arrives.`);
+      return null;
+    }
     
     // Only notify for delivery orders
     if (orderData.deliveryMethod !== "delivery") {
