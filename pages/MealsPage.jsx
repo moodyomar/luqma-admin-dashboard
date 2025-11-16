@@ -178,7 +178,7 @@ const MealsPage = () => {
     setMealsData((prev) => ({ ...prev, categories: updatedCategories }));
 
     try {
-      await updateDoc(doc(db, 'menus', 'luqma'), {
+      await updateDoc(doc(db, 'menus', activeBusinessId), {
         categories: updatedCategories,
       });
     } catch (err) {
@@ -242,7 +242,7 @@ const MealsPage = () => {
 
           // 🔥 Update in Firestore (menus/luqma document)
           try {
-            await updateDoc(doc(db, 'menus', 'luqma'), {
+            await updateDoc(doc(db, 'menus', activeBusinessId), {
               categories: updatedCategories,
             });
             console.log('✅ Categories order saved to Firestore');
