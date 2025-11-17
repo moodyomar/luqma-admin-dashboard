@@ -55,7 +55,7 @@ export const sendPromotionalNotification = functions.https.onCall(
 
     try {
       const db = admin.firestore();
-      const messaging = admin.messaging();
+      const fetch = require("node-fetch");
 
       let userIds: string[] = [];
 
@@ -87,7 +87,7 @@ export const sendPromotionalNotification = functions.https.onCall(
         };
       }
 
-      // Fetch FCM tokens for all target users from the global users collection
+      // Fetch Expo push tokens for all target users from the global users collection
       const tokens: string[] = [];
       const batchSize = 10; // Firestore 'in' query limit
 
@@ -101,28 +101,26 @@ export const sendPromotionalNotification = functions.https.onCall(
         userDocs.forEach((doc) => {
           const userData = doc.data();
           
-          // Check for pushTokens array (new structure)
+          // Check for pushTokens array (new structure - Expo push tokens)
           if (userData.pushTokens && Array.isArray(userData.pushTokens)) {
             userData.pushTokens.forEach((tokenObj: any) => {
-              // Only add active tokens
-              if (tokenObj.active && tokenObj.token) {
+              // Only add active tokens (Expo push tokens start with "ExponentPushToken")
+              if (tokenObj.active && tokenObj.token && tokenObj.token.startsWith("ExponentPushToken")) {
                 tokens.push(tokenObj.token);
               }
             });
           }
-          // Fallback to old single token fields
-          else if (userData.fcmToken) {
-            tokens.push(userData.fcmToken);
-          } else if (userData.pushToken) {
+          // Fallback to old single token fields (Expo tokens)
+          else if (userData.pushToken && userData.pushToken.startsWith("ExponentPushToken")) {
             tokens.push(userData.pushToken);
-          } else if (userData.deviceToken) {
-            tokens.push(userData.deviceToken);
+          } else if (userData.fcmToken && userData.fcmToken.startsWith("ExponentPushToken")) {
+            tokens.push(userData.fcmToken);
           }
         });
       }
 
       if (tokens.length === 0) {
-        functions.logger.warn("No FCM tokens found for target users");
+        functions.logger.warn("No Expo push tokens found for target users");
         return {
           success: true,
           sentTo: 0,
@@ -130,59 +128,72 @@ export const sendPromotionalNotification = functions.https.onCall(
         };
       }
 
-      functions.logger.info(`Found ${tokens.length} FCM tokens`);
+      functions.logger.info(`Found ${tokens.length} Expo push tokens`);
 
-      // Prepare notification payload
-      const message: admin.messaging.MulticastMessage = {
-        notification: {
-          title: data.title,
-          body: data.body,
-        },
+      // Prepare Expo push notification messages
+      const messages = tokens.map((token: string) => ({
+        to: token,
+        sound: "default",
+        title: data.title,
+        body: data.body,
         data: {
           type: "promotional",
           timestamp: new Date().toISOString(),
         },
-        tokens: tokens,
-        android: {
-          priority: "high",
-          notification: {
-            sound: "default",
-            clickAction: "FLUTTER_NOTIFICATION_CLICK",
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: "default",
-              badge: 1,
-            },
-          },
-        },
-      };
+        channelId: "default",
+      }));
 
-      // Send the notification
-      const response = await messaging.sendEachForMulticast(message);
+      // Send via Expo Push API (same as customerNotifications.ts)
+      let successCount = 0;
+      let failureCount = 0;
+
+      // Expo limits to 100 notifications per request
+      const chunks = [];
+      for (let i = 0; i < messages.length; i += 100) {
+        chunks.push(messages.slice(i, i + 100));
+      }
+
+      for (const chunk of chunks) {
+        try {
+          const response = await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Accept-Encoding": "gzip, deflate",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(chunk),
+          });
+
+          const result = await response.json();
+          functions.logger.info("Expo push response:", JSON.stringify(result, null, 2));
+
+          // Count successes and failures from Expo response
+          if (Array.isArray(result.data)) {
+            result.data.forEach((item: any) => {
+              if (item.status === "ok") {
+                successCount++;
+              } else {
+                failureCount++;
+                functions.logger.error(`Failed to send to token: ${item.message || "Unknown error"}`);
+              }
+            });
+          }
+        } catch (error) {
+          functions.logger.error("Error sending chunk to Expo:", error);
+          failureCount += chunk.length;
+        }
+      }
 
       functions.logger.info(
-        `Notification sent. Success: ${response.successCount}, Failed: ${response.failureCount}`
+        `Notification sent. Success: ${successCount}, Failed: ${failureCount}`
       );
-
-      // Log failed tokens for debugging
-      if (response.failureCount > 0) {
-        const failedTokens: string[] = [];
-        response.responses.forEach((resp, idx) => {
-          if (!resp.success) {
-            failedTokens.push(tokens[idx]);
-            functions.logger.error(`Failed to send to token ${tokens[idx]}: ${resp.error?.message}`);
-          }
-        });
-      }
 
       return {
         success: true,
-        sentTo: response.successCount,
-        failed: response.failureCount,
-        message: `Notification sent successfully to ${response.successCount} users`
+        sentTo: successCount,
+        failed: failureCount,
+        message: `Notification sent successfully to ${successCount} users`
       };
     } catch (error) {
       functions.logger.error("Error sending promotional notification:", error);
