@@ -41,7 +41,7 @@ const BusinessManagePage = () => {
     deliveryFee: '',
     isOpen: true,
     workingHours: { open: '', close: '' },
-    contact: { instagram: '', phone: '', website: '' },
+    contact: { instagram: '', phone: '', website: '', waze: '' },
     prepTimeOptions: [], // new field
     deliveryCities: [], // NEW FIELD for delivery cities
     storeStatusMode: 'auto', // NEW FIELD
@@ -109,6 +109,7 @@ const BusinessManagePage = () => {
           instagram: data.config?.contact?.instagram || data.contact?.instagram || '',
           phone: data.config?.contact?.phone || data.contact?.phone || '',
           website: data.config?.contact?.website || data.contact?.website || '',
+          waze: data.config?.contact?.waze || data.contact?.waze || '',
         };
         // Get prepTimeOptions from config if available
         const prepTimeOptions = data.config?.prepTimeOptions || [];
@@ -182,7 +183,7 @@ const BusinessManagePage = () => {
         ...prev,
         workingHours: { ...prev.workingHours, [name]: value },
       }));
-    } else if (["email", "instagram", "phone", "website"].includes(name)) {
+    } else if (["email", "instagram", "phone", "website", "waze"].includes(name)) {
       setForm((prev) => ({
         ...prev,
         contact: { ...prev.contact, [name]: value },
@@ -1114,6 +1115,17 @@ const BusinessManagePage = () => {
               value={form.contact.website}
               onChange={handleChange}
               placeholder="https://yourwebsite.com"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            Waze:
+            <input
+              type="text"
+              name="waze"
+              value={form.contact.waze}
+              onChange={handleChange}
+              placeholder="https://waze.com/ul/..."
               style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
             />
           </label>
