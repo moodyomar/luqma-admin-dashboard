@@ -11,8 +11,16 @@ export default function AudioUnlocker() {
 
   const handleClick = () => {
     const audio = new Audio('/luqma.mp3');
+    audio.muted = true;
+    audio.volume = 0;
+
     audio.play()
       .then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = false;
+        audio.volume = 1;
+
         sharedAudio = audio; // ✅ unlock + store for reuse
         setEnabled(true);
       })

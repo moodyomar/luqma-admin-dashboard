@@ -9,30 +9,80 @@ import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css';
 import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle } from 'react-icons/io';
 
+// Normalize deliveryDateTime into a Date instance
+const getScheduledDate = (dateTime) => {
+  if (!dateTime) return null;
+  try {
+    if (dateTime?.toDate && typeof dateTime.toDate === 'function') {
+      return dateTime.toDate();
+    }
+    if (dateTime instanceof Date) {
+      return dateTime;
+    }
+    const parsed = new Date(dateTime);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  } catch (error) {
+    console.warn('Error parsing deliveryDateTime:', error);
+    return null;
+  }
+};
+
 // Helper function to check if an order is a future/scheduled order
 const isFutureOrder = (order) => {
   if (!order.deliveryDateTime) return false;
   if (order.status !== 'pending') return false; // Only pending orders can be future orders
   
-  try {
-    // Handle Firestore Timestamp
-    let scheduledTime;
-    if (order.deliveryDateTime?.toDate && typeof order.deliveryDateTime.toDate === 'function') {
-      scheduledTime = order.deliveryDateTime.toDate();
-    } else if (order.deliveryDateTime instanceof Date) {
-      scheduledTime = order.deliveryDateTime;
+  const scheduledTime = getScheduledDate(order.deliveryDateTime);
+  if (!scheduledTime) return false;
+
+  return scheduledTime > new Date();
+};
+
+const pluralizeAr = (value, singular, plural) => (value === 1 ? singular : plural);
+const formatNumber = (value) => new Intl.NumberFormat('en-US').format(value ?? 0);
+
+const formatFutureOrderMeta = (deliveryDateTime) => {
+  const scheduled = getScheduledDate(deliveryDateTime);
+  if (!scheduled) return null;
+
+  const dateStr = scheduled.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+
+  const timeStr = scheduled.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const diff = scheduled.getTime() - Date.now();
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+
+  let relativeLabel = null;
+  if (diff > 0) {
+    const days = Math.floor(diff / dayMs);
+    const hours = Math.floor((diff % dayMs) / hourMs);
+    const minutes = Math.floor((diff % hourMs) / minuteMs);
+
+    if (days > 0) {
+      const hoursPart = hours > 0 ? ` و ${formatNumber(hours)} ${pluralizeAr(hours, 'ساعة', 'ساعات')}` : '';
+      relativeLabel = `يبدأ خلال ${formatNumber(days)} ${pluralizeAr(days, 'يوم', 'أيام')}${hoursPart}`;
+    } else if (hours > 0) {
+      const minutesPart = minutes > 0 ? ` و ${formatNumber(minutes)} ${pluralizeAr(minutes, 'دقيقة', 'دقائق')}` : '';
+      relativeLabel = `يبدأ خلال ${formatNumber(hours)} ${pluralizeAr(hours, 'ساعة', 'ساعات')}${minutesPart}`;
+    } else if (minutes > 0) {
+      relativeLabel = `يبدأ خلال ${formatNumber(minutes)} ${pluralizeAr(minutes, 'دقيقة', 'دقائق')}`;
     } else {
-      scheduledTime = new Date(order.deliveryDateTime);
+      relativeLabel = 'يبدأ خلال أقل من دقيقة';
     }
-    
-    if (isNaN(scheduledTime.getTime())) return false;
-    
-    const now = new Date();
-    return scheduledTime > now;
-  } catch (error) {
-    console.warn('Error checking future order:', error);
-    return false;
+  } else {
+    relativeLabel = 'حان وقت التحضير';
   }
+
+  return { dateStr, timeStr, relativeLabel, scheduled };
 };
 
 const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId }) => {
@@ -282,6 +332,12 @@ ${paymentString === 'اونلاين' ?
     return Math.min(Math.max(totalTime, 10), 45); // Between 10-45 minutes
   }, [order.items]);
 
+  const futureOrder = isFutureOrder(order);
+  const futureMeta = useMemo(() => {
+    if (!futureOrder) return null;
+    return formatFutureOrderMeta(order.deliveryDateTime);
+  }, [futureOrder, order.deliveryDateTime]);
+
   return (
     <div 
       className="order-card"
@@ -319,10 +375,27 @@ ${paymentString === 'اونلاين' ?
       )}
 
       {/* Status Badge and Driver Name Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-        {/* Status Badge - Right Side (First) */}
-        <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: futureOrder ? '6px' : '10px', flexWrap: 'wrap', gap: '8px' }}>
+        {/* Status Badge + Future Badge Container */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {getStatusBadge()}
+          {futureOrder && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: '#fff3cd',
+              border: '1px solid #ffbb00',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              color: '#b37400'
+            }}>
+              <span>⏰</span>
+              <span>طلب مستقبلي</span>
+            </div>
+          )}
         </div>
         {/* Driver Name - Left Side (Second) */}
         {order.deliveryMethod === 'delivery' && order.assignedDriverName && (
@@ -348,6 +421,49 @@ ${paymentString === 'اونلاين' ?
           </div>
         )}
       </div>
+
+      {futureOrder && futureMeta && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 14px',
+          borderRadius: '14px',
+          background: '#fff8e6',
+          border: '1px dashed #ffc107',
+          marginBottom: '12px',
+          gap: '12px',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '22px' }}>📅</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#b37400' }}>
+                مجدول لـ {futureMeta.dateStr}
+              </span>
+              <span style={{ fontSize: '13px', color: '#555' }}>
+                عند الساعة {futureMeta.timeStr}
+              </span>
+            </div>
+          </div>
+          {futureMeta.relativeLabel && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: '#ffe8ba',
+              color: '#8a5a00',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}>
+              <span>⏳</span>
+              <span>{futureMeta.relativeLabel}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Countdown Timer */}
       {order.status === 'preparing' && estimatedPrepTime && (
