@@ -117,93 +117,200 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     fetchPrepOptions();
   }, []);
 
-  const handlePrint = (order) => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+  const buildReceiptHtml = (order) => {
+    const orderId = (order.uid || order.id || '').slice(0, 6);
+    const driver = order.deliveryMethod === 'delivery' && order.assignedDriverName
+      ? `السائق: ${order.assignedDriverName}` : null;
+    const addressBlock = order.deliveryMethod === 'delivery'
+      ? `العنوان: ${order.address || 'غير محدد'}`
+      : order.deliveryMethod === 'eat_in' && order.tableNumber
+        ? `رقم الطاولة: ${order.tableNumber}`
+        : 'نوع الطلب: استلام من المطعم';
+
+    const items = (order.cart || []).map((item, index) => {
+      const name = item.name?.ar || item.name || '';
+      const qty = item.quantity || 1;
+      const size = item.optionsText ? ` (${item.optionsText})` : '';
+      const extras = Array.isArray(item.selectedExtras)
+        ? item.selectedExtras
+            .map(extra => (typeof extra === 'object' ? extra.label?.ar || '' : ''))
+            .filter(Boolean)
+        : [];
+
+      return `
+        <div class="item">
+          <div class="item-header">
+            <span>${index + 1} - ${name}${size}</span>
+            <span>× ${qty}</span>
+          </div>
+          ${extras.length ? `<div class="item-extras">إضافات: ${extras.join('، ')}</div>` : ''}
+          ${item.note ? `<div class="item-note">ملاحظة: ${item.note}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    return `
   <html lang="ar" dir="rtl">
     <head>
       <meta charset="UTF-8" />
-      <title>طباعة الطلب</title>
+      <title>إيصال الطلب</title>
       <style>
-        body { font-family: sans-serif; padding: 20px; direction: rtl; text-align: right; }
-        h2 { margin: 0 0 10px; }
-        p { margin: 4px 0; }
-        ul { padding: 0; list-style: none; }
-        li { margin-bottom: 10px; }
-        .extras { font-size: 13px; color: #555; }
-        .meal-title { font-weight: bold; margin-top: 16px; }
-        .gray { color: #777; font-size: 14px; }
-        .divider { border-top: 1px solid #ccc; margin: 12px 0; }
+        @page { size: 58mm auto; margin: 4mm; }
+        body { font-family: 'Cairo', 'Tahoma', sans-serif; margin: 0; padding: 0 4mm; direction: rtl; text-align: right; font-size: 13px; }
+        .header { text-align: center; margin-bottom: 10px; }
+        .header h1 { font-size: 16px; margin: 4px 0; }
+        .section { margin-bottom: 10px; }
+        .section-title { font-weight: bold; border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; }
+        .item { border-bottom: 1px dashed #ccc; padding: 6px 0; }
+        .item:last-child { border-bottom: none; }
+        .item-header { display: flex; justify-content: space-between; font-weight: bold; }
+        .item-extras, .item-note { font-size: 12px; color: #444; margin-top: 2px; }
+        .footer { text-align: center; margin-top: 12px; font-size: 12px; }
       </style>
     </head>
     <body>
-      <h2>طلب رقم #${(order.uid || order.id)?.slice(0, 6)}</h2>
-      <p class="gray">${order.date || ''}</p>
-
-      <div class="divider"></div>
-
-      <p>👤 <strong>${order.name || '—'}</strong></p>
-      <p>📞 <strong>${order.phone ? `<a href="tel:${order.phone}" style="color: #007aff; text-decoration: none;">${order.phone.replace(/^\+/, '')}</a>` : '—'}</strong></p>
-      ${order.deliveryMethod === 'delivery' && order.assignedDriverName ? `<p>🚗 <strong>السائق: ${order.assignedDriverName}</strong></p>` : ''}
-      <p>🚚 التوصيل: <strong>${deliveryString || '—'}</strong></p>
-      ${order.deliveryMethod === 'delivery' ? 
-        `<p>📍 العنوان: <strong>${order.address || '—'}</strong></p>` : 
-        order.deliveryMethod === 'eat_in' && order.tableNumber ? 
-        `<p>🪑 رقم الطاولة: <strong>${order.tableNumber}</strong></p>` : 
-        ''
-      }
-
-      ${order.extraNotes
-        ? `<p style="color: #666; font-size: 13px;">📝 ملاحظات الموقع: ${order.extraNotes}</p>`
-        : ''
-      }
-${paymentString === 'اونلاين' ?
-        `<p>💳 وضع الطلب: <strong>مدفوع</strong></p>`
-        : `<p>💳 الدفع: <strong>${paymentString || '—'}</strong></p>`}
-      <p>📦 عدد المنتجات: <strong>${order.cart?.length || 0}</strong></p>
-      <p>💰 السعر: <strong>₪${order.total || order.price}</strong></p>
-
-      <div class="divider"></div>
-
-      <p class="meal-title">تفاصيل الوجبات:</p>
-      <ul>
-        ${order.cart.map(item => {
-          const name = item.name?.ar || item.name || '';
-          const qty = item.quantity || 1;
-          const size = item.optionsText ? ` – ${item.optionsText}` : '';
-          const extras = Array.isArray(item.selectedExtras)
-            ? item.selectedExtras
-              .map(extra =>
-                typeof extra === 'object' ? extra.label?.ar || '' : ''
-              )
-              .filter(Boolean)
-              .join('، ')
-            : '';
-
-          return `
-            <li>
-              ${name} × ${qty}${size}
-              ${extras ? `<div class="extras">إضافات: ${extras}</div>` : ''}
-            </li>
-          `;
-        }).join('')}
-      </ul>
-
-      ${order.note
-        ? `<div class="divider"></div>
-             <p class="meal-title">📌 ملاحظة الزبون:</p>
-             <p>${order.note}</p>`
-        : ''
-      }
+      <div class="header">
+        <h1>طلب #${orderId}</h1>
+        <div>${order.date || ''}</div>
+      </div>
+      <div class="section">
+        <div>الاسم: ${order.name || 'غير محدد'}</div>
+        <div>الهاتف: ${order.phone || 'غير محدد'}</div>
+        <div>${driver || ''}</div>
+        <div>${addressBlock}</div>
+        ${order.extraNotes ? `<div>ملاحظات الموقع: ${order.extraNotes}</div>` : ''}
+      </div>
+      <div class="section">
+        <div>طريقة التوصيل: ${deliveryString}</div>
+        <div>الدفع: ${paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString}</div>
+        <div>عدد المنتجات: ${order.cart?.length || 0}</div>
+        <div>الإجمالي: ₪${order.total || order.price}</div>
+      </div>
+      <div class="section">
+        <div class="section-title">تفاصيل الطلب</div>
+        ${items || '<div>لا توجد منتجات</div>'}
+      </div>
+      ${order.note ? `
+        <div class="section">
+          <div class="section-title">ملاحظة الزبون</div>
+          <div>${order.note}</div>
+        </div>` : ''}
+      <div class="footer">شكراً لاستخدامكم تطبيق لقمة</div>
     </body>
   </html>
-`);
+`;
+  };
 
+  const buildReceiptText = (order) => {
+    const shortId = (order.uid || order.id || '').toString().slice(0, 6);
+    const lines = [];
+    const money = (value) => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '₪0.00';
+      return `₪${num.toFixed(2)}`;
+    };
 
+    lines.push(`طلب رقم #${shortId}`);
+    if (order.date) lines.push(`التاريخ: ${order.date}`);
+    lines.push('');
+    if (order.name) lines.push(`الاسم: ${order.name}`);
+    if (order.phone) lines.push(`الهاتف: ${order.phone}`);
+    if (order.assignedDriverName) lines.push(`السائق: ${order.assignedDriverName}`);
+    if (order.deliveryMethod === 'delivery') {
+      lines.push(`نوع الطلب: توصيل`);
+      lines.push(`العنوان: ${order.address || 'غير محدد'}`);
+    } else if (order.deliveryMethod === 'eat_in') {
+      lines.push(`نوع الطلب: أكل بالمطعم`);
+      if (order.tableNumber) lines.push(`رقم الطاولة: ${order.tableNumber}`);
+    } else {
+      lines.push(`نوع الطلب: استلام بالمحل`);
+    }
+    if (order.extraNotes) lines.push(`ملاحظات الموقع: ${order.extraNotes}`);
+    if (order.paymentMethod) {
+      const paymentLabel = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين';
+      lines.push(`الدفع: ${paymentLabel}`);
+    }
+    lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
+    lines.push(`الإجمالي: ${money(order.total || order.price || 0)}`);
+    lines.push('');
+    lines.push('--- تفاصيل الطلب ---');
+
+    (order.cart || []).forEach((item, index) => {
+      const name = item.name?.ar || item.name || `منتج ${index + 1}`;
+      const qty = item.quantity || 1;
+      const price = money(item.totalPrice || item.price || 0);
+      const options = item.optionsText ? ` (${item.optionsText})` : '';
+      lines.push(`${index + 1}. ${name}${options} × ${qty} - ${price}`);
+
+      if (Array.isArray(item.selectedExtras) && item.selectedExtras.length) {
+        const extras = item.selectedExtras
+          .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : extra))
+          .filter(Boolean);
+        if (extras.length) {
+          lines.push(`   إضافات: ${extras.join(', ')}`);
+        }
+      }
+
+      if (item.note) {
+        lines.push(`   ملاحظة: ${item.note}`);
+      }
+    });
+
+    if (order.note) {
+      lines.push('');
+      lines.push(`ملاحظة الزبون: ${order.note}`);
+    }
+
+    lines.push('');
+    lines.push(`الإجمالي النهائي: ${money(order.total || order.price || 0)}`);
+    lines.push('');
+    lines.push('شكراً لاستخدامكم تطبيق لقمة');
+
+    return lines.join('\n');
+  };
+
+  const canUseNativePrinter = () =>
+    typeof window !== 'undefined' &&
+    window.PosPrinter &&
+    typeof window.PosPrinter.printText === 'function';
+
+  const handlePrint = (order) => {
+    const receiptText = buildReceiptText(order);
+    if (canUseNativePrinter()) {
+      try {
+        window.PosPrinter.printText(receiptText);
+        return;
+      } catch (err) {
+        console.error('Native POS print failed', err);
+      }
+    }
+
+    const receiptHtml = buildReceiptHtml(order);
+    const printWindow = window.open('', '_blank', 'width=600,height=800');
+    if (!printWindow) {
+      alert('الرجاء السماح بفتح النوافذ المنبثقة للطباعة.');
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(receiptHtml);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+    const triggerPrint = () => {
+      try {
+        printWindow.print();
+      } catch (err) {
+        console.error('Print error', err);
+        alert('تعذر إرسال أمر الطباعة. الرجاء إعادة المحاولة.');
+      }
+    };
+    if (printWindow.document.readyState === 'complete') {
+      triggerPrint();
+    } else {
+      printWindow.onload = triggerPrint;
+    }
+    printWindow.onafterprint = () => {
+      printWindow.close();
+    };
   };
 
   // Accept order and set prep time

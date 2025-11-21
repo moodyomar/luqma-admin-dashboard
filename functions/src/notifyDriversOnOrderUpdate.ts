@@ -143,18 +143,18 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       } else {
         // Order is unassigned - notify all drivers (backward compatibility)
         logger.info(`Order ${orderId} is unassigned, sending notification to all drivers`);
-        const driversSnapshot = await db
-          .collection("menus")
-          .doc(businessId)
-          .collection("users")
-          .where("role", "==", "driver")
-          .get();
-        
-        if (driversSnapshot.empty) {
-          logger.warn(`No drivers found for business ${businessId}`);
-          return null;
-        }
-        
+      const driversSnapshot = await db
+        .collection("menus")
+        .doc(businessId)
+        .collection("users")
+        .where("role", "==", "driver")
+        .get();
+      
+      if (driversSnapshot.empty) {
+        logger.warn(`No drivers found for business ${businessId}`);
+        return null;
+      }
+      
         targetDriverIds = driversSnapshot.docs.map(doc => doc.id);
         logger.info(`Found ${targetDriverIds.length} drivers for business ${businessId}`);
       }
@@ -289,18 +289,18 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
       } else {
         // Order is unassigned - notify all drivers (backward compatibility)
         logger.info(`New order ${orderId} is unassigned, sending notification to all drivers`);
-        const driversSnapshot = await db
-          .collection("menus")
-          .doc(businessId)
-          .collection("users")
-          .where("role", "==", "driver")
-          .get();
-        
-        if (driversSnapshot.empty) {
-          logger.warn(`No drivers found for business ${businessId}`);
-          return null;
-        }
-        
+      const driversSnapshot = await db
+        .collection("menus")
+        .doc(businessId)
+        .collection("users")
+        .where("role", "==", "driver")
+        .get();
+      
+      if (driversSnapshot.empty) {
+        logger.warn(`No drivers found for business ${businessId}`);
+        return null;
+      }
+      
         targetDriverIds = driversSnapshot.docs.map(doc => doc.id);
         logger.info(`Found ${targetDriverIds.length} drivers for business ${businessId}`);
       }

@@ -33,6 +33,12 @@ import {
 import brandConfig from '../constants/brandConfig';
 import './styles.css';
 
+const DEFAULT_LOYALTY = {
+  enabled: true,
+  currencyPerPoint: 100,
+  redeemValuePerPoint: 1
+};
+
 const BusinessManagePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,7 +61,8 @@ const BusinessManagePage = () => {
       enableWhatsAppOrders: false,
       showPrices: false,
       showSplash: false
-    }
+    },
+    loyalty: DEFAULT_LOYALTY
   });
   const [newPrepValue, setNewPrepValue] = useState('');
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
@@ -139,6 +146,18 @@ const BusinessManagePage = () => {
           showSplash: existingFeatures.showSplash ?? false
         };
         console.log('Final processed features for form:', features);
+
+        const loyaltyConfig = {
+          enabled: typeof data.config?.loyalty?.enabled === 'boolean'
+            ? data.config.loyalty.enabled
+            : DEFAULT_LOYALTY.enabled,
+          currencyPerPoint: Number(data.config?.loyalty?.currencyPerPoint) > 0
+            ? Number(data.config.loyalty.currencyPerPoint)
+            : DEFAULT_LOYALTY.currencyPerPoint,
+          redeemValuePerPoint: Number(data.config?.loyalty?.redeemValuePerPoint) > 0
+            ? Number(data.config.loyalty.redeemValuePerPoint)
+            : DEFAULT_LOYALTY.redeemValuePerPoint
+        };
         
         // Set the form with all the loaded data
         setForm({
@@ -149,7 +168,8 @@ const BusinessManagePage = () => {
           prepTimeOptions,
           deliveryCities,
           storeStatusMode,
-          features, // This will override the initial false values
+          features,
+          loyalty: loyaltyConfig
         });
         
         console.log('Form state set with features:', features);
@@ -209,6 +229,16 @@ const BusinessManagePage = () => {
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleLoyaltyChange = (key, value) => {
+    setForm(prev => ({
+      ...prev,
+      loyalty: {
+        ...prev.loyalty,
+        [key]: key === 'enabled' ? value : Number(value)
+      }
+    }));
   };
 
   // Add prep time option
@@ -389,6 +419,11 @@ const BusinessManagePage = () => {
         'config.deliveryCities': form.deliveryCities,
         'config.storeStatusMode': form.storeStatusMode,
         'config.features': form.features,
+        'config.loyalty': {
+          enabled: !!form.loyalty.enabled,
+          currencyPerPoint: Number(form.loyalty.currencyPerPoint) || DEFAULT_LOYALTY.currencyPerPoint,
+          redeemValuePerPoint: Number(form.loyalty.redeemValuePerPoint) || DEFAULT_LOYALTY.redeemValuePerPoint
+        }
       };
       
       console.log('Full update data being sent to Firebase:', updateData);
@@ -970,6 +1005,74 @@ const BusinessManagePage = () => {
                 אכילה במקום
               </span>
             </label>
+          </div>
+        </div>
+
+        {/* Loyalty configuration */}
+        <div style={{ marginTop: 16, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>
+            תוכנית נקודות ללקוחות
+          </label>
+          <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+            שלוט בכמה נקודות הלקוחות צוברים וכמה הן שוות. השינויים מתעדכנים באפליקציה מידית.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+              <input
+                type="checkbox"
+                checked={!!form.loyalty.enabled}
+                onChange={(e) => handleLoyaltyChange('enabled', e.target.checked)}
+                style={{ width: 16, height: 16, cursor: 'pointer' }}
+              />
+              הפעל תוכנית נקודות
+            </label>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ לצבירת נקודה</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.loyalty.currencyPerPoint}
+                  onChange={(e) => handleLoyaltyChange('currencyPerPoint', e.target.value)}
+                  disabled={!form.loyalty.enabled}
+                  style={{
+                    height: 44,
+                    padding: '0 12px',
+                    borderRadius: 10,
+                    border: '1px solid #e0e0e0',
+                    fontSize: 16,
+                    background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
+                    textAlign: 'right',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ ערך נקודה בהחזר</span>
+                <input
+                  type="number"
+                  min={0.1}
+                  step="0.1"
+                  value={form.loyalty.redeemValuePerPoint}
+                  onChange={(e) => handleLoyaltyChange('redeemValuePerPoint', e.target.value)}
+                  disabled={!form.loyalty.enabled}
+                  style={{
+                    height: 44,
+                    padding: '0 12px',
+                    borderRadius: 10,
+                    border: '1px solid #e0e0e0',
+                    fontSize: 16,
+                    background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
+                    textAlign: 'right',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>
+              לדוגמה: אם ההגדרה היא 100 ₪ = 1 נקודה ושווי נקודה הוא 1 ₪, אז על כל 100 ₪ המשתמש צובר נקודה אחת ויכול להשתמש בה כשקל אחד בהנחה.
+            </div>
           </div>
         </div>
         
