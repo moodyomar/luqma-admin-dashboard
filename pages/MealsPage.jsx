@@ -213,6 +213,51 @@ const MealsPage = () => {
     }
   };
 
+  // Duplicate product function
+  const duplicateMeal = async (mealToDuplicate, filteredIndex, categoryId) => {
+    // Find the actual index in the original (non-filtered) meals array
+    const allMeals = mealsData.items[categoryId] || [];
+    const actualIndex = allMeals.findIndex(m => m.id === mealToDuplicate.id);
+    
+    if (actualIndex === -1) {
+      console.error('❌ Meal not found in category');
+      return;
+    }
+
+    // Deep clone the meal to avoid reference issues
+    const duplicatedMeal = {
+      ...mealToDuplicate,
+      id: `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate new unique ID
+    };
+
+    // Insert the duplicated meal right after the original (at actualIndex + 1)
+    const newMeals = [
+      ...allMeals.slice(0, actualIndex + 1),
+      duplicatedMeal,
+      ...allMeals.slice(actualIndex + 1)
+    ];
+
+    // Reassign order values for all meals
+    const orderedMeals = newMeals.map((m, idx) => ({ ...m, order: idx }));
+
+    // Update local state immediately
+    const updatedItems = {
+      ...mealsData.items,
+      [categoryId]: orderedMeals
+    };
+    setMealsData({ ...mealsData, items: updatedItems });
+
+    // Save to Firestore instantly
+    try {
+      await updateDoc(doc(db, 'menus', activeBusinessId), {
+        [`items.${categoryId}`]: orderedMeals
+      });
+    } catch (err) {
+      console.error('❌ Error duplicating meal:', err);
+      alert('שגיאה בשכפול המנה');
+    }
+  };
+
 
   if (loading) return <p>Loading...</p>;
 
@@ -409,6 +454,7 @@ const MealsPage = () => {
                       }}
                       onChangeMealInstant={(catId, _idx, updatedMeal) => updateMealInstant(catId, updatedMeal.id, updatedMeal)}
                       onDeleteMeal={(idx) => deleteMeal(categoryId, idx)}
+                      onDuplicateMeal={duplicateMeal}
                       expandedMeals={expandedMeals}
                       onToggleMeal={toggleMeal}
                       allMealsInCategory={mealsData.items[categoryId]}

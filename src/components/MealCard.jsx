@@ -1,7 +1,7 @@
 import OptionsEditor from './OptionsEditor';
-import { FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiTrash2, FiEye, FiEyeOff, FiCopy } from 'react-icons/fi';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories, onChangeInstant }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate }) => {
   const handleFieldChange = (field, lang, value) => {
     const updated = { ...meal };
     if (field === 'name' || field === 'description') {
@@ -73,7 +73,7 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           <span style={{ color: '#666', fontSize: 13 }}>₪{meal.price || '0'}</span>
         </div>
         {/* Drag and hide (eye) buttons grouped on the left (RTL) */}
-        <div style={{ display: 'flex', alignItems: 'center'}}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {dragHandle ? (
             <div style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
               <button className="icon-square-btn" tabIndex={-1} style={{ border: 'none', background: 'none', boxShadow: 'none', cursor: 'grab' }}>
@@ -90,6 +90,14 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             title={meal.available === false ? 'הצג מנה' : 'הסתר מנה'}
           >
             {meal.available === false ? <FiEyeOff /> : <FiEye />}
+          </button>
+          <button
+            className="icon-square-btn"
+            onClick={() => onDuplicate && onDuplicate(meal, index)}
+            title="שכפל מנה"
+            style={{ color: '#007bff' }}
+          >
+            <FiCopy />
           </button>
         </div>
       </div>
