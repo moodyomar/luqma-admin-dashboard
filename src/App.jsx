@@ -141,7 +141,7 @@ function App() {
           <div style={{
             position: 'fixed',
             top: 0,
-            left: '280px',
+            left: isCollapsed ? '64px' : '280px',
             right: 0,
             height: '80px',
             borderBottom: '1px solid #e5e5e7',

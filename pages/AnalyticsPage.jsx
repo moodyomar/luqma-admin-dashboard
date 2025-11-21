@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
 import brandConfig from '../constants/brandConfig';
@@ -7,15 +7,17 @@ import { useAuth } from '../src/contexts/AuthContext';
 
 const AnalyticsPage = () => {
   const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('7d'); // '1d', '7d', '30d', '90d'
+  const [showUserAnalytics, setShowUserAnalytics] = useState(false); // Collapsed by default
   const navigate = useNavigate();
   const { activeBusinessId } = useAuth();
 
   useEffect(() => {
     if (!activeBusinessId) return;
     
-    const unsubscribe = onSnapshot(
+    const unsubscribeOrders = onSnapshot(
       query(
         collection(db, 'menus', activeBusinessId, 'orders'),
         orderBy('createdAt', 'desc'),
@@ -27,11 +29,28 @@ const AnalyticsPage = () => {
           ...doc.data(),
         }));
         setOrders(ordersData);
-        setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    // Fetch users collection (one-time, not real-time for better performance)
+    const fetchUsers = async () => {
+      try {
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const usersData = usersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setUsers(usersData);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+
+    return () => unsubscribeOrders();
   }, [activeBusinessId]);
 
   // Calculate real-time status overview
@@ -104,45 +123,51 @@ const AnalyticsPage = () => {
     
     const days = timeRanges[timeRange];
     
-    // More precise date filtering
-    let filteredOrders = [];
-    if (timeRange === '1d') {
-      // For "today" - only include orders from today
-      const today = new Date(now);
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      filteredOrders = orders.filter(order => {
-        const orderDate = new Date(order.createdAt);
-        return orderDate >= today && orderDate < tomorrow;
-      });
-    } else {
-      // For other ranges - use relative days
-      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-      filteredOrders = orders.filter(order => {
-        const orderDate = new Date(order.createdAt);
-        return orderDate >= startDate;
-      });
-    }
+    // Helper function to filter orders by time range
+    const filterOrdersByRange = (ordersList, rangeStart, rangeEnd = now) => {
+      if (timeRange === '1d') {
+        const today = new Date(rangeEnd);
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return ordersList.filter(order => {
+          const orderDate = new Date(order.createdAt);
+          return orderDate >= today && orderDate < tomorrow;
+        });
+      } else {
+        return ordersList.filter(order => {
+          const orderDate = new Date(order.createdAt);
+          return orderDate >= rangeStart && orderDate <= rangeEnd;
+        });
+      }
+    };
 
-    // Sales Analytics
+    // Current period
+    const startDate = timeRange === '1d' 
+      ? new Date(now.getTime())
+      : new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const filteredOrders = filterOrdersByRange(orders, startDate);
+
+    // Previous period (same length as current period)
+    const previousStartDate = timeRange === '1d'
+      ? new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000)
+      : new Date(now.getTime() - (days * 2) * 24 * 60 * 60 * 1000);
+    const previousFilteredOrders = filterOrdersByRange(orders, previousStartDate, startDate);
+
+    // Current period calculations
     const totalSales = filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
     const avgOrderValue = filteredOrders.length > 0 ? totalSales / filteredOrders.length : 0;
     const orderCount = filteredOrders.length;
     
-    // Completed Orders (delivered or served status)
     const completedOrders = filteredOrders.filter(order => 
       order.status === 'delivered' || order.status === 'served' || order.status === 'completed'
     ).length;
 
-    // Cancelled Orders
     const cancelledOrders = filteredOrders.filter(order => 
       order.status === 'cancelled' || order.status === 'canceled'
     ).length;
     const cancellationRate = orderCount > 0 ? (cancelledOrders / orderCount * 100) : 0;
 
-    // Average Prep Time (for completed orders with prep time data)
     const ordersWithPrepTime = filteredOrders.filter(order => 
       (order.status === 'delivered' || order.status === 'served' || order.status === 'completed') &&
       order.acceptedAt && order.readyAt
@@ -154,9 +179,55 @@ const AnalyticsPage = () => {
         }, 0) / ordersWithPrepTime.length
       : 0;
 
-    // Revenue per hour (total sales divided by hours in period)
     const hoursInPeriod = days * 24;
     const revenuePerHour = totalSales / hoursInPeriod;
+
+    // Previous period calculations
+    const previousTotalSales = previousFilteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+    const previousAvgOrderValue = previousFilteredOrders.length > 0 
+      ? previousTotalSales / previousFilteredOrders.length 
+      : 0;
+    const previousOrderCount = previousFilteredOrders.length;
+    
+    const previousCompletedOrders = previousFilteredOrders.filter(order => 
+      order.status === 'delivered' || order.status === 'served' || order.status === 'completed'
+    ).length;
+
+    const previousCancelledOrders = previousFilteredOrders.filter(order => 
+      order.status === 'cancelled' || order.status === 'canceled'
+    ).length;
+    const previousCancellationRate = previousOrderCount > 0 
+      ? (previousCancelledOrders / previousOrderCount * 100) 
+      : 0;
+
+    const previousOrdersWithPrepTime = previousFilteredOrders.filter(order => 
+      (order.status === 'delivered' || order.status === 'served' || order.status === 'completed') &&
+      order.acceptedAt && order.readyAt
+    );
+    const previousAvgPrepTime = previousOrdersWithPrepTime.length > 0
+      ? previousOrdersWithPrepTime.reduce((sum, order) => {
+          const prepMinutes = (new Date(order.readyAt) - new Date(order.acceptedAt)) / (1000 * 60);
+          return sum + prepMinutes;
+        }, 0) / previousOrdersWithPrepTime.length
+      : 0;
+
+    const previousRevenuePerHour = previousTotalSales / hoursInPeriod;
+
+    // Calculate percentage changes
+    const calculatePercentageChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+
+    const salesChange = calculatePercentageChange(totalSales, previousTotalSales);
+    const orderCountChange = calculatePercentageChange(orderCount, previousOrderCount);
+    const completedOrdersChange = calculatePercentageChange(completedOrders, previousCompletedOrders);
+    const avgOrderValueChange = calculatePercentageChange(avgOrderValue, previousAvgOrderValue);
+    const revenuePerHourChange = calculatePercentageChange(revenuePerHour, previousRevenuePerHour);
+    const cancellationRateChange = calculatePercentageChange(cancellationRate, previousCancellationRate);
+    const avgPrepTimeChange = previousAvgPrepTime > 0 
+      ? calculatePercentageChange(avgPrepTime, previousAvgPrepTime)
+      : 0;
 
     // Daily Sales Breakdown
     const dailySales = {};
@@ -316,9 +387,166 @@ const AnalyticsPage = () => {
       popularItems,
       peakHours,
       deliveryStats,
-      paymentStats
+      paymentStats,
+      // Percentage changes
+      salesChange,
+      orderCountChange,
+      completedOrdersChange,
+      avgOrderValueChange,
+      revenuePerHourChange,
+      cancellationRateChange,
+      avgPrepTimeChange
     };
   }, [orders, timeRange]);
+
+  // Calculate user analytics
+  const userAnalytics = useMemo(() => {
+    const now = new Date();
+    const timeRanges = {
+      '1d': 1,
+      '7d': 7,
+      '30d': 30,
+      '90d': 90
+    };
+    const days = timeRanges[timeRange];
+    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const previousStartDate = new Date(now.getTime() - (days * 2) * 24 * 60 * 60 * 1000);
+
+    // Helper function to check if date is within time range
+    const isInTimeRange = (date, rangeStart, rangeEnd = now) => {
+      if (!date) return false;
+      try {
+        const activityDate = new Date(date);
+        if (isNaN(activityDate.getTime())) return false; // Invalid date
+        
+        if (timeRange === '1d') {
+          // For "today", compare against current date (rangeEnd/now)
+          const today = new Date(rangeEnd);
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          return activityDate >= today && activityDate < tomorrow;
+        }
+        // For other ranges, check if date is within the range
+        return activityDate >= rangeStart && activityDate <= rangeEnd;
+      } catch (error) {
+        console.warn('Error parsing date in isInTimeRange:', date, error);
+        return false;
+      }
+    };
+
+    // Current period calculations
+    const filteredOrders = orders.filter(order => {
+      return isInTimeRange(order.createdAt, startDate);
+    });
+
+    const usersWithOrders = new Set(
+      filteredOrders
+        .map(order => order.phone)
+        .filter(phone => phone)
+    );
+
+    const activeUsers = users.filter(user => {
+      const hasOrder = usersWithOrders.has(user.phone);
+      const profileUpdated = isInTimeRange(user.updatedAt, startDate);
+      const pointsUpdated = isInTimeRange(user.lastPointsUpdate, startDate);
+      return hasOrder || profileUpdated || pointsUpdated;
+    });
+
+    const newUsers = users.filter(user => {
+      return isInTimeRange(user.createdAt, startDate);
+    });
+
+    // Previous period calculations (for comparison)
+    const previousFilteredOrders = orders.filter(order => {
+      return isInTimeRange(order.createdAt, previousStartDate, startDate);
+    });
+
+    const previousUsersWithOrders = new Set(
+      previousFilteredOrders
+        .map(order => order.phone)
+        .filter(phone => phone)
+    );
+
+    const previousActiveUsers = users.filter(user => {
+      const hasOrder = previousUsersWithOrders.has(user.phone);
+      const profileUpdated = isInTimeRange(user.updatedAt, previousStartDate, startDate);
+      const pointsUpdated = isInTimeRange(user.lastPointsUpdate, previousStartDate, startDate);
+      return hasOrder || profileUpdated || pointsUpdated;
+    });
+
+    const previousNewUsers = users.filter(user => {
+      return isInTimeRange(user.createdAt, previousStartDate, startDate);
+    });
+
+    // Calculate total users at the end of previous period (users created before current period start)
+    const previousTotalUsers = users.filter(user => {
+      if (!user.createdAt) return false;
+      const userCreatedAt = new Date(user.createdAt);
+      if (timeRange === '1d') {
+        const today = new Date(now);
+        today.setHours(0, 0, 0, 0);
+        return userCreatedAt < today;
+      }
+      return userCreatedAt < startDate;
+    }).length;
+
+    // Get all unique users from orders (historical - current)
+    const allOrderUserPhones = new Set(
+      orders
+        .map(order => order.phone)
+        .filter(phone => phone)
+    );
+
+    // Get all unique users from orders before current period (previous)
+    const previousAllOrderUserPhones = new Set(
+      orders
+        .filter(order => {
+          const orderDate = new Date(order.createdAt);
+          if (timeRange === '1d') {
+            const today = new Date(now);
+            today.setHours(0, 0, 0, 0);
+            return orderDate < today;
+          }
+          return orderDate < startDate;
+        })
+        .map(order => order.phone)
+        .filter(phone => phone)
+    );
+
+    // Calculate percentage changes
+    const calculatePercentageChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+
+    const totalUsersChange = calculatePercentageChange(users.length, previousTotalUsers);
+    const activeUsersChange = calculatePercentageChange(activeUsers.length, previousActiveUsers.length);
+    const newUsersChange = calculatePercentageChange(newUsers.length, previousNewUsers.length);
+    const totalActiveUsersChange = calculatePercentageChange(allOrderUserPhones.size, previousAllOrderUserPhones.size);
+
+    // Calculate average orders per user (for active users in current period)
+    const totalOrdersInPeriod = filteredOrders.length;
+    const averageOrdersPerUser = activeUsers.length > 0 
+      ? (totalOrdersInPeriod / activeUsers.length).toFixed(1)
+      : 0;
+
+    return {
+      totalUsers: users.length,
+      activeUsers: activeUsers.length,
+      newUsers: newUsers.length,
+      totalActiveUsers: allOrderUserPhones.size,
+      newUsersList: newUsers.slice(0, 10),
+      // Percentage changes
+      totalUsersChange,
+      activeUsersChange,
+      newUsersChange,
+      totalActiveUsersChange,
+      // Average orders per user
+      averageOrdersPerUser: parseFloat(averageOrdersPerUser),
+      totalOrdersInPeriod
+    };
+  }, [users, orders, timeRange]);
 
   if (loading) {
     return (
@@ -575,94 +803,277 @@ const AnalyticsPage = () => {
         marginBottom: '40px',
         gridAutoRows: '1fr' // Make all cards same height
       }}>
-        <div style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '18px 20px',
-          borderRadius: '15px',
-          color: 'white',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>💰</div>
-          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>إجمالي المبيعات</div>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+            padding: '20px 24px',
+            borderRadius: '16px',
+            color: 'white',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>💰</div>
+          <div style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', fontWeight: '500' }}>إجمالي المبيعات</div>
+          <div style={{ fontSize: '26px', fontWeight: '700', marginBottom: analytics.salesChange !== 0 ? '8px' : '0' }}>
             {analytics.totalSales.toLocaleString()}₪
           </div>
+          {analytics.salesChange !== 0 && (
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.95, 
+              marginTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: analytics.salesChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              width: 'fit-content',
+              margin: '8px auto 0'
+            }}>
+              <span style={{ fontSize: '14px' }}>{analytics.salesChange > 0 ? '↑' : '↓'}</span>
+              <span style={{ 
+                color: analytics.salesChange > 0 ? '#90EE90' : '#FFB6C1',
+                fontWeight: '700'
+              }}>
+                {Math.abs(analytics.salesChange).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                مقارنة بالفترة السابقة
+              </span>
+            </div>
+          )}
         </div>
 
-        <div style={{
-          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-          padding: '18px 20px',
-          borderRadius: '15px',
-          color: 'white',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>📦</div>
-          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>عدد الطلبات</div>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #c92a2a 0%, #e03131 100%)',
+            padding: '20px 24px',
+            borderRadius: '16px',
+            color: 'white',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>📦</div>
+          <div style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', fontWeight: '500' }}>عدد الطلبات</div>
+          <div style={{ fontSize: '26px', fontWeight: '700', marginBottom: analytics.orderCountChange !== 0 ? '8px' : '0' }}>
             {analytics.orderCount.toLocaleString()}
           </div>
+          {analytics.orderCountChange !== 0 && (
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.95, 
+              marginTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: analytics.orderCountChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              width: 'fit-content',
+              margin: '8px auto 0'
+            }}>
+              <span style={{ fontSize: '14px' }}>{analytics.orderCountChange > 0 ? '↑' : '↓'}</span>
+              <span style={{ 
+                color: analytics.orderCountChange > 0 ? '#90EE90' : '#FFB6C1',
+                fontWeight: '700'
+              }}>
+                {Math.abs(analytics.orderCountChange).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                مقارنة بالفترة السابقة
+              </span>
+            </div>
+          )}
         </div>
 
-        <div style={{
-          background: 'linear-gradient(135deg, #5f72bd 0%, #9921e8 100%)',
-          padding: '18px 20px',
-          borderRadius: '15px',
-          color: 'white',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>✅</div>
-          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>الطلبات المكتملة</div>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%)',
+            padding: '20px 24px',
+            borderRadius: '16px',
+            color: 'white',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>✅</div>
+          <div style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', fontWeight: '500' }}>الطلبات المكتملة</div>
+          <div style={{ fontSize: '26px', fontWeight: '700', marginBottom: analytics.completedOrdersChange !== 0 ? '8px' : '0' }}>
             {analytics.completedOrders.toLocaleString()}
           </div>
+          {analytics.completedOrdersChange !== 0 && (
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.95, 
+              marginTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: analytics.completedOrdersChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              width: 'fit-content',
+              margin: '8px auto 0'
+            }}>
+              <span style={{ fontSize: '14px' }}>{analytics.completedOrdersChange > 0 ? '↑' : '↓'}</span>
+              <span style={{ 
+                color: analytics.completedOrdersChange > 0 ? '#90EE90' : '#FFB6C1',
+                fontWeight: '700'
+              }}>
+                {Math.abs(analytics.completedOrdersChange).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                مقارنة بالفترة السابقة
+              </span>
+            </div>
+          )}
         </div>
 
-        <div style={{
-          background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-          padding: '18px 20px',
-          borderRadius: '15px',
-          color: '#333',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>📈</div>
-          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>متوسط قيمة الطلب</div>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #3d3d5c 0%, #5a5a7a 100%)',
+            padding: '20px 24px',
+            borderRadius: '16px',
+            color: 'white',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>📈</div>
+          <div style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', fontWeight: '500' }}>متوسط قيمة الطلب</div>
+          <div style={{ fontSize: '26px', fontWeight: '700', marginBottom: analytics.avgOrderValueChange !== 0 ? '8px' : '0' }}>
             {analytics.avgOrderValue.toFixed(0)}₪
           </div>
+          {analytics.avgOrderValueChange !== 0 && (
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.95, 
+              marginTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: analytics.avgOrderValueChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              width: 'fit-content',
+              margin: '8px auto 0'
+            }}>
+              <span style={{ fontSize: '14px' }}>{analytics.avgOrderValueChange > 0 ? '↑' : '↓'}</span>
+              <span style={{ 
+                color: analytics.avgOrderValueChange > 0 ? '#90EE90' : '#FFB6C1',
+                fontWeight: '700'
+              }}>
+                {Math.abs(analytics.avgOrderValueChange).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                مقارنة بالفترة السابقة
+              </span>
+            </div>
+          )}
         </div>
 
-        <div style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '18px 20px',
-          borderRadius: '15px',
-          color: 'white',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>⏰</div>
-          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>أوقات الذروة</div>
-          <div style={{ fontSize: '17px', fontWeight: 'bold', lineHeight: 1.4 }}>
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+            padding: '20px 24px',
+            borderRadius: '16px',
+            color: 'white',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>⏰</div>
+          <div style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', fontWeight: '500' }}>أوقات الذروة</div>
+          <div style={{ fontSize: '17px', fontWeight: '700', lineHeight: 1.4 }}>
             {analytics.peakHours.slice(0, 2).map(([hour, stats], idx) => {
               const startHour = String(hour).padStart(2, '0');
               const endHour = String((parseInt(hour) + 1) % 24).padStart(2, '0');
               return (
-                <div key={hour} style={{ marginBottom: idx < 1 ? '6px' : '0' }}>
+                <div key={hour} style={{ marginBottom: idx < 1 ? '8px' : '0' }}>
                   {startHour}:00-{endHour}:00
-                  <span style={{ fontSize: '13px', opacity: 0.85, marginRight: '6px' }}>
+                  <span style={{ fontSize: '13px', opacity: 0.9, marginRight: '6px' }}>
                     ({stats.orders})
                   </span>
                 </div>
@@ -671,58 +1082,184 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        <div style={{
-          background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
-          padding: '18px 20px',
-          borderRadius: '15px',
-          color: 'white',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>❌</div>
-          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>معدل الإلغاء</div>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #7c2d12 0%, #991b1b 100%)',
+            padding: '20px 24px',
+            borderRadius: '16px',
+            color: 'white',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>❌</div>
+          <div style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', fontWeight: '500' }}>معدل الإلغاء</div>
+          <div style={{ fontSize: '26px', fontWeight: '700', marginBottom: analytics.cancellationRateChange !== 0 ? '8px' : '0' }}>
             {analytics.cancellationRate.toFixed(1)}%
           </div>
-          <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>
+          {analytics.cancellationRateChange !== 0 && (
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.95, 
+              marginTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: analytics.cancellationRateChange < 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              width: 'fit-content',
+              margin: '8px auto 0'
+            }}>
+              <span style={{ fontSize: '14px' }}>{analytics.cancellationRateChange < 0 ? '↓' : '↑'}</span>
+              <span style={{ 
+                color: analytics.cancellationRateChange < 0 ? '#90EE90' : '#FFB6C1',
+                fontWeight: '700'
+              }}>
+                {Math.abs(analytics.cancellationRateChange).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                مقارنة بالفترة السابقة
+              </span>
+            </div>
+          )}
+          <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '6px' }}>
             ({analytics.cancelledOrders} طلب)
           </div>
         </div>
 
-        <div style={{
-          background: 'linear-gradient(135deg, #f78ca0 0%, #f9748f 100%)',
-          padding: '18px 20px',
-          borderRadius: '15px',
-          color: 'white',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>⚡</div>
-          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>متوسط وقت التحضير</div>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #4a2c2a 0%, #6b3e3a 100%)',
+            padding: '20px 24px',
+            borderRadius: '16px',
+            color: 'white',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>⚡</div>
+          <div style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', fontWeight: '500' }}>متوسط وقت التحضير</div>
+          <div style={{ fontSize: '26px', fontWeight: '700', marginBottom: analytics.avgPrepTimeChange !== 0 && analytics.avgPrepTime > 0 ? '8px' : '0' }}>
             {analytics.avgPrepTime > 0 ? `${analytics.avgPrepTime.toFixed(0)} دقيقة` : 'لا توجد بيانات'}
           </div>
+          {analytics.avgPrepTimeChange !== 0 && analytics.avgPrepTime > 0 && (
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.95, 
+              marginTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: analytics.avgPrepTimeChange < 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              width: 'fit-content',
+              margin: '8px auto 0'
+            }}>
+              <span style={{ fontSize: '14px' }}>{analytics.avgPrepTimeChange < 0 ? '↓' : '↑'}</span>
+              <span style={{ 
+                color: analytics.avgPrepTimeChange < 0 ? '#90EE90' : '#FFB6C1',
+                fontWeight: '700'
+              }}>
+                {Math.abs(analytics.avgPrepTimeChange).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                مقارنة بالفترة السابقة
+              </span>
+            </div>
+          )}
         </div>
 
-        <div style={{
-          background: 'linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%)',
-          padding: '18px 20px',
-          borderRadius: '15px',
-          color: 'white',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>💵</div>
-          <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>الإيرادات في الساعة</div>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #155e75 0%, #0e7490 100%)',
+            padding: '20px 24px',
+            borderRadius: '16px',
+            color: 'white',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+          }}
+        >
+          <div style={{ fontSize: '32px', marginBottom: '10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>💵</div>
+          <div style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', fontWeight: '500' }}>الإيرادات في الساعة</div>
+          <div style={{ fontSize: '26px', fontWeight: '700', marginBottom: analytics.revenuePerHourChange !== 0 ? '8px' : '0' }}>
             {analytics.revenuePerHour.toFixed(1)}₪
           </div>
+          {analytics.revenuePerHourChange !== 0 && (
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.95, 
+              marginTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: analytics.revenuePerHourChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              width: 'fit-content',
+              margin: '8px auto 0'
+            }}>
+              <span style={{ fontSize: '14px' }}>{analytics.revenuePerHourChange > 0 ? '↑' : '↓'}</span>
+              <span style={{ 
+                color: analytics.revenuePerHourChange > 0 ? '#90EE90' : '#FFB6C1',
+                fontWeight: '700'
+              }}>
+                {Math.abs(analytics.revenuePerHourChange).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                مقارنة بالفترة السابقة
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -952,6 +1489,255 @@ const AnalyticsPage = () => {
             );
           })}
         </div>
+      </div>
+
+      {/* User Analytics Section - Collapsible */}
+      <div style={{ 
+        marginTop: '40px', 
+        marginBottom: '40px',
+        background: 'white',
+        borderRadius: '15px',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        border: '1px solid #eee',
+        overflow: 'hidden'
+      }}>
+        <div
+          onClick={() => setShowUserAnalytics(!showUserAnalytics)}
+          style={{
+            padding: '20px 25px',
+            cursor: 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: showUserAnalytics ? '1px solid #eee' : 'none',
+            background: showUserAnalytics ? '#f8f9fa' : 'transparent',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = '#f8f9fa';
+          }}
+          onMouseOut={(e) => {
+            if (!showUserAnalytics) {
+              e.currentTarget.style.background = 'transparent';
+            }
+          }}
+        >
+          <h2 style={{ 
+            margin: 0,
+            color: '#333', 
+            fontSize: '20px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span>👥</span>
+            <span>إحصائيات المستخدمين</span>
+          </h2>
+          <span style={{ 
+            fontSize: '20px', 
+            color: '#666',
+            transition: 'transform 0.2s ease',
+            transform: showUserAnalytics ? 'rotate(180deg)' : 'rotate(0deg)'
+          }}>
+            ▼
+          </span>
+        </div>
+
+        {showUserAnalytics && (
+          <div style={{ padding: '25px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: window.innerWidth < 768 
+                ? 'repeat(2, 1fr)' 
+                : 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: window.innerWidth < 768 ? '12px' : '20px'
+            }}>
+              <div 
+                style={{
+                  background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+                  padding: '18px 20px',
+                  borderRadius: '15px',
+                  color: 'white',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.boxShadow = '0 8px 12px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                }}
+              >
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>👥</div>
+                <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>إجمالي المستخدمين</div>
+                <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+                  {userAnalytics.totalUsers.toLocaleString()}
+                </div>
+              </div>
+
+              <div 
+                style={{
+                  background: 'linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%)',
+                  padding: '18px 20px',
+                  borderRadius: '15px',
+                  color: 'white',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.boxShadow = '0 8px 12px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                }}
+              >
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>🟢</div>
+                <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>المستخدمين النشطين</div>
+                <div style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: userAnalytics.activeUsersChange !== 0 ? '8px' : '0' }}>
+                  {userAnalytics.activeUsers.toLocaleString()}
+                </div>
+                {userAnalytics.activeUsersChange !== 0 && (
+                  <div style={{ 
+                    fontSize: '12px', 
+                    opacity: 0.95, 
+                    marginTop: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    background: userAnalytics.activeUsersChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+                    padding: '4px 8px',
+                    borderRadius: '12px',
+                    width: 'fit-content',
+                    margin: '8px auto 0'
+                  }}>
+                    <span style={{ fontSize: '14px' }}>{userAnalytics.activeUsersChange > 0 ? '↑' : '↓'}</span>
+                    <span style={{ 
+                      color: userAnalytics.activeUsersChange > 0 ? '#90EE90' : '#FFB6C1',
+                      fontWeight: '700'
+                    }}>
+                      {Math.abs(userAnalytics.activeUsersChange).toFixed(1)}%
+                    </span>
+                    <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                      مقارنة بالفترة السابقة
+                    </span>
+                  </div>
+                )}
+                <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>
+                  (في الفترة المحددة)
+                </div>
+              </div>
+
+              <div 
+                style={{
+                  background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                  padding: '18px 20px',
+                  borderRadius: '15px',
+                  color: 'white',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.boxShadow = '0 8px 12px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                }}
+              >
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>🆕</div>
+                <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>مستخدمين جدد</div>
+                <div style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: userAnalytics.newUsersChange !== 0 ? '8px' : '0' }}>
+                  {userAnalytics.newUsers.toLocaleString()}
+                </div>
+                {userAnalytics.newUsersChange !== 0 && (
+                  <div style={{ 
+                    fontSize: '12px', 
+                    opacity: 0.95, 
+                    marginTop: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    background: userAnalytics.newUsersChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
+                    padding: '4px 8px',
+                    borderRadius: '12px',
+                    width: 'fit-content',
+                    margin: '8px auto 0'
+                  }}>
+                    <span style={{ fontSize: '14px' }}>{userAnalytics.newUsersChange > 0 ? '↑' : '↓'}</span>
+                    <span style={{ 
+                      color: userAnalytics.newUsersChange > 0 ? '#90EE90' : '#FFB6C1',
+                      fontWeight: '700'
+                    }}>
+                      {Math.abs(userAnalytics.newUsersChange).toFixed(1)}%
+                    </span>
+                    <span style={{ fontSize: '10px', opacity: 0.85 }}>
+                      مقارنة بالفترة السابقة
+                    </span>
+                  </div>
+                )}
+                <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>
+                  (في الفترة المحددة)
+                </div>
+              </div>
+
+              <div 
+                style={{
+                  background: 'linear-gradient(135deg, #4a2c2a 0%, #6b3e3a 100%)',
+                  padding: '18px 20px',
+                  borderRadius: '15px',
+                  color: 'white',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.boxShadow = '0 8px 12px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                }}
+              >
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>📊</div>
+                <div style={{ fontSize: '13px', opacity: 0.9, marginBottom: '5px' }}>متوسط الطلبات لكل مستخدم</div>
+                <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
+                  {userAnalytics.averageOrdersPerUser.toFixed(1)}
+                </div>
+                <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '4px' }}>
+                  ({userAnalytics.totalOrdersInPeriod} طلب / {userAnalytics.activeUsers} مستخدم نشط)
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
