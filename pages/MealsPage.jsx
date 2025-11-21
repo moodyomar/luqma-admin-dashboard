@@ -86,8 +86,9 @@ const MealsPage = () => {
         Object.entries(mealsData.items).map(([catId, meals]) => [
           catId,
           meals.map((meal) => {
-            const cleanedOptions = (meal.options || []).map((opt) => {
-              const cleanedValues = opt.values.map((val) => {
+          const cleanedOptions = (meal.options || []).map((opt) => {
+            const optionValues = Array.isArray(opt?.values) ? opt.values : [];
+            const cleanedValues = optionValues.map((val) => {
                 const cleanVal = {
                   label: {
                     ar: val?.label?.ar || '',
@@ -108,21 +109,31 @@ const MealsPage = () => {
                 return cleanVal;
               });
 
-              return {
+              const baseOption = {
                 type: opt?.type || 'multi',
                 label: {
                   ar: opt?.label?.ar || '',
                   he: opt?.label?.he || '',
                 },
                 values: cleanedValues,
-                // ✅ Add displayAs if present (default to 'text')
-                displayAs: opt?.displayAs || 'text',
-                // ✅ New Fields
                 max: typeof opt.max === 'number' ? opt.max : null,
                 allChecked: !!opt.allChecked,
                 limitsBySelectValue: opt?.limitsBySelectValue || {},
                 required: !!opt.required,
               };
+
+              if (opt?.type !== 'input') {
+                baseOption.displayAs = opt?.displayAs || 'text';
+              } else {
+                baseOption.inputPlaceholder = {
+                  ar: opt?.inputPlaceholder?.ar || '',
+                  he: opt?.inputPlaceholder?.he || '',
+                };
+                baseOption.inputMaxLength =
+                  typeof opt?.inputMaxLength === 'number' ? opt.inputMaxLength : null;
+              }
+
+              return baseOption;
             });
 
             const cleanedMeal = {

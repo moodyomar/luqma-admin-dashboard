@@ -12,6 +12,10 @@ const defaultLabels = {
     ar: 'اختار الإضافات',
     he: 'בחר תוספות',
   },
+  input: {
+    ar: 'اكتب طلبك هنا',
+    he: 'כתוב כאן בקשה',
+  },
 };
 
 const displayAsTypes = [
@@ -33,6 +37,21 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
   const handleLabelChange = (index, lang, value) => {
     const updated = [...options];
     updated[index].label[lang] = value;
+    onChange(updated);
+  };
+
+  const handleInputPlaceholderChange = (index, lang, value) => {
+    const updated = [...options];
+    if (!updated[index].inputPlaceholder) {
+      updated[index].inputPlaceholder = { ar: '', he: '' };
+    }
+    updated[index].inputPlaceholder[lang] = value;
+    onChange(updated);
+  };
+
+  const handleInputSettingChange = (index, field, value) => {
+    const updated = [...options];
+    updated[index][field] = value;
     onChange(updated);
   };
 
@@ -80,6 +99,7 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
   };
 
   const handleAddValue = (optionIndex) => {
+    if (options[optionIndex]?.type === 'input') return;
     const updated = [...options];
     const option = updated[optionIndex];
     updated[optionIndex].values.push({
@@ -119,8 +139,13 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
       max: null,
       allChecked: false,
       limitsBySelectValue: {},
-      displayAs: 'text', // default
+      displayAs: type === 'select' ? 'text' : type === 'multi' ? 'text' : undefined,
+      inputPlaceholder: { ar: '', he: '' },
+      inputMaxLength: 80,
     };
+    if (type === 'input') {
+      newOption.values = [];
+    }
     onChange([...options, newOption]);
     setShowAddOptionModal(false);
   };
@@ -474,6 +499,32 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
                     <div style={{ fontWeight: 'bold', marginBottom: 4 }}>متعدد الاختيارات</div>
                     <div style={{ fontSize: 14, opacity: 0.8 }}>مثل: الإضافات، التوابل</div>
                   </button>
+                  
+                  <button
+                    onClick={() => handleAddOption('input')}
+                    style={{
+                      padding: '16px 24px',
+                      border: '2px solid #ff9800',
+                      borderRadius: 8,
+                      background: '#fff',
+                      color: '#ff9800',
+                      cursor: 'pointer',
+                      fontSize: 16,
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = '#ff9800';
+                      e.target.style.color = '#fff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = '#fff';
+                      e.target.style.color = '#ff9800';
+                    }}
+                  >
+                    <div style={{ fontWeight: 'bold', marginBottom: 4 }}>حقل نصّي</div>
+                    <div style={{ fontSize: 14, opacity: 0.8 }}>مثل: كتابة اسم أو ملاحظة</div>
+                  </button>
                 </div>
 
                 <button
@@ -682,20 +733,22 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
             <div key={index} className="option-card">
               <div className="option-header">
                 <strong>نوع الاضافه:</strong> <span style={{ color: 'green', fontWeight: '700' }}>{option.type === 'multi' ? 'خيارات متعدده' : 'خيار واحد'}</span>
-                <span style={{ marginInlineStart: 12 }}>
-                  <label style={{ fontWeight: 500 }}>
-                    <span style={{ marginInlineEnd: 4 }}>عرض كـ:</span>
-                    <select
-                      value={option.displayAs || 'text'}
-                      onChange={e => handleDisplayAsChange(index, e.target.value)}
-                      style={{ padding: '2px 4px',width: '115px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
-                    >
-                      {displayAsTypes.map(type => (
-                        <option key={type.value} value={type.value}>{type.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                </span>
+                {option.type !== 'input' && (
+                  <span style={{ marginInlineStart: 12 }}>
+                    <label style={{ fontWeight: 500 }}>
+                      <span style={{ marginInlineEnd: 4 }}>عرض كـ:</span>
+                      <select
+                        value={option.displayAs || 'text'}
+                        onChange={e => handleDisplayAsChange(index, e.target.value)}
+                        style={{ padding: '2px 4px',width: '115px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                      >
+                        {displayAsTypes.map(type => (
+                          <option key={type.value} value={type.value}>{type.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </span>
+                )}
               </div>
 
               <div className="option-labels">
@@ -716,187 +769,240 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
               </div>
 
               <div className="option-wrapper" style={{ marginBottom: 16 }}>
-                <div className="btn-row-right">
-                  <button
-                    onClick={() => toggleOption(index)}
-                    style={{
-                      direction: 'rtl',
-                      backgroundColor: '#f4f4f4',
-                      padding: '6px 12px',
-                      border: '1px solid #ccc',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                      marginBottom: 8
-                    }}
-                  >
-                    {expandedOptions[index] ? '🔽 إخفاء الإضافات' : '➕ عرض الإضافات'}
-                  </button>
-                  <div className="required-extra-label" style={{ marginTop: 8 }}>
-                    <label>
-                      <span style={{ marginInlineStart: 6 }}>الحقل مطلوب؟</span>
-                      <input
-                        type="checkbox"
-                        checked={option.required || false}
-                        onChange={(e) => {
-                          handleAdvancedChange(index, 'required', e.target.checked);
-                        }} />
-                    </label>
-                  </div>
-                </div>
-
-                {expandedOptions[index] && (
-                  <div className="option-values">
-                    <strong style={{ direction: 'rtl' }}>الاضافات | האפשריות</strong>
-
-                    {option.values.map((val, valIndex) => (
-                      <div key={valIndex} className="value-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <input
-                          placeholder="مثلا: صغير/كبير"
-                          value={val.label.ar}
-                          onChange={(e) => handleValueChange(index, valIndex, 'ar', e.target.value)}
-                        />
-                        <input
-                          placeholder="דוגמה: קטן/גדול"
-                          value={val.label.he}
-                          onChange={(e) => handleValueChange(index, valIndex, 'he', e.target.value)}
-                        />
-                        {option.displayAs === 'color' ? (
-                          <>
-                            <input
-                              type="color"
-                              value={val.color || '#000000'}
-                              onChange={e => handleColorChange(index, valIndex, e.target.value)}
-                              style={{ width: 40, height: 32, border: 'none', background: 'none', cursor: 'pointer' }}
-                              title="اختر اللون"
-                            />
-                            <span style={{ width: 60, fontSize: 12, color: '#555' }}>{val.color || '#000000'}</span>
-                          </>
-                        ) : (
-                          <input
-                            style={{ minWidth: 85 }}
-                            type="url"
-                            placeholder="رابط الصورة"
-                            value={val.image || ''}
-                            onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
-                          />
-                        )}
-                        <input
-                          style={{ maxWidth: 40 }}
-                          type="number"
-                          placeholder="كم زياده؟"
-                          value={val.extra || 0}
-                          onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
-                        />
-                        <button
-                          onClick={() => handleDeleteValue(index, valIndex)}
-                          style={{
-                            backgroundColor: '#d9534f',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '4px 8px',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <FiTrash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-
-                    {option.type === 'multi' && (
-                      <details style={{ marginTop: 10 }}>
-                        <summary style={{ cursor: 'pointer', fontWeight: 'bold', direction: 'rtl' }}>
-                          إعدادات متقدمة للإضافات المتعددة
-                        </summary>
-                        <div className="advance-options">
-
-                          {/* Set Max options to choose (limit user) */}
-                          <div className="max-options" style={{ marginTop: 10 }}>
-                            <label>
-                              الحد الأقصى للاختيارات:
-                              <input
-                                type="number"
-                                min="1"
-                                value={option.max || ''}
-                                onChange={(e) =>
-                                  handleAdvancedChange(index, 'max', parseInt(e.target.value) || null)
-                                }
-                                placeholder="مثلاً 2 أو 3 ماكسيموم"
-                                disabled={option.allChecked} // ❌ Disable if allChecked is on
-                              />
-                            </label>
-
-                            {option.allChecked && (
-                              <div style={{ fontSize: 12, color: '#b33a3a', marginTop: 5 }}>
-                                لا يمكنك تحديد حد أقصى للاختيارات عند تفعيل "اختيار الكل".
-                              </div>
-                            )}
-                          </div>
-                          {/* allCheck - let user mark all options as checked */}
-                          <div className="all-checked-toggle" style={{ marginTop: 10 }}>
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={option.allChecked || false}
-                                onChange={(e) =>
-                                  handleAdvancedChange(index, 'allChecked', e.target.checked)
-                                }
-                              />
-                              اختيار الكل افتراضياً
-                            </label>
-                          </div>
-                        </div>
-                        {/* limit option by size (like mansaf & salads limit) */}
-                        <div className="limits-per-size" style={{ marginTop: 10, direction: 'rtl' }}>
-                          <strong>حدد الحد الأقصى حسب الحجم:</strong>
-                          {options.find(o => o.type === 'select')?.values?.map((size, sIndex) => (
-                            <div key={sIndex} style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5 }}>
-                              <span>{size.label?.ar || 'غير معروف'}</span>
-                              <input style={{ width: 200 }}
-                                type="number"
-                                placeholder="كم خيار مسموح من فوق؟"
-                                value={option.limitsBySelectValue?.[size.value] || ''}
-                                onChange={(e) => {
-                                  const updated = [...options];
-                                  if (!updated[index].limitsBySelectValue) updated[index].limitsBySelectValue = {};
-                                  updated[index].limitsBySelectValue[size.value] = parseInt(e.target.value) || null;
-                                  onChange(updated);
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-
-                    <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'center' }}>
+                {option.type !== 'input' ? (
+                  <>
+                    <div className="btn-row-right">
                       <button
-                        className="add-value-btn"
-                        onClick={() => handleAddValue(index)}
+                        onClick={() => toggleOption(index)}
                         style={{
-                          backgroundColor: 'rgb(40, 167, 69)',
-                          color: '#fff',
-                          border: 'none',
-                          width: 140,
+                          direction: 'rtl',
+                          backgroundColor: '#f4f4f4',
+                          padding: '6px 12px',
+                          border: '1px solid #ccc',
                           borderRadius: 6,
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          marginBottom: 8
                         }}
                       >
-                        ضيف خيار
+                        {expandedOptions[index] ? '🔽 إخفاء الإضافات' : '➕ عرض الإضافات'}
                       </button>
+                      <div className="required-extra-label" style={{ marginTop: 8 }}>
+                        <label>
+                          <span style={{ marginInlineStart: 6 }}>الحقل مطلوب؟</span>
+                          <input
+                            type="checkbox"
+                            checked={option.required || false}
+                            onChange={(e) => {
+                              handleAdvancedChange(index, 'required', e.target.checked);
+                            }} />
+                        </label>
+                      </div>
+                    </div>
 
-                      <button className="add-value-btn"
-                        onClick={() => handleDeleteAllValues(index)}
-                        style={{
-                          backgroundColor: '#dc3545',
-                          color: '#fff',
-                          border: 'none',
-                          width: 140,
-                          borderRadius: 6,
-                          cursor: 'pointer'
-                        }}>
-                        حذف كل الخيارات
-                      </button>
+                    {expandedOptions[index] && (
+                      <div className="option-values">
+                        <strong style={{ direction: 'rtl' }}>الاضافات | האפשריות</strong>
+
+                        {(option.values || []).map((val, valIndex) => (
+                          <div key={valIndex} className="value-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              placeholder="مثلا: صغير/كبير"
+                              value={val.label.ar}
+                              onChange={(e) => handleValueChange(index, valIndex, 'ar', e.target.value)}
+                            />
+                            <input
+                              placeholder="דוגמה: קטן/גדול"
+                              value={val.label.he}
+                              onChange={(e) => handleValueChange(index, valIndex, 'he', e.target.value)}
+                            />
+                            {option.displayAs === 'color' ? (
+                              <>
+                                <input
+                                  type="color"
+                                  value={val.color || '#000000'}
+                                  onChange={e => handleColorChange(index, valIndex, e.target.value)}
+                                  style={{ width: 40, height: 32, border: 'none', background: 'none', cursor: 'pointer' }}
+                                  title="اختر اللون"
+                                />
+                                <span style={{ width: 60, fontSize: 12, color: '#555' }}>{val.color || '#000000'}</span>
+                              </>
+                            ) : (
+                              <input
+                                style={{ minWidth: 85 }}
+                                type="url"
+                                placeholder="رابط الصورة"
+                                value={val.image || ''}
+                                onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
+                              />
+                            )}
+                            <input
+                              style={{ maxWidth: 40 }}
+                              type="number"
+                              placeholder="كم زياده؟"
+                              value={val.extra || 0}
+                              onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
+                            />
+                            <button
+                              onClick={() => handleDeleteValue(index, valIndex)}
+                              style={{
+                                backgroundColor: '#d9534f',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '4px 8px',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <FiTrash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+
+                        {option.type === 'multi' && (
+                          <details style={{ marginTop: 10 }}>
+                            <summary style={{ cursor: 'pointer', fontWeight: 'bold', direction: 'rtl' }}>
+                              إعدادات متقدمة للإضافات المتعددة
+                            </summary>
+                            <div className="advance-options">
+
+                              {/* Set Max options to choose (limit user) */}
+                              <div className="max-options" style={{ marginTop: 10 }}>
+                                <label>
+                                  الحد الأقصى للاختيارات:
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={option.max || ''}
+                                    onChange={(e) =>
+                                      handleAdvancedChange(index, 'max', parseInt(e.target.value) || null)
+                                    }
+                                    placeholder="مثلاً 2 أو 3 ماكسيموم"
+                                    disabled={option.allChecked} // ❌ Disable if allChecked is on
+                                  />
+                                </label>
+
+                                {option.allChecked && (
+                                  <div style={{ fontSize: 12, color: '#b33a3a', marginTop: 5 }}>
+                                    لا يمكنك تحديد حد أقصى للاختيارات عند تفعيل "اختيار الكل".
+                                  </div>
+                                )}
+                              </div>
+                              {/* allCheck - let user mark all options as checked */}
+                              <div className="all-checked-toggle" style={{ marginTop: 10 }}>
+                                <label>
+                                  <input
+                                    type="checkbox"
+                                    checked={option.allChecked || false}
+                                    onChange={(e) =>
+                                      handleAdvancedChange(index, 'allChecked', e.target.checked)
+                                    }
+                                  />
+                                  اختيار الكل افتراضياً
+                                </label>
+                              </div>
+                            </div>
+                            {/* limit option by size (like mansaf & salads limit) */}
+                            <div className="limits-per-size" style={{ marginTop: 10, direction: 'rtl' }}>
+                              <strong>حدد الحد الأقصى حسب الحجم:</strong>
+                              {options.find(o => o.type === 'select')?.values?.map((size, sIndex) => (
+                                <div key={sIndex} style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5 }}>
+                                  <span>{size.label?.ar || 'غير معروف'}</span>
+                                  <input style={{ width: 200 }}
+                                    type="number"
+                                    placeholder="كم خيار مسموح من فوق؟"
+                                    value={option.limitsBySelectValue?.[size.value] || ''}
+                                    onChange={(e) => {
+                                      const updated = [...options];
+                                      if (!updated[index].limitsBySelectValue) updated[index].limitsBySelectValue = {};
+                                      updated[index].limitsBySelectValue[size.value] = parseInt(e.target.value) || null;
+                                      onChange(updated);
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'center' }}>
+                          <button
+                            className="add-value-btn"
+                            onClick={() => handleAddValue(index)}
+                            style={{
+                              backgroundColor: 'rgb(40, 167, 69)',
+                              color: '#fff',
+                              border: 'none',
+                              width: 140,
+                              borderRadius: 6,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ضيف خيار
+                          </button>
+
+                          <button className="add-value-btn"
+                            onClick={() => handleDeleteAllValues(index)}
+                            style={{
+                              backgroundColor: '#dc3545',
+                              color: '#fff',
+                              border: 'none',
+                              width: 140,
+                              borderRadius: 6,
+                              cursor: 'pointer'
+                            }}>
+                            حذف كل الخيارات
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="option-values" style={{ direction: 'rtl' }}>
+                    <div className="required-extra-label" style={{ marginBottom: 12 }}>
+                      <label>
+                        <span style={{ marginInlineStart: 6 }}>الحقل مطلوب؟</span>
+                        <input
+                          type="checkbox"
+                          checked={option.required || false}
+                          onChange={(e) => {
+                            handleAdvancedChange(index, 'required', e.target.checked);
+                          }} />
+                      </label>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                      <input
+                        style={{ flex: 1 }}
+                        placeholder="Placeholder بالعربي (مثلاً: اكتب الاسم هنا)"
+                        value={option.inputPlaceholder?.ar || ''}
+                        onChange={(e) => handleInputPlaceholderChange(index, 'ar', e.target.value)}
+                      />
+                      <input
+                        style={{ flex: 1 }}
+                        placeholder="Placeholder בעברית"
+                        value={option.inputPlaceholder?.he || ''}
+                        onChange={(e) => handleInputPlaceholderChange(index, 'he', e.target.value)}
+                      />
+                    </div>
+                    <div style={{ maxWidth: 200, marginBottom: 12 }}>
+                      <label>
+                        طول النص المسموح (حروف):
+                        <input
+                          type="number"
+                          min="1"
+                          max="200"
+                          value={option.inputMaxLength || ''}
+                          onChange={(e) =>
+                            handleInputSettingChange(
+                              index,
+                              'inputMaxLength',
+                              e.target.value ? Math.min(200, Math.max(1, parseInt(e.target.value))) : null
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#666' }}>
+                      سيظهر هذا الحقل للمستخدم ليكتب أي نص يحتاجه (مثل كتابة اسم على الكيكة أو ملاحظة خاصة).
                     </div>
                   </div>
                 )}
