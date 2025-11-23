@@ -39,6 +39,11 @@ const DEFAULT_LOYALTY = {
   redeemValuePerPoint: 1
 };
 
+const DEFAULT_REFERRAL = {
+  referrerPercentage: 10,
+  refereePercentage: 5
+};
+
 const BusinessManagePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,7 +67,8 @@ const BusinessManagePage = () => {
       showPrices: false,
       showSplash: false
     },
-    loyalty: DEFAULT_LOYALTY
+    loyalty: DEFAULT_LOYALTY,
+    referral: DEFAULT_REFERRAL
   });
   const [newPrepValue, setNewPrepValue] = useState('');
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
@@ -70,6 +76,7 @@ const BusinessManagePage = () => {
   const [showContact, setShowContact] = useState(false);
   const [showDeliveryCities, setShowDeliveryCities] = useState(false);
   const [editingCityIndex, setEditingCityIndex] = useState(null);
+  const [showLoyaltyReferral, setShowLoyaltyReferral] = useState(false);
   
   // Coupon management state
   const [showCoupons, setShowCoupons] = useState(false);
@@ -159,6 +166,15 @@ const BusinessManagePage = () => {
             : DEFAULT_LOYALTY.redeemValuePerPoint
         };
         
+        const referralConfig = {
+          referrerPercentage: Number(data.config?.referral?.referrerPercentage) > 0
+            ? Number(data.config.referral.referrerPercentage)
+            : DEFAULT_REFERRAL.referrerPercentage,
+          refereePercentage: Number(data.config?.referral?.refereePercentage) > 0
+            ? Number(data.config.referral.refereePercentage)
+            : DEFAULT_REFERRAL.refereePercentage
+        };
+        
         // Set the form with all the loaded data
         setForm({
           deliveryFee,
@@ -169,7 +185,8 @@ const BusinessManagePage = () => {
           deliveryCities,
           storeStatusMode,
           features,
-          loyalty: loyaltyConfig
+          loyalty: loyaltyConfig,
+          referral: referralConfig
         });
         
         console.log('Form state set with features:', features);
@@ -237,6 +254,16 @@ const BusinessManagePage = () => {
       loyalty: {
         ...prev.loyalty,
         [key]: key === 'enabled' ? value : Number(value)
+      }
+    }));
+  };
+
+  const handleReferralChange = (key, value) => {
+    setForm(prev => ({
+      ...prev,
+      referral: {
+        ...prev.referral,
+        [key]: Number(value)
       }
     }));
   };
@@ -423,6 +450,10 @@ const BusinessManagePage = () => {
           enabled: !!form.loyalty.enabled,
           currencyPerPoint: Number(form.loyalty.currencyPerPoint) || DEFAULT_LOYALTY.currencyPerPoint,
           redeemValuePerPoint: Number(form.loyalty.redeemValuePerPoint) || DEFAULT_LOYALTY.redeemValuePerPoint
+        },
+        'config.referral': {
+          referrerPercentage: Number(form.referral.referrerPercentage) || DEFAULT_REFERRAL.referrerPercentage,
+          refereePercentage: Number(form.referral.refereePercentage) || DEFAULT_REFERRAL.refereePercentage
         }
       };
       
@@ -518,11 +549,34 @@ const BusinessManagePage = () => {
       // Load users from the global users collection (where push tokens are stored)
       const usersRef = collection(db, 'users');
       const usersSnap = await getDocs(usersRef);
-      const usersData = usersSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      console.log(`Loaded ${usersData.length} users from global collection`);
+      
+      // Filter to only show customer users (not drivers) with phone numbers
+      const usersData = usersSnap.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        .filter(user => {
+          // Must have a phone number (real customer)
+          if (!user.phone || !user.phone.trim()) {
+            return false;
+          }
+          
+          // Check if user has any driver tokens - if so, exclude them
+          if (user.pushTokens && Array.isArray(user.pushTokens)) {
+            const hasDriverTokens = user.pushTokens.some(tokenObj => 
+              tokenObj.active && tokenObj.appType === 'driver'
+            );
+            if (hasDriverTokens) {
+              return false; // Exclude drivers
+            }
+          }
+          
+          // Include customer users
+          return true;
+        });
+      
+      console.log(`Loaded ${usersData.length} customer users (filtered out drivers and users without phone numbers)`);
       setAllUsers(usersData);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -553,17 +607,62 @@ const BusinessManagePage = () => {
 
     try {
       setSendingNotification(true);
+      
+      const targetUsers = notificationForm.targetAudience === 'all' ? 'all' : notificationForm.selectedUsers;
+      console.log('[NOTIFICATION] Sending notification:', {
+        title: notificationForm.title,
+        body: notificationForm.body,
+        targetAudience: notificationForm.targetAudience,
+        targetUsers: targetUsers,
+        allUsersCount: allUsers.length,
+        selectedUsersCount: notificationForm.selectedUsers.length
+      });
+      
       const functions = getFunctions();
       const sendPromoNotification = httpsCallable(functions, 'sendPromotionalNotification');
       
       const result = await sendPromoNotification({
         title: notificationForm.title,
         body: notificationForm.body,
-        targetUsers: notificationForm.targetAudience === 'all' ? 'all' : notificationForm.selectedUsers,
+        targetUsers: targetUsers,
         businessId: activeBusinessId
       });
 
-      toast.success(`הודעה נשלחה בהצלחה ל-${result.data.sentTo} משתמשים!`);
+      console.log('[NOTIFICATION] Result from Cloud Function:', result.data);
+      
+      // Always log debug info if available
+      if (result.data.debug) {
+        console.group('🔍 [NOTIFICATION] Debug Information:');
+        console.log('📊 Total users processed:', result.data.debug.totalUsers);
+        console.log('✅ Users with customer tokens:', result.data.debug.usersWithCustomerTokens);
+        console.log('🚫 Users with driver tokens (excluded):', result.data.debug.usersWithDriverTokens);
+        console.log('❌ Users with no tokens:', result.data.debug.usersWithNoTokens);
+        console.log('📱 Customer tokens found:', result.data.debug.customerTokensFound);
+        console.log('🚗 Driver tokens found (excluded):', result.data.debug.driverTokensFound);
+        if (result.data.debug.chunksSent) {
+          console.log('📦 Chunks sent:', result.data.debug.chunksSent);
+        }
+        console.groupEnd();
+      }
+      
+      if (result.data.sentTo === 0) {
+        console.warn('[NOTIFICATION] ⚠️ No users received notification.');
+        if (result.data.debug) {
+          if (result.data.debug.usersWithNoTokens === result.data.debug.totalUsers) {
+            console.error('❌ All users have no tokens! Users need to enable push notifications in the app.');
+          } else if (result.data.debug.usersWithDriverTokens === result.data.debug.totalUsers) {
+            console.error('❌ All users are drivers! No customer users found.');
+          } else if (result.data.debug.customerTokensFound === 0) {
+            console.error('❌ No customer tokens found even though some users should have them. Check token format.');
+          }
+        }
+        toast.error(`ההודעה נשלחה אבל לא הגיעה לאף משתמש (0 משתמשים). בדוק את הקונסול לפרטים.`, {
+          duration: 5000,
+          icon: '⚠️'
+        });
+      } else {
+        toast.success(`הודעה נשלחה בהצלחה ל-${result.data.sentTo} משתמשים!`);
+      }
       
       // Reset form
       setNotificationForm({
@@ -1008,72 +1107,164 @@ const BusinessManagePage = () => {
           </div>
         </div>
 
-        {/* Loyalty configuration */}
-        <div style={{ marginTop: 16, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>
-            תוכנית נקודות ללקוחות
-          </label>
-          <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
-            שלוט בכמה נקודות הלקוחות צוברים וכמה הן שוות. השינויים מתעדכנים באפליקציה מידית.
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
-              <input
-                type="checkbox"
-                checked={!!form.loyalty.enabled}
-                onChange={(e) => handleLoyaltyChange('enabled', e.target.checked)}
-                style={{ width: 16, height: 16, cursor: 'pointer' }}
-              />
-              הפעל תוכנית נקודות
-            </label>
+        {/* Loyalty & Referral configuration - Collapsible */}
+        <div style={{ marginTop: 16, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
+          <button
+            type="button"
+            onClick={() => setShowLoyaltyReferral(v => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#007bff',
+              fontWeight: 600,
+              fontSize: 16,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 6,
+              padding: 0
+            }}
+          >
+            תוכנית נקודות ותוכנית שותפים
+            <span style={{ fontSize: 16 }}>{showLoyaltyReferral ? '▲' : '▼'}</span>
+          </button>
+          {showLoyaltyReferral && (
+            <>
+              {/* Loyalty configuration */}
+              <div style={{ marginTop: 12, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>
+                  תוכנית נקודות ללקוחות
+                </label>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+                  שלוט בכמה נקודות הלקוחות צוברים וכמה הן שוות. השינויים מתעדכנים באפליקציה מידית.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+                    <input
+                      type="checkbox"
+                      checked={!!form.loyalty.enabled}
+                      onChange={(e) => handleLoyaltyChange('enabled', e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    הפעל תוכנית נקודות
+                  </label>
 
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ לצבירת נקודה</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={form.loyalty.currencyPerPoint}
-                  onChange={(e) => handleLoyaltyChange('currencyPerPoint', e.target.value)}
-                  disabled={!form.loyalty.enabled}
-                  style={{
-                    height: 44,
-                    padding: '0 12px',
-                    borderRadius: 10,
-                    border: '1px solid #e0e0e0',
-                    fontSize: 16,
-                    background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
-                    textAlign: 'right',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ לצבירת נקודה</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={form.loyalty.currencyPerPoint}
+                        onChange={(e) => handleLoyaltyChange('currencyPerPoint', e.target.value)}
+                        disabled={!form.loyalty.enabled}
+                        style={{
+                          height: 44,
+                          padding: '0 12px',
+                          borderRadius: 10,
+                          border: '1px solid #e0e0e0',
+                          fontSize: 16,
+                          background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
+                          textAlign: 'right',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ ערך נקודה בהחזר</span>
+                      <input
+                        type="number"
+                        min={0.1}
+                        step="0.1"
+                        value={form.loyalty.redeemValuePerPoint}
+                        onChange={(e) => handleLoyaltyChange('redeemValuePerPoint', e.target.value)}
+                        disabled={!form.loyalty.enabled}
+                        style={{
+                          height: 44,
+                          padding: '0 12px',
+                          borderRadius: 10,
+                          border: '1px solid #e0e0e0',
+                          fontSize: 16,
+                          background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
+                          textAlign: 'right',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>
+                    לדוגמה: אם ההגדרה היא 100 ₪ = 1 נקודה ושווי נקודה הוא 1 ₪, אז על כל 100 ₪ המשתמש צובר נקודה אחת ויכול להשתמש בה כשקל אחד בהנחה.
+                  </div>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ ערך נקודה בהחזר</span>
-                <input
-                  type="number"
-                  min={0.1}
-                  step="0.1"
-                  value={form.loyalty.redeemValuePerPoint}
-                  onChange={(e) => handleLoyaltyChange('redeemValuePerPoint', e.target.value)}
-                  disabled={!form.loyalty.enabled}
-                  style={{
-                    height: 44,
-                    padding: '0 12px',
-                    borderRadius: 10,
-                    border: '1px solid #e0e0e0',
-                    fontSize: 16,
-                    background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
-                    textAlign: 'right',
-                    boxSizing: 'border-box'
-                  }}
-                />
+
+              {/* Referral configuration */}
+              <div style={{ marginTop: 16, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>
+                  תוכנית שותפים (Referral Program)
+                </label>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+                  שלוט באחוזי התגמול למשתפים ולמשתמשים החדשים שהם מביאים. התגמול מחושב מהסכום הכולל של ההזמנה הראשונה של המשתמש החדש.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>אחוז תגמול למשתף (%)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.1"
+                        value={form.referral.referrerPercentage}
+                        onChange={(e) => handleReferralChange('referrerPercentage', e.target.value)}
+                        style={{
+                          height: 44,
+                          padding: '0 12px',
+                          borderRadius: 10,
+                          border: '1px solid #e0e0e0',
+                          fontSize: 16,
+                          background: '#fff',
+                          textAlign: 'right',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
+                        אחוז מהזמנה שהמשתף יקבל כנקודות
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>אחוז תגמול למשתמש חדש (%)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.1"
+                        value={form.referral.refereePercentage}
+                        onChange={(e) => handleReferralChange('refereePercentage', e.target.value)}
+                        style={{
+                          height: 44,
+                          padding: '0 12px',
+                          borderRadius: 10,
+                          border: '1px solid #e0e0e0',
+                          fontSize: 16,
+                          background: '#fff',
+                          textAlign: 'right',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
+                        אחוז מהזמנה שהמשתמש החדש יקבל כנקודות
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4, padding: 8, background: '#f8f9fa', borderRadius: 6 }}>
+                    💡 <strong>דוגמה:</strong> אם הזמנה של משתמש חדש היא 100 ₪, וההגדרות הן 10% למשתף ו-5% למשתמש חדש, אז המשתף יקבל 10 ₪ נקודות והמשתמש החדש יקבל 5 ₪ נקודות.
+                  </div>
+                </div>
               </div>
-            </div>
-            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>
-              לדוגמה: אם ההגדרה היא 100 ₪ = 1 נקודה ושווי נקודה הוא 1 ₪, אז על כל 100 ₪ המשתמש צובר נקודה אחת ויכול להשתמש בה כשקל אחד בהנחה.
-            </div>
-          </div>
+            </>
+          )}
         </div>
         
         {/* Second row: Opening and closing times */}
