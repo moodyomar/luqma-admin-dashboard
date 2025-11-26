@@ -44,6 +44,11 @@ const DEFAULT_REFERRAL = {
   refereePercentage: 5
 };
 
+const DEFAULT_HERO_TAGLINE = {
+  ar: 'ايش جاي عبالك تاكل اليوم؟',
+  he: 'מה בא לך לאכול היום ؟',
+};
+
 const BusinessManagePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,7 +73,8 @@ const BusinessManagePage = () => {
       showSplash: false
     },
     loyalty: DEFAULT_LOYALTY,
-    referral: DEFAULT_REFERRAL
+    referral: DEFAULT_REFERRAL,
+    heroTagline: { ...DEFAULT_HERO_TAGLINE },
   });
   const [newPrepValue, setNewPrepValue] = useState('');
   const [newPrepUnit, setNewPrepUnit] = useState('minutes');
@@ -77,6 +83,8 @@ const BusinessManagePage = () => {
   const [showDeliveryCities, setShowDeliveryCities] = useState(false);
   const [editingCityIndex, setEditingCityIndex] = useState(null);
   const [showLoyaltyReferral, setShowLoyaltyReferral] = useState(false);
+  const [showHeroTagline, setShowHeroTagline] = useState(false);
+  const [showFeatures, setShowFeatures] = useState(false);
   
   // Coupon management state
   const [showCoupons, setShowCoupons] = useState(false);
@@ -175,6 +183,11 @@ const BusinessManagePage = () => {
             : DEFAULT_REFERRAL.refereePercentage
         };
         
+        const heroTagline = {
+          ...DEFAULT_HERO_TAGLINE,
+          ...(data.config?.heroTagline || {}),
+        };
+        
         // Set the form with all the loaded data
         setForm({
           deliveryFee,
@@ -186,7 +199,8 @@ const BusinessManagePage = () => {
           storeStatusMode,
           features,
           loyalty: loyaltyConfig,
-          referral: referralConfig
+          referral: referralConfig,
+          heroTagline,
         });
         
         console.log('Form state set with features:', features);
@@ -265,6 +279,16 @@ const BusinessManagePage = () => {
         ...prev.referral,
         [key]: Number(value)
       }
+    }));
+  };
+
+  const handleHeroTaglineChange = (lang, value) => {
+    setForm(prev => ({
+      ...prev,
+      heroTagline: {
+        ...prev.heroTagline,
+        [lang]: value,
+      },
     }));
   };
 
@@ -446,6 +470,7 @@ const BusinessManagePage = () => {
         'config.deliveryCities': form.deliveryCities,
         'config.storeStatusMode': form.storeStatusMode,
         'config.features': form.features,
+        'config.heroTagline': form.heroTagline,
         'config.loyalty': {
           enabled: !!form.loyalty.enabled,
           currencyPerPoint: Number(form.loyalty.currencyPerPoint) || DEFAULT_LOYALTY.currencyPerPoint,
@@ -754,6 +779,75 @@ const BusinessManagePage = () => {
           </div>
         </div>
 
+        {/* Hero tagline inputs */}
+        <div style={{ marginTop: 16, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
+          <button
+            type="button"
+            onClick={() => setShowHeroTagline(v => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#007bff',
+              fontWeight: 600,
+              fontSize: 16,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 6,
+              padding: 0,
+            }}
+          >
+            כותרת פתיחה באפליקציה
+            <span style={{ fontSize: 16 }}>{showHeroTagline ? '▲' : '▼'}</span>
+          </button>
+          {showHeroTagline && (
+            <div style={{ marginTop: 12, padding: '12px 14px', background: '#fff', borderRadius: 12, border: '1px solid #eee', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <span style={{ fontSize: 12, color: '#777', lineHeight: 1.4 }}>
+                הטקסט שיופיע מעל הקטגוריות במסך הבית באפליקציה. ניתן להגדיר בנפרד לעברית ולערבית.
+              </span>
+              <div style={{ display: 'flex', gap: 10, flexDirection: 'column' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500, color: '#444' }}>
+                  🇮🇱 עברית
+                  <input
+                    type="text"
+                    value={form.heroTagline.he || ''}
+                    onChange={(e) => handleHeroTaglineChange('he', e.target.value)}
+                    placeholder="מה בא לך לאכול היום?"
+                    style={{
+                      height: 40,
+                      borderRadius: 8,
+                      border: '1px solid #e0e0e0',
+                      padding: '0 12px',
+                      fontSize: 15,
+                      textAlign: 'right',
+                      direction: 'rtl',
+                    }}
+                  />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500, color: '#444' }}>
+                  🇵🇸 عربي
+                  <input
+                    type="text"
+                    value={form.heroTagline.ar || ''}
+                    onChange={(e) => handleHeroTaglineChange('ar', e.target.value)}
+                    placeholder="ايش جاي عبالك تاكل اليوم؟"
+                    style={{
+                      height: 40,
+                      borderRadius: 8,
+                      border: '1px solid #e0e0e0',
+                      padding: '0 12px',
+                      fontSize: 15,
+                      textAlign: 'right',
+                      direction: 'rtl',
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Delivery Cities Section - Collapsible */}
         <div style={{ marginTop: 18, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
           <button
@@ -1057,54 +1151,75 @@ const BusinessManagePage = () => {
         </div>
         
         {/* Features/Delivery Methods Section */}
-        <div style={{ marginTop: 16, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>
+        <div style={{ marginTop: 16, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
+          <button
+            type="button"
+            onClick={() => setShowFeatures(v => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#007bff',
+              fontWeight: 600,
+              fontSize: 16,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 6,
+              padding: 0,
+            }}
+          >
             אפשרויות הזמנה זמינות
-          </label>
-          <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
-            בחר אילו אפשרויות הזמנה יהיו זמינות ללקוחות שלך
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                name="feature_enablePickup"
-                checked={form.features.enablePickup}
-                onChange={handleChange}
-                style={{ width: 16, height: 16, cursor: 'pointer' }}
-              />
-              <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
-                איסוף עצמי
-              </span>
-            </label>
-            
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                name="feature_enableDelivery"
-                checked={form.features.enableDelivery}
-                onChange={handleChange}
-                style={{ width: 16, height: 16, cursor: 'pointer' }}
-              />
-              <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
-                משלוח
-              </span>
-            </label>
-            
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                name="feature_enableEatIn"
-                checked={form.features.enableEatIn}
-                onChange={handleChange}
-                style={{ width: 16, height: 16, cursor: 'pointer' }}
-              />
-              <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
-                אכילה במקום
-              </span>
-            </label>
-          </div>
+            <span style={{ fontSize: 16 }}>{showFeatures ? '▲' : '▼'}</span>
+          </button>
+          {showFeatures && (
+            <div style={{ padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+                בחר אילו אפשרויות הזמנה יהיו זמינות ללקוחות שלך
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="feature_enablePickup"
+                    checked={form.features.enablePickup}
+                    onChange={handleChange}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                    איסוף עצמי
+                  </span>
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="feature_enableDelivery"
+                    checked={form.features.enableDelivery}
+                    onChange={handleChange}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                    משלוח
+                  </span>
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="feature_enableEatIn"
+                    checked={form.features.enableEatIn}
+                    onChange={handleChange}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                    אכילה במקום
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Loyalty & Referral configuration - Collapsible */}
