@@ -328,7 +328,7 @@ font-size: 13px !important;
 .meal-settings-row {
   display: grid;
   grid-template-columns: 2fr 2fr 0.7fr;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   gap: 10px 16px;
   align-items: center;
   margin-bottom: 10px;

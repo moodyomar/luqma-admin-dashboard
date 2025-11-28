@@ -8,6 +8,8 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
         descAr: '',
         descHe: '',
         image: '',
+        image2: '',
+        image3: '',
         available: true,
         preorderHours: '',
     });
@@ -32,6 +34,14 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
             order: 0,
         };
 
+        // Add image2 and image3 only if provided
+        if (form.image2 && form.image2.trim() !== '') {
+            newMeal.image2 = form.image2.trim();
+        }
+        if (form.image3 && form.image3.trim() !== '') {
+            newMeal.image3 = form.image3.trim();
+        }
+
         // Add preorderHours only if it's a valid positive number
         if (form.preorderHours && !isNaN(form.preorderHours) && Number(form.preorderHours) > 0) {
             newMeal.preorderHours = Number(form.preorderHours);
@@ -40,7 +50,7 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
         onAdd(categoryId, newMeal);
         setForm({
             nameAr: '', nameHe: '', price: '',
-            descAr: '', descHe: '', image: '',
+            descAr: '', descHe: '', image: '', image2: '', image3: '',
             available: true,
             preorderHours: ''
         });
@@ -71,7 +81,9 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
                 <input placeholder="اسم المنتج/وجبه" value={form.nameAr} onChange={(e) => handleChange('nameAr', e.target.value)} />
                 <input placeholder="שם מוצר/מנה" value={form.nameHe} onChange={(e) => handleChange('nameHe', e.target.value)} />
                 <input placeholder="سعر | מחיר" value={form.price} onChange={(e) => handleChange('price', e.target.value)} />
-                <input placeholder="لينك صوره | לינק תמונה" value={form.image} onChange={(e) => handleChange('image', e.target.value)} />
+                <input placeholder="لينك صوره رئيسية | לינק תמונה ראשית" value={form.image} onChange={(e) => handleChange('image', e.target.value)} />
+                <input placeholder="لينك صوره ثانية (اختياري) | לינק תמונה שנייה (אופציונלי)" value={form.image2} onChange={(e) => handleChange('image2', e.target.value)} />
+                <input placeholder="لينك صوره ثالثة (اختياري) | לינק תמונה שלישית (אופציונלי)" value={form.image3} onChange={(e) => handleChange('image3', e.target.value)} />
                 <input placeholder="وصف المنتج/وجبه" value={form.descAr} onChange={(e) => handleChange('descAr', e.target.value)} />
                 <input placeholder="תיאור מוצר/מנה" value={form.descHe} onChange={(e) => handleChange('descHe', e.target.value)} />
                 <input 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import brandConfig from '../../constants/brandConfig';
 
 let sharedAudio = null;
 
@@ -10,7 +11,7 @@ export default function AudioUnlocker() {
   const [enabled, setEnabled] = useState(false);
 
   const handleClick = () => {
-    const audio = new Audio('/luqma.mp3');
+    const audio = new Audio(brandConfig.notificationSound);
     audio.muted = true;
     audio.volume = 0;
 

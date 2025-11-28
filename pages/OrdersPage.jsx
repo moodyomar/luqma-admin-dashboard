@@ -968,10 +968,10 @@ const OrdersPage = () => {
               unlockedAudio.currentTime = 0;
               unlockedAudio.play().catch(err => {
                 console.warn('Failed to play unlocked audio, trying fallback:', err);
-                new Audio('/luqma.mp3').play().catch(console.warn);
+                new Audio(brandConfig.notificationSound).play().catch(console.warn);
               });
             } else {
-              new Audio('/luqma.mp3').play().catch(console.warn);
+              new Audio(brandConfig.notificationSound).play().catch(console.warn);
             }
             
             toast.custom(() => (
@@ -1614,7 +1614,7 @@ const OrdersPage = () => {
       <div style={{ height: '80px' }} />
       
       <audio id="orderSound" preload="auto">
-        <source src="/sounds/luqma.mp3" type="audio/mpeg" />
+        <source src={brandConfig.notificationSound} type="audio/mpeg" />
         Your browser does not support the audio element.
       </audio>
     </div>

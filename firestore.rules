@@ -144,7 +144,8 @@ service cloud.firestore {
       match /coupons/{couponId} {
         // Business members can read coupons (for validation)
         allow read: if hasBiz(businessId) || true; // Public read for customer validation
-        // Only admins can manage coupons
+        
+        // Only admins can manage coupons (same pattern as products/categories)
         allow write: if isBusinessAdmin(businessId);
       }
 

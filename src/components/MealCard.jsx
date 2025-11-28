@@ -1,7 +1,10 @@
 import OptionsEditor from './OptionsEditor';
-import { FiTrash2, FiEye, FiEyeOff, FiCopy } from 'react-icons/fi';
+import { FiTrash2, FiEye, FiEyeOff, FiCopy, FiChevronDown, FiChevronUp, FiImage } from 'react-icons/fi';
+import { useState } from 'react';
 
 const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate }) => {
+  const [imagesExpanded, setImagesExpanded] = useState(false);
+
   const handleFieldChange = (field, lang, value) => {
     const updated = { ...meal };
     if (field === 'name' || field === 'description') {
@@ -15,6 +18,9 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
   const handleOptionsChange = (updatedOptions) => {
     onChange({ ...meal, options: updatedOptions });
   };
+
+  // Check if any images are set
+  const hasImages = meal?.image || meal?.image2 || meal?.image3;
 
   return (
     <div className="meal-card" style={{ border: '1px solid #ddd', borderRadius: 8, marginBottom: 8 }}>
@@ -163,9 +169,9 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               </button>
             </div>
           </div>
-          {/* Modern meal settings row: 2 rows, 3 columns */}
+          {/* Compact meal settings: Name, Price, Description */}
           <div className="meal-settings-row">
-            {/* Row 1 */}
+            {/* Row 1: Name (AR/HE) + Price */}
             <input
               type="text"
               className="meal-settings-input"
@@ -187,7 +193,7 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               value={meal?.price || ''}
               onChange={(e) => handleFieldChange('price', null, e.target.value)}
             />
-            {/* Row 2 */}
+            {/* Row 2: Description (AR/HE) */}
             <input
               type="text"
               className="meal-settings-input"
@@ -202,14 +208,7 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               value={meal?.description?.he || ''}
               onChange={(e) => handleFieldChange('description', 'he', e.target.value)}
             />
-            <input
-              type="text"
-              className="meal-settings-input"
-              placeholder="קישור תמונה | אם אין לדלג"
-              value={meal?.image || ''}
-              onChange={(e) => handleFieldChange('image', null, e.target.value)}
-            />
-            {/* Row 3 - Preorder Hours */}
+            {/* Row 3: Preorder Hours */}
             <input
               type="number"
               className="meal-settings-input"
@@ -227,6 +226,91 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               }}
               style={{ gridColumn: '1 / -1' }}
             />
+          </div>
+
+          {/* Collapsible Images Section */}
+          <div style={{
+            border: '1px solid #e0e0e0',
+            borderRadius: 8,
+            marginBottom: 12,
+            backgroundColor: '#fafafa',
+            overflow: 'hidden',
+            transition: 'all 0.2s ease'
+          }}>
+            <button
+              onClick={() => setImagesExpanded(!imagesExpanded)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                direction: 'rtl',
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#333',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FiImage style={{ fontSize: 16, color: '#666' }} />
+                <span>إضافة الصور | הוספת תמונות</span>
+                {hasImages && (
+                  <span style={{
+                    fontSize: 11,
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    padding: '2px 6px',
+                    borderRadius: 10,
+                    fontWeight: 500
+                  }}>
+                    {[meal?.image, meal?.image2, meal?.image3].filter(Boolean).length}
+                  </span>
+                )}
+              </div>
+              {imagesExpanded ? <FiChevronUp /> : <FiChevronDown />}
+            </button>
+            
+            {imagesExpanded && (
+              <div style={{
+                padding: '12px 14px',
+                borderTop: '1px solid #e0e0e0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                backgroundColor: '#fff'
+              }}>
+                <input
+                  type="text"
+                  className="meal-settings-input"
+                  placeholder="קישור תמונה ראשית | رابط الصورة الرئيسية"
+                  value={meal?.image || ''}
+                  onChange={(e) => handleFieldChange('image', null, e.target.value)}
+                  style={{ width: '100%', margin: 0 }}
+                />
+                <input
+                  type="text"
+                  className="meal-settings-input"
+                  placeholder="קישור תמונה שנייה (אופציונלי) | رابط الصورة الثانية (اختياري)"
+                  value={meal?.image2 || ''}
+                  onChange={(e) => handleFieldChange('image2', null, e.target.value)}
+                  style={{ width: '100%', margin: 0 }}
+                />
+                <input
+                  type="text"
+                  className="meal-settings-input"
+                  placeholder="קישור תמונה שלישית (אופציונלי) | رابط الصورة الثالثة (اختياري)"
+                  value={meal?.image3 || ''}
+                  onChange={(e) => handleFieldChange('image3', null, e.target.value)}
+                  style={{ width: '100%', margin: 0 }}
+                />
+              </div>
+            )}
           </div>
           {meal?.preorderHours && (
             <p style={{ fontSize: 12, color: '#ff9800', margin: '4px 0', textAlign: 'center', fontWeight: 600 }}>

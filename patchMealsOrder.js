@@ -7,8 +7,11 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+// Get business ID from environment variable or default to 'luqma'
+const BUSINESS_ID = process.env.BUSINESS_ID || process.env.VITE_BRAND_ID || 'luqma';
+
 async function patchOrders() {
-  const menuDoc = await db.collection('menus').doc('luqma').get();
+  const menuDoc = await db.collection('menus').doc(BUSINESS_ID).get();
   if (!menuDoc.exists) {
     console.log('Menu not found!');
     return;
@@ -29,7 +32,7 @@ async function patchOrders() {
       return meal;
     });
     if (needsUpdate) {
-      await db.collection('menus').doc('luqma').update({
+      await db.collection('menus').doc(BUSINESS_ID).update({
         [`items.${catId}`]: patchedMeals
       });
       console.log(`Updated order for category: ${catId}`);
