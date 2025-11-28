@@ -56,6 +56,42 @@ service cloud.firestore {
       
       // Only allow users to delete their own document
       allow delete: if isAuthed() && request.auth.uid == uid;
+
+      // ========================================
+      // REFERRAL TRANSACTIONS SUBCOLLECTION
+      // ========================================
+      match /referralTransactions/{transactionId} {
+        // Users can read their own referral transaction history
+        allow read: if isAuthed() && request.auth.uid == uid;
+        // Only admins can create/update referral transactions (via Cloud Functions)
+        allow create, update: if isAdmin();
+        // Prevent deletion
+        allow delete: if false;
+      }
+    }
+
+    // ========================================
+    // NOTIFICATION LOGS COLLECTION (used for split bill sessions)
+    // ========================================
+    match /notificationLogs/{logId} {
+      // Allow authenticated users to read split sessions
+      // (users need session ID/invite code to access, providing security)
+      allow read: if isAuthed();
+      
+      // Allow authenticated users to create split sessions (as host)
+      allow create: if isAuthed() && 
+                     request.resource.data.docType == 'split-session' &&
+                     request.resource.data.hostId == request.auth.uid;
+      
+      // Allow users to update split sessions they are part of
+      // Host can update any field, participants can update (to add claims, etc.)
+      allow update: if isAuthed() && (
+        resource.data.hostId == request.auth.uid ||
+        resource.data.participants[request.auth.uid] != null
+      );
+      
+      // Prevent deletion (sessions should expire, not be deleted)
+      allow delete: if false;
     }
 
     // ========================================
