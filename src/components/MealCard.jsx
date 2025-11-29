@@ -1,9 +1,11 @@
 import OptionsEditor from './OptionsEditor';
 import { FiTrash2, FiEye, FiEyeOff, FiCopy, FiChevronDown, FiChevronUp, FiImage } from 'react-icons/fi';
 import { useState } from 'react';
+import HideMealModal from './HideMealModal';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow }) => {
   const [imagesExpanded, setImagesExpanded] = useState(false);
+  const [showHideModal, setShowHideModal] = useState(false);
 
   const handleFieldChange = (field, lang, value) => {
     const updated = { ...meal };
@@ -74,6 +76,18 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
                 ⏰ {meal.preorderHours}h
               </span>
             )}
+            {meal.hideUntil && meal.available === false && (
+              <span style={{ 
+                fontSize: 10, 
+                background: '#4CAF50', 
+                color: 'white', 
+                padding: '2px 6px', 
+                borderRadius: 4,
+                fontWeight: 600
+              }} title="سيتم إظهاره تلقائياً غداً الساعة 7 صباحاً">
+                🔄
+              </span>
+            )}
             <span style={{ fontSize: 18, color: '#888' }}>{expanded ? '⌃' : '⌄'}</span>
           </div>
           <span style={{ color: '#666', fontSize: 13 }}>₪{meal.price || '0'}</span>
@@ -89,10 +103,24 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           ) : null}
           <button
             className="icon-square-btn eye"
-            onClick={() => onChangeInstant
-              ? onChangeInstant(categoryId, index, { ...meal, available: meal.available === false ? true : false })
-              : onChange({ ...meal, available: meal.available === false ? true : false })
-            }
+            onClick={() => {
+              // If unhiding, do it directly
+              if (meal.available === false) {
+                const updated = { ...meal, available: true };
+                // Remove hideUntil if it exists
+                if (updated.hideUntil) {
+                  delete updated.hideUntil;
+                }
+                if (onChangeInstant) {
+                  onChangeInstant(categoryId, index, updated);
+                } else {
+                  onChange(updated);
+                }
+              } else {
+                // If hiding, show modal
+                setShowHideModal(true);
+              }
+            }}
             title={meal.available === false ? 'הצג מנה' : 'הסתר מנה'}
           >
             {meal.available === false ? <FiEyeOff /> : <FiEye />}
@@ -326,6 +354,38 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           />
         </div>
       )}
+
+      {/* Hide Meal Modal */}
+      <HideMealModal
+        visible={showHideModal}
+        onClose={() => setShowHideModal(false)}
+        mealName={meal.name?.ar || meal.name?.he || ''}
+        onHidePermanent={() => {
+          const updated = { ...meal, available: false };
+          // Remove hideUntil if it exists (permanent hide)
+          if (updated.hideUntil) {
+            delete updated.hideUntil;
+          }
+          if (onChangeInstant) {
+            onChangeInstant(categoryId, index, updated);
+          } else {
+            onChange(updated);
+          }
+        }}
+        onHideUntilTomorrow={() => {
+          if (onHideUntilTomorrow) {
+            onHideUntilTomorrow(categoryId, index, meal);
+          } else {
+            // Fallback if onHideUntilTomorrow not provided
+            const updated = { ...meal, available: false };
+            if (onChangeInstant) {
+              onChangeInstant(categoryId, index, updated);
+            } else {
+              onChange(updated);
+            }
+          }
+        }}
+      />
     </div>
   );
 };

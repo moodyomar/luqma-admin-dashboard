@@ -26,6 +26,7 @@ export default function SortableMealsList({
   onMoveCategory,
   onChangeMealInstant,
   onDuplicateMeal,
+  onHideUntilTomorrow,
 }) {
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -58,6 +59,7 @@ export default function SortableMealsList({
             onMoveCategory={(newCategoryId) => onMoveCategory(meal, categoryId, newCategoryId)}
             categories={categories}
             onDuplicate={(mealToDuplicate, index) => onDuplicateMeal && onDuplicateMeal(mealToDuplicate, index, categoryId)}
+            onHideUntilTomorrow={(catId, mealId, meal) => onHideUntilTomorrow && onHideUntilTomorrow(catId, mealId, meal)}
           />
         ))}
       </SortableContext>

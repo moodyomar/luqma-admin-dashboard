@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import MealCard from '../src/components/MealCard';
 import NewMealForm from '../src/components/NewMealForm';
 import CategoryManager from '../src/components/CategoryManager';
@@ -44,7 +44,52 @@ const MealsPage = () => {
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data();
-        setMealsData(data);
+        
+        // Auto-unhide meals that were hidden until a specific time
+        const now = new Date();
+        const updatedItems = { ...data.items };
+        let hasChanges = false;
+        
+        Object.keys(updatedItems).forEach((categoryId) => {
+          updatedItems[categoryId] = updatedItems[categoryId].map((meal) => {
+            if (meal.hideUntil && meal.available === false) {
+              try {
+                // Handle Firestore Timestamp
+                let hideUntilDate;
+                if (meal.hideUntil.toDate && typeof meal.hideUntil.toDate === 'function') {
+                  hideUntilDate = meal.hideUntil.toDate();
+                } else if (meal.hideUntil instanceof Date) {
+                  hideUntilDate = meal.hideUntil;
+                } else if (typeof meal.hideUntil === 'string' || typeof meal.hideUntil === 'number') {
+                  hideUntilDate = new Date(meal.hideUntil);
+                } else {
+                  return meal; // Invalid date, skip
+                }
+                
+                if (!isNaN(hideUntilDate.getTime()) && now >= hideUntilDate) {
+                  hasChanges = true;
+                  const updated = { ...meal, available: true };
+                  delete updated.hideUntil;
+                  return updated;
+                }
+              } catch (err) {
+                console.warn('Error processing hideUntil for meal:', meal.id, err);
+              }
+            }
+            return meal;
+          });
+        });
+        
+        if (hasChanges) {
+          // Update Firestore with auto-unhidden meals
+          try {
+            await updateDoc(ref, { items: updatedItems });
+          } catch (err) {
+            console.error('Error auto-unhiding meals:', err);
+          }
+        }
+        
+        setMealsData(hasChanges ? { ...data, items: updatedItems } : data);
 
         // Initialize all categories to collapsed (false)
         const initialExpanded = {};
@@ -211,6 +256,24 @@ const MealsPage = () => {
     } catch (err) {
       alert('שגיאה בעדכון המנה ב-Firestore');
     }
+  };
+
+  // Hide meal until tomorrow at 7 AM
+  const hideMealUntilTomorrow = async (categoryId, mealId, meal) => {
+    // Calculate next day at 7 AM
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(7, 0, 0, 0); // 7 AM
+    
+    const updatedMeal = {
+      ...meal,
+      available: false,
+      hideUntil: Timestamp.fromDate(tomorrow)
+    };
+    
+    // Update immediately
+    updateMealInstant(categoryId, mealId, updatedMeal);
   };
 
   // Duplicate product function
@@ -458,6 +521,7 @@ const MealsPage = () => {
                       expandedMeals={expandedMeals}
                       onToggleMeal={toggleMeal}
                       allMealsInCategory={mealsData.items[categoryId]}
+                      onHideUntilTomorrow={hideMealUntilTomorrow}
                       onReorder={async (reorderedMeals) => {
                         // Save new order to state and Firestore
                         const updated = { ...mealsData.items, [categoryId]: reorderedMeals };
