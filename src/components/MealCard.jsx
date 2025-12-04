@@ -3,7 +3,7 @@ import { FiTrash2, FiEye, FiEyeOff, FiCopy, FiChevronDown, FiChevronUp, FiImage 
 import { useState } from 'react';
 import HideMealModal from './HideMealModal';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, allMealsData, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow }) => {
   const [imagesExpanded, setImagesExpanded] = useState(false);
   const [showHideModal, setShowHideModal] = useState(false);
 
@@ -351,6 +351,8 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             onChange={handleOptionsChange}
             categoryId={categoryId}
             allMealsInCategory={allMealsInCategory}
+            allMealsData={allMealsData}
+            categories={categories}
           />
         </div>
       )}

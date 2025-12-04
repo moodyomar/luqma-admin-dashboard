@@ -24,7 +24,7 @@ const displayAsTypes = [
   // Future: { value: 'image', label: 'صورة' },
 ];
 
-const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory }) => {
+const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory, allMealsData, categories }) => {
   const [newOptionType, setNewOptionType] = useState('select');
   const [expandedOptions, setExpandedOptions] = useState({});
   const [showCopyModal, setShowCopyModal] = useState(false);
@@ -327,64 +327,104 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory 
                   background: '#fff',
                   padding: 24,
                   borderRadius: 12,
-                  maxWidth: 500,
-                  maxHeight: 400,
+                  maxWidth: 600,
+                  maxHeight: '80vh',
                   overflow: 'auto',
                   direction: 'rtl'
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 style={{ marginTop: 0, marginBottom: 16 }}>اختر وجبة لنسخ الإضافات منها</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {allMealsInCategory?.filter(meal => meal.options && meal.options.length > 0).length > 0 ? (
-                    allMealsInCategory?.filter(meal => meal.options && meal.options.length > 0).map((meal, index) => (
-                      <button
-                        key={meal.id || index}
-                        onClick={() => handleSelectMeal(meal)}
-                        style={{
-                          padding: '12px 16px',
-                          border: '1px solid #ddd',
-                          borderRadius: 8,
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {(() => {
+                    // Get all meals with options from all categories
+                    const allMealsWithOptions = [];
+                    
+                    if (allMealsData && categories) {
+                      // Group meals by category
+                      categories.forEach(category => {
+                        const categoryMeals = allMealsData[category.id] || [];
+                        const mealsWithOptions = categoryMeals.filter(meal => meal.options && meal.options.length > 0);
+                        
+                        if (mealsWithOptions.length > 0) {
+                          allMealsWithOptions.push({
+                            category,
+                            meals: mealsWithOptions
+                          });
+                        }
+                      });
+                    }
+
+                    if (allMealsWithOptions.length === 0) {
+                      return (
+                        <div style={{
+                          padding: '24px 16px',
+                          textAlign: 'center',
                           background: '#f8f9fa',
-                          cursor: 'pointer',
-                          textAlign: 'right',
-                          fontSize: 14,
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = '#e9ecef';
-                          e.target.style.borderColor = '#adb5bd';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = '#f8f9fa';
-                          e.target.style.borderColor = '#ddd';
-                        }}
-                      >
-                        <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                          {meal.name?.ar || meal.name?.he || 'وجبة بدون اسم'}
+                          border: '1px solid #dee2e6',
+                          borderRadius: 8,
+                          color: '#6c757d'
+                        }}>
+                          <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>
+                            لا توجد وجبات مع إضافات للنسخ
+                          </div>
+                          <div style={{ fontSize: 14 }}>
+                            أضف أول وجبة مع إضافات لنسخها مستقبلاً
+                          </div>
                         </div>
-                        <div style={{ fontSize: 12, color: '#666' }}>
-                          {meal.options?.length || 0} إضافات متاحة
+                      );
+                    }
+
+                    return allMealsWithOptions.map(({ category, meals }) => (
+                      <div key={category.id} style={{ marginBottom: 8 }}>
+                        <div style={{ 
+                          fontSize: 15, 
+                          fontWeight: 600, 
+                          marginBottom: 8,
+                          color: '#007bff',
+                          padding: '8px 12px',
+                          background: '#e7f3ff',
+                          borderRadius: 6,
+                          borderRight: '4px solid #007bff'
+                        }}>
+                          {category.name?.ar || category.name?.he || 'قسم'}
                         </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div style={{
-                      padding: '24px 16px',
-                      textAlign: 'center',
-                      background: '#f8f9fa',
-                      border: '1px solid #dee2e6',
-                      borderRadius: 8,
-                      color: '#6c757d'
-                    }}>
-                      <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>
-                        لا توجد وجبات مع إضافات للنسخ
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 8 }}>
+                          {meals.map((meal, index) => (
+                            <button
+                              key={meal.id || index}
+                              onClick={() => handleSelectMeal(meal)}
+                              style={{
+                                padding: '12px 16px',
+                                border: '1px solid #ddd',
+                                borderRadius: 8,
+                                background: '#f8f9fa',
+                                cursor: 'pointer',
+                                textAlign: 'right',
+                                fontSize: 14,
+                                transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#e9ecef';
+                                e.currentTarget.style.borderColor = '#adb5bd';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#f8f9fa';
+                                e.currentTarget.style.borderColor = '#ddd';
+                              }}
+                            >
+                              <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                                {meal.name?.ar || meal.name?.he || 'وجبة بدون اسم'}
+                              </div>
+                              <div style={{ fontSize: 12, color: '#666' }}>
+                                {meal.options?.length || 0} إضافات متاحة
+                              </div>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 14 }}>
-                        أضف أول وجبة مع إضافات لنسخها مستقبلاً
-                      </div>
-                    </div>
-                  )}
+                    ));
+                  })()}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
                   <button

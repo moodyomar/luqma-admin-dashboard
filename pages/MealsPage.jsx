@@ -521,6 +521,7 @@ const MealsPage = () => {
                       expandedMeals={expandedMeals}
                       onToggleMeal={toggleMeal}
                       allMealsInCategory={mealsData.items[categoryId]}
+                      allMealsData={mealsData.items}
                       onHideUntilTomorrow={hideMealUntilTomorrow}
                       onReorder={async (reorderedMeals) => {
                         // Save new order to state and Firestore

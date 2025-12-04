@@ -21,6 +21,7 @@ export default function SortableMealsList({
   expandedMeals,
   onToggleMeal,
   allMealsInCategory,
+  allMealsData,
   onReorder,
   categories,
   onMoveCategory,
@@ -56,6 +57,7 @@ export default function SortableMealsList({
             expanded={expandedMeals[meal.id]}
             onToggle={() => onToggleMeal(meal.id)}
             allMealsInCategory={allMealsInCategory}
+            allMealsData={allMealsData}
             onMoveCategory={(newCategoryId) => onMoveCategory(meal, categoryId, newCategoryId)}
             categories={categories}
             onDuplicate={(mealToDuplicate, index) => onDuplicateMeal && onDuplicateMeal(mealToDuplicate, index, categoryId)}
