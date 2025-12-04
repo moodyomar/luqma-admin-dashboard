@@ -1017,16 +1017,15 @@ const OrdersPage = () => {
 
           // Only play sound and show toast if there are actually new orders
           if (newOrders.length > 0) {
-            // Try to use the unlocked audio first, fallback to new Audio
-            const unlockedAudio = getSharedAudio();
-            if (unlockedAudio) {
-              unlockedAudio.currentTime = 0;
-              unlockedAudio.play().catch(err => {
-                console.warn('Failed to play unlocked audio, trying fallback:', err);
-                new Audio(brandConfig.notificationSound).play().catch(console.warn);
+            // Play notification sound (works on Android WebView without unlock)
+            try {
+              const audio = new Audio(brandConfig.notificationSound);
+              audio.volume = 1.0;
+              audio.play().catch(err => {
+                console.warn('Failed to play audio:', err);
               });
-            } else {
-              new Audio(brandConfig.notificationSound).play().catch(console.warn);
+            } catch (err) {
+              console.warn('Audio error:', err);
             }
             
             toast.custom(() => (
@@ -1578,11 +1577,13 @@ const OrdersPage = () => {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '4px',
-            padding: '8px 12px',
+            gap: '2px',
+            padding: '6px 8px',
             borderRadius: '8px',
             transition: 'all 0.2s ease',
-            position: 'relative'
+            position: 'relative',
+            minWidth: '65px',
+            maxWidth: '80px'
           }}
           onMouseOver={(e) => {
             e.target.style.backgroundColor = '#f5f5f5';
@@ -1620,9 +1621,14 @@ const OrdersPage = () => {
             )}
           </div>
           <span style={{ 
-            fontSize: '11px', 
+            fontSize: '10px', 
             fontWeight: '500',
-            color: viewType === 'new' ? '#007AFF' : '#666'
+            color: viewType === 'new' ? '#007AFF' : '#666',
+            textAlign: 'center',
+            lineHeight: '1.2',
+            whiteSpace: 'normal',
+            wordWrap: 'break-word',
+            maxWidth: '70px'
           }}>
             طلبات جديدة
           </span>
@@ -1638,11 +1644,13 @@ const OrdersPage = () => {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '4px',
-            padding: '8px 12px',
+            gap: '2px',
+            padding: '6px 8px',
             borderRadius: '8px',
             transition: 'all 0.2s ease',
-            position: 'relative'
+            position: 'relative',
+            minWidth: '65px',
+            maxWidth: '80px'
           }}
           onMouseOver={(e) => {
             e.target.style.backgroundColor = '#f5f5f5';
@@ -1680,11 +1688,16 @@ const OrdersPage = () => {
             )}
           </div>
           <span style={{ 
-            fontSize: '11px', 
+            fontSize: '10px', 
             fontWeight: '500',
-            color: viewType === 'active' ? '#34C759' : '#666'
+            color: viewType === 'active' ? '#34C759' : '#666',
+            textAlign: 'center',
+            lineHeight: '1.2',
+            whiteSpace: 'normal',
+            wordWrap: 'break-word',
+            maxWidth: '70px'
           }}>
-            طلبات قيد التحضير
+            قيد التحضير
           </span>
         </button>
 
@@ -1698,11 +1711,13 @@ const OrdersPage = () => {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '4px',
-            padding: '8px 12px',
+            gap: '2px',
+            padding: '6px 8px',
             borderRadius: '8px',
             transition: 'all 0.2s ease',
-            position: 'relative'
+            position: 'relative',
+            minWidth: '70px',
+            maxWidth: '85px'
           }}
           onMouseOver={(e) => {
             e.target.style.backgroundColor = '#f5f5f5';
@@ -1740,9 +1755,18 @@ const OrdersPage = () => {
             )}
           </div>
           <span style={{ 
-            fontSize: '11px', 
+            fontSize: '10px', 
             fontWeight: '500',
-            color: viewType === 'future' ? '#4A90E2' : '#666'
+            color: viewType === 'future' ? '#4A90E2' : '#666',
+            textAlign: 'center',
+            lineHeight: '1.2',
+            whiteSpace: 'normal',
+            wordWrap: 'break-word',
+            maxWidth: '75px',
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical'
           }}>
             طلبات مجدولة
           </span>
@@ -1758,10 +1782,12 @@ const OrdersPage = () => {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '4px',
-            padding: '8px 12px',
+            gap: '2px',
+            padding: '6px 8px',
             borderRadius: '8px',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            minWidth: '65px',
+            maxWidth: '80px'
           }}
           onMouseOver={(e) => {
             e.target.style.backgroundColor = '#f5f5f5';
@@ -1777,9 +1803,14 @@ const OrdersPage = () => {
             ✅
           </span>
           <span style={{ 
-            fontSize: '11px', 
+            fontSize: '10px', 
             fontWeight: '500',
-            color: viewType === 'past' ? '#8E8E93' : '#666'
+            color: viewType === 'past' ? '#8E8E93' : '#666',
+            textAlign: 'center',
+            lineHeight: '1.2',
+            whiteSpace: 'normal',
+            wordWrap: 'break-word',
+            maxWidth: '70px'
           }}>
             طلبات سابقة
           </span>
