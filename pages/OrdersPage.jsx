@@ -210,16 +210,22 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       return `₪${num.toFixed(2)}`;
     };
 
-    // Arabic receipt (testing Windows-1256 codepage)
+    // Order Header
+    lines.push('================================');
     lines.push(`طلب رقم #${shortId}`);
-    if (order.date) lines.push(`التاريخ: ${order.date}`);
+    if (order.date) lines.push(order.date);
+    lines.push('- - - - - - - - - - - - - - - -');
+    
+    // Customer Information
     lines.push('');
+    lines.push('--- معلومات العميل ---');
     if (order.name) lines.push(`الاسم: ${order.name}`);
     if (order.phone) lines.push(`الهاتف: ${order.phone}`);
+    lines.push('- - - - - - - - - - - - - - - -');
     
+    // Delivery Details
     lines.push('');
     lines.push('--- تفاصيل التوصيل ---');
-    if (order.assignedDriverName) lines.push(`السائق: ${order.assignedDriverName}`);
     if (order.deliveryMethod === 'delivery') {
       lines.push(`نوع الطلب: توصيل للمنزل`);
       lines.push(`العنوان: ${order.address || 'غير محدد'}`);
@@ -231,15 +237,17 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       lines.push(`نوع الطلب: استلام من المطعم`);
     }
     
-    lines.push('');
-    lines.push('--- الدفع والمنتجات ---');
     if (order.paymentMethod) {
       const paymentLabel = order.paymentMethod === 'cash' ? 'نقداً (كاش)' : 'مدفوع اونلاين';
       lines.push(`طريقة الدفع: ${paymentLabel}`);
     }
     lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
+    lines.push('- - - - - - - - - - - - - - - -');
+    
+    // Product Details
     lines.push('');
     lines.push('--- تفاصيل المنتجات ---');
+    lines.push('');
 
     (order.cart || []).forEach((item, index) => {
       const name = item.name?.ar || item.name || `منتج ${index + 1}`;
@@ -273,9 +281,12 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       lines.push('');
     }
 
+    // Total with border
     lines.push('================================');
     lines.push(`المبلغ الإجمالي: ${money(order.total || order.price || 0)}`);
     lines.push('================================');
+    
+    // Footer will be added by Java/Android from strings.xml
 
     return lines.join('\n');
   };

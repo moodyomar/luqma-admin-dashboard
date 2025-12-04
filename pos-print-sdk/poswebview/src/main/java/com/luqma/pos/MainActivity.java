@@ -391,7 +391,8 @@ public class MainActivity extends AppCompatActivity {
         headerTextPaint.setTextAlign(Paint.Align.RIGHT);
         
         // Draw lines with smart formatting
-        for (String line : lines) {
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
             if (line == null) continue;
             
             // Skip empty lines at start
@@ -400,21 +401,59 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             }
             
-            // Detect separator lines (====, ---)
-            if (line.trim().startsWith("===") || line.trim().startsWith("---")) {
+            // Detect separator lines (====, ---, - - -)
+            if (line.trim().startsWith("===")) {
+                // Thick solid line
                 Paint separatorPaint = new Paint();
                 separatorPaint.setColor(Color.BLACK);
+                separatorPaint.setStrokeWidth(2);
+                canvas.drawLine(padding + 10, currentY + 10, width - padding - 10, currentY + 10, separatorPaint);
+                currentY += 20;
+                continue;
+            } else if (line.trim().startsWith("---") || line.trim().startsWith("- - -")) {
+                // Thin dashed line
+                Paint separatorPaint = new Paint();
+                separatorPaint.setColor(Color.GRAY);
                 separatorPaint.setStrokeWidth(1);
                 canvas.drawLine(padding + 10, currentY + 10, width - padding - 10, currentY + 10, separatorPaint);
                 currentY += 20;
                 continue;
             }
             
-            // Use header paint for titles (contains "رقم" or "RECEIPT")
-            Paint activePaint = (line.contains("رقم") || line.contains("RECEIPT") || line.contains("تفاصيل"))
+            // **SPECIAL: Draw border around total amount**
+            if (line.contains("المبلغ الإجمالي") || line.contains("Total Amount")) {
+                // Draw filled background
+                Paint bgPaint = new Paint();
+                bgPaint.setColor(Color.rgb(245, 245, 245)); // Light gray background
+                bgPaint.setStyle(Paint.Style.FILL);
+                canvas.drawRect(padding, currentY - 25, width - padding, currentY + 12, bgPaint);
+                
+                // Draw border around total
+                Paint borderPaint = new Paint();
+                borderPaint.setColor(Color.BLACK);
+                borderPaint.setStyle(Paint.Style.STROKE);
+                borderPaint.setStrokeWidth(3);
+                canvas.drawRect(padding, currentY - 25, width - padding, currentY + 12, borderPaint);
+                
+                // Draw text in center (not right-aligned for total)
+                Paint totalPaint = new Paint();
+                totalPaint.setColor(Color.BLACK);
+                totalPaint.setTextSize(26);
+                totalPaint.setAntiAlias(true);
+                totalPaint.setTypeface(Typeface.create(cairoFont, Typeface.BOLD));
+                totalPaint.setFakeBoldText(true);
+                totalPaint.setTextAlign(Paint.Align.CENTER);
+                
+                canvas.drawText(line, width / 2, currentY, totalPaint);
+                currentY += 40;
+                continue;
+            }
+            
+            // Use header paint for section titles (contains "معلومات" or "تفاصيل")
+            Paint activePaint = (line.contains("معلومات") || line.contains("تفاصيل") || line.contains("رقم"))
                 ? headerTextPaint : textPaint;
             
-            // Draw text from right edge
+            // Draw text from right edge (RTL)
             canvas.drawText(line, width - padding, currentY, activePaint);
             currentY += lineHeight;
         }
@@ -456,7 +495,7 @@ public class MainActivity extends AppCompatActivity {
                 String fullText = text + 
                         "\n\n" +
                         getString(R.string.receipt_thank_you_en) + " " + getBrandName() + "\n" +
-                        getString(R.string.receipt_thank_you_ar) + " " + getBrandNameAr();
+                        getString(R.string.receipt_thank_you_ar) + " " + getString(R.string.brand_name_ar_short);
                 
                 android.util.Log.i("LuqmaPOS", "📝 Receipt length: " + fullText.length() + " chars");
                 

@@ -8,6 +8,7 @@
     <string name="admin_dashboard_url">https://admin.luqma.co.il/</string>
     <string name="brand_name">Luqma</string>
     <string name="brand_name_ar">مطعم لقمة</string>
+    <string name="brand_name_ar_short">لقمة</string>
     <string name="brand_name_he">לוקמה</string>
     <string name="receipt_thank_you_en">Thank you for using</string>
     <string name="receipt_thank_you_ar">شكراً لاستخدامكم تطبيق</string>
