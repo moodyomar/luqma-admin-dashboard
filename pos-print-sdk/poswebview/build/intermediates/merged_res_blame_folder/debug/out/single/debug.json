@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.luqma.pos.poswebview-merged_res-31:/drawable_receipt_logo.png.flat",
+        "source": "com.luqma.pos.poswebview-main-33:/drawable/receipt_logo.png"
+    },
+    {
+        "merged": "com.luqma.pos.poswebview-merged_res-31:/layout_activity_main.xml.flat",
+        "source": "com.luqma.pos.poswebview-main-33:/layout/activity_main.xml"
+    }
+]

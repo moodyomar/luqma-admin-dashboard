@@ -1,0 +1,13 @@
+R_DEF: Internal format may change without notice
+local
+drawable receipt_logo
+id webview
+layout activity_main
+string admin_dashboard_url
+string app_name
+string app_name_pos
+string brand_name
+string brand_name_ar
+string brand_name_he
+string receipt_thank_you_ar
+string receipt_thank_you_en

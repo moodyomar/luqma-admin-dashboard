@@ -3,11 +3,11 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import brandConfig from '../constants/brandConfig';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
-import AudioUnlocker, { getSharedAudio } from '../src/components/AudioUnlocker';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css';
-import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle } from 'react-icons/io';
+import './pos-terminal.css';
+import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle, IoMdPrint } from 'react-icons/io';
 
 // Normalize deliveryDateTime into a Date instance
 const getScheduledDate = (dateTime) => {
@@ -210,61 +210,72 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       return `₪${num.toFixed(2)}`;
     };
 
+    // Arabic receipt (testing Windows-1256 codepage)
     lines.push(`طلب رقم #${shortId}`);
     if (order.date) lines.push(`التاريخ: ${order.date}`);
     lines.push('');
     if (order.name) lines.push(`الاسم: ${order.name}`);
     if (order.phone) lines.push(`الهاتف: ${order.phone}`);
+    
+    lines.push('');
+    lines.push('--- تفاصيل التوصيل ---');
     if (order.assignedDriverName) lines.push(`السائق: ${order.assignedDriverName}`);
     if (order.deliveryMethod === 'delivery') {
-      lines.push(`نوع الطلب: توصيل`);
+      lines.push(`نوع الطلب: توصيل للمنزل`);
       lines.push(`العنوان: ${order.address || 'غير محدد'}`);
+      if (order.extraNotes) lines.push(`ملاحظات: ${order.extraNotes}`);
     } else if (order.deliveryMethod === 'eat_in') {
       lines.push(`نوع الطلب: أكل بالمطعم`);
       if (order.tableNumber) lines.push(`رقم الطاولة: ${order.tableNumber}`);
     } else {
-      lines.push(`نوع الطلب: استلام بالمحل`);
+      lines.push(`نوع الطلب: استلام من المطعم`);
     }
-    if (order.extraNotes) lines.push(`ملاحظات الموقع: ${order.extraNotes}`);
+    
+    lines.push('');
+    lines.push('--- الدفع والمنتجات ---');
     if (order.paymentMethod) {
-      const paymentLabel = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين';
-      lines.push(`الدفع: ${paymentLabel}`);
+      const paymentLabel = order.paymentMethod === 'cash' ? 'نقداً (كاش)' : 'مدفوع اونلاين';
+      lines.push(`طريقة الدفع: ${paymentLabel}`);
     }
     lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
-    lines.push(`الإجمالي: ${money(order.total || order.price || 0)}`);
     lines.push('');
-    lines.push('--- تفاصيل الطلب ---');
+    lines.push('--- تفاصيل المنتجات ---');
 
     (order.cart || []).forEach((item, index) => {
       const name = item.name?.ar || item.name || `منتج ${index + 1}`;
       const qty = item.quantity || 1;
       const price = money(item.totalPrice || item.price || 0);
       const options = item.optionsText ? ` (${item.optionsText})` : '';
-      lines.push(`${index + 1}. ${name}${options} × ${qty} - ${price}`);
+      
+      // Item line with clear formatting
+      lines.push(`${index + 1}. ${name}${options}`);
+      lines.push(`   الكمية: ${qty} × ${price}`);
 
       if (Array.isArray(item.selectedExtras) && item.selectedExtras.length) {
         const extras = item.selectedExtras
           .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : extra))
           .filter(Boolean);
         if (extras.length) {
-          lines.push(`   إضافات: ${extras.join(', ')}`);
+          lines.push(`   إضافات: ${extras.join(' + ')}`);
         }
       }
 
       if (item.note) {
-        lines.push(`   ملاحظة: ${item.note}`);
+        lines.push(`   ملاحظة خاصة: ${item.note}`);
       }
+      
+      lines.push(''); // Space between items
     });
 
     if (order.note) {
+      lines.push('--- ملاحظة العميل ---');
+      lines.push(order.note);
       lines.push('');
-      lines.push(`ملاحظة الزبون: ${order.note}`);
     }
 
-    lines.push('');
-    lines.push(`الإجمالي النهائي: ${money(order.total || order.price || 0)}`);
-    lines.push('');
-    lines.push('شكراً لاستخدامكم تطبيق لقمة');
+    lines.push('================================');
+    lines.push(`المبلغ الإجمالي: ${money(order.total || order.price || 0)}`);
+    lines.push('================================');
 
     return lines.join('\n');
   };
@@ -274,21 +285,56 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     window.PosPrinter &&
     typeof window.PosPrinter.printText === 'function';
 
-  const handlePrint = (order) => {
+  const handlePrint = async (order) => {
+    console.log('🖨️ Print requested for order:', order.id);
+    
     const receiptText = buildReceiptText(order);
+    
+    // Try native POS printer first (silent printing)
     if (canUseNativePrinter()) {
       try {
-        window.PosPrinter.printText(receiptText);
-        return;
+        console.log('✅ Using native POS printer (H10)');
+        const result = await window.PosPrinter.printText(receiptText);
+        console.log('Print result:', result);
+        
+        if (result && result.includes('success')) {
+          toast.success('✅ تمت الطباعة بنجاح', {
+            duration: 2000,
+            position: 'top-center',
+            style: {
+              fontSize: '18px',
+              fontWeight: '700',
+              padding: '16px 24px',
+            },
+          });
+          return;
+        } else if (result && result.includes('error')) {
+          console.error('Native print error:', result);
+          toast.error('❌ خطأ في الطباعة: ' + result, {
+            duration: 3000,
+            position: 'top-center',
+          });
+          return;
+        }
       } catch (err) {
-        console.error('Native POS print failed', err);
+        console.error('Native POS print failed:', err);
+        toast.error('❌ فشل الاتصال بالطابعة', {
+          duration: 3000,
+          position: 'top-center',
+        });
+        // Continue to fallback
       }
     }
 
+    // Fallback to browser print dialog
+    console.log('⚠️ Using fallback browser print');
     const receiptHtml = buildReceiptHtml(order);
     const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (!printWindow) {
-      alert('الرجاء السماح بفتح النوافذ المنبثقة للطباعة.');
+      toast.error('الرجاء السماح بفتح النوافذ المنبثقة للطباعة.', {
+        duration: 4000,
+        position: 'top-center',
+      });
       return;
     }
     printWindow.document.open();
@@ -300,7 +346,10 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         printWindow.print();
       } catch (err) {
         console.error('Print error', err);
-        alert('تعذر إرسال أمر الطباعة. الرجاء إعادة المحاولة.');
+        toast.error('تعذر إرسال أمر الطباعة. الرجاء إعادة المحاولة.', {
+          duration: 3000,
+          position: 'top-center',
+        });
       }
     };
     if (printWindow.document.readyState === 'complete') {
@@ -882,6 +931,12 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 });
 
 const OrdersPage = () => {
+  // Printer detection helper
+  const canUseNativePrinter = () =>
+    typeof window !== 'undefined' &&
+    window.PosPrinter &&
+    typeof window.PosPrinter.printText === 'function';
+
   const [orders, setOrders] = useState([]);
   const [prevOrdersCount, setPrevOrdersCount] = useState(0);
   const isFirstLoad = useRef(true); // 🟡 new flag
@@ -1144,6 +1199,55 @@ const OrdersPage = () => {
     ['delivered', 'completed'].includes(order.status)
   );
 
+  const testPrint = async () => {
+    if (canUseNativePrinter()) {
+      try {
+        console.log('🖨️ Test print - Silent mode');
+        const result = await window.PosPrinter.testPrint();
+        console.log('Test print result:', result);
+        
+        if (result && result.includes('success')) {
+          toast.success('✅ تمت الطباعة بنجاح!', {
+            duration: 2000,
+            position: 'top-center',
+          });
+        } else if (result && result.includes('error')) {
+          toast.error('❌ خطأ: ' + result, {
+            duration: 3000,
+            position: 'top-center',
+          });
+        }
+      } catch (err) {
+        console.error('Test print error:', err);
+        toast.error('❌ فشل اختبار الطباعة', { duration: 3000 });
+      }
+    } else {
+      toast.error('⚠️ الطابعة غير متصلة', { 
+        duration: 3000,
+        position: 'top-center',
+      });
+    }
+  };
+
+  const [printerStatus, setPrinterStatus] = React.useState(null);
+  const [showPrinterBar, setShowPrinterBar] = React.useState(true);
+
+  React.useEffect(() => {
+    // Check printer status on mount
+    if (canUseNativePrinter()) {
+      const checkStatus = async () => {
+        try {
+          const statusStr = await window.PosPrinter.getPrinterStatus();
+          const status = JSON.parse(statusStr);
+          setPrinterStatus(status);
+        } catch (err) {
+          console.error('Failed to check printer status:', err);
+        }
+      };
+      checkStatus();
+    }
+  }, []);
+
   return (
     <div className="orders-container" style={{ 
       paddingBottom: window.innerWidth < 768 ? '20px' : '20px', // No extra space needed since bottom nav is hidden on orders page
@@ -1152,6 +1256,79 @@ const OrdersPage = () => {
       paddingTop: '50px' // Perfect spacing from top bar
     }}>
       
+      {/* POS Printer Status Bar */}
+      {canUseNativePrinter() && showPrinterBar && (
+        <div style={{
+          background: printerStatus?.status === 'ready' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#ff9800',
+          color: 'white',
+          padding: '12px 16px',
+          borderRadius: '12px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          position: 'relative',
+        }}>
+          {/* Status - Click to hide */}
+          <div 
+            onClick={() => setShowPrinterBar(false)}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px',
+              cursor: 'pointer',
+              flex: 1,
+              paddingRight: '12px',
+              borderRadius: '8px',
+              padding: '8px',
+              margin: '-8px',
+              marginRight: '12px',
+              transition: 'background 0.2s ease',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            title="اضغط للإخفاء"
+          >
+            <span style={{ fontSize: '24px' }}>
+              {printerStatus?.status === 'ready' ? '✅' : '⚠️'}
+            </span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '16px' }}>
+                {printerStatus?.status === 'ready' ? 'طابعة H10 متصلة' : 'فحص الطابعة...'}
+              </div>
+              <div style={{ fontSize: '12px', opacity: 0.8 }}>
+                اضغط للإخفاء • {printerStatus?.device || 'H10 Wireless Terminal'}
+              </div>
+            </div>
+          </div>
+
+          {/* Test Print Button */}
+          <button
+            onClick={testPrint}
+            style={{
+              background: 'rgba(255,255,255,0.25)',
+              border: '2px solid white',
+              color: 'white',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap',
+            }}
+            onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.35)'}
+            onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.25)'}
+          >
+            <IoMdPrint size={20} />
+            اختبار الطباعة
+          </button>
+        </div>
+      )}
 
 
       {/* View Toggle and Filter Buttons */}
@@ -1305,7 +1482,6 @@ const OrdersPage = () => {
       </div>
 
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
-      <AudioUnlocker />
       
       
       {/* CSS Animations */}

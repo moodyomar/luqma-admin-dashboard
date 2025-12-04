@@ -1,0 +1,3094 @@
+﻿
+package com.caysn.autoreplyprint;
+
+import android.graphics.Bitmap;
+
+import java.io.ByteArrayOutputStream;
+
+import com.sun.jna.Callback;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+import com.sun.jna.Platform;
+import com.sun.jna.Pointer;
+import com.sun.jna.WString;
+import com.sun.jna.ptr.DoubleByReference;
+import com.sun.jna.ptr.IntByReference;
+import com.sun.jna.ptr.LongByReference;
+
+public interface AutoReplyPrint extends Library {
+
+    // static interface method need jdk1.8. here we use inner class to avoid this porblem.
+    class GetLibraryPath_Helper {
+        // can replaced by absolute path
+        public static String GetLibraryPath() {
+            // force call JNI_OnLoad
+            if (Platform.isAndroid())
+                System.loadLibrary("autoreplyprint");
+            return "autoreplyprint";
+        }
+    }
+
+    public static final AutoReplyPrint INSTANCE = (AutoReplyPrint) Native.loadLibrary(GetLibraryPath_Helper.GetLibraryPath(), AutoReplyPrint.class);
+
+
+    public static final int CP_ComDataBits_4 = 4;
+    public static final int CP_ComDataBits_5 = 5;
+    public static final int CP_ComDataBits_6 = 6;
+    public static final int CP_ComDataBits_7 = 7;
+    public static final int CP_ComDataBits_8 = 8;
+
+
+    public static final int CP_ComParity_NoParity = 0;
+    public static final int CP_ComParity_OddParity = 1;
+    public static final int CP_ComParity_EvenParity = 2;
+    public static final int CP_ComParity_MarkParity = 3;
+    public static final int CP_ComParity_SpaceParity = 4;
+
+
+    public static final int CP_ComStopBits_One = 0;
+    public static final int CP_ComStopBits_OnePointFive = 1;
+    public static final int CP_ComStopBits_Two = 2;
+
+
+    public static final int CP_ComFlowControl_None = 0;
+    public static final int CP_ComFlowControl_XonXoff = 1;
+    public static final int CP_ComFlowControl_RtsCts = 2;
+    public static final int CP_ComFlowControl_DtrDsr = 3;
+
+
+    public static final int CP_CharacterSet_USA = 0;
+    public static final int CP_CharacterSet_FRANCE = 1;
+    public static final int CP_CharacterSet_GERMANY = 2;
+    public static final int CP_CharacterSet_UK = 3;
+    public static final int CP_CharacterSet_DENMARK_I = 4;
+    public static final int CP_CharacterSet_SWEDEN = 5;
+    public static final int CP_CharacterSet_ITALY = 6;
+    public static final int CP_CharacterSet_SPAIN_I = 7;
+    public static final int CP_CharacterSet_JAPAN = 8;
+    public static final int CP_CharacterSet_NORWAY = 9;
+    public static final int CP_CharacterSet_DENMARK_II = 10;
+    public static final int CP_CharacterSet_SPAIN_II = 11;
+    public static final int CP_CharacterSet_LATIN = 12;
+    public static final int CP_CharacterSet_KOREA = 13;
+    public static final int CP_CharacterSet_SLOVENIA = 14;
+    public static final int CP_CharacterSet_CHINA = 15;
+
+
+    public static final int CP_CharacterCodepage_CP437 = 0;
+    public static final int CP_CharacterCodepage_KATAKANA = 1;
+    public static final int CP_CharacterCodepage_CP850 = 2;
+    public static final int CP_CharacterCodepage_CP860 = 3;
+    public static final int CP_CharacterCodepage_CP863 = 4;
+    public static final int CP_CharacterCodepage_CP865 = 5;
+    public static final int CP_CharacterCodepage_WCP1251 = 6;
+    public static final int CP_CharacterCodepage_CP866 = 7;
+    public static final int CP_CharacterCodepage_MIK = 8;
+    public static final int CP_CharacterCodepage_CP755 = 9;
+    public static final int CP_CharacterCodepage_IRAN = 10;
+    public static final int CP_CharacterCodepage_CP862 = 15;
+    public static final int CP_CharacterCodepage_WCP1252 = 16;
+    public static final int CP_CharacterCodepage_WCP1253 = 17;
+    public static final int CP_CharacterCodepage_CP852 = 18;
+    public static final int CP_CharacterCodepage_CP858 = 19;
+    public static final int CP_CharacterCodepage_IRAN_II = 20;
+    public static final int CP_CharacterCodepage_LATVIAN = 21;
+    public static final int CP_CharacterCodepage_CP864 = 22;
+    public static final int CP_CharacterCodepage_ISO_8859_1 = 23;
+    public static final int CP_CharacterCodepage_CP737 = 24;
+    public static final int CP_CharacterCodepage_WCP1257 = 25;
+    public static final int CP_CharacterCodepage_THAI = 26;
+    public static final int CP_CharacterCodepage_CP720 = 27;
+    public static final int CP_CharacterCodepage_CP855 = 28;
+    public static final int CP_CharacterCodepage_CP857 = 29;
+    public static final int CP_CharacterCodepage_WCP1250 = 30;
+    public static final int CP_CharacterCodepage_CP775 = 31;
+    public static final int CP_CharacterCodepage_WCP1254 = 32;
+    public static final int CP_CharacterCodepage_WCP1255 = 33;
+    public static final int CP_CharacterCodepage_WCP1256 = 34;
+    public static final int CP_CharacterCodepage_WCP1258 = 35;
+    public static final int CP_CharacterCodepage_ISO_8859_2 = 36;
+    public static final int CP_CharacterCodepage_ISO_8859_3 = 37;
+    public static final int CP_CharacterCodepage_ISO_8859_4 = 38;
+    public static final int CP_CharacterCodepage_ISO_8859_5 = 39;
+    public static final int CP_CharacterCodepage_ISO_8859_6 = 40;
+    public static final int CP_CharacterCodepage_ISO_8859_7 = 41;
+    public static final int CP_CharacterCodepage_ISO_8859_8 = 42;
+    public static final int CP_CharacterCodepage_ISO_8859_9 = 43;
+    public static final int CP_CharacterCodepage_ISO_8859_15 = 44;
+    public static final int CP_CharacterCodepage_THAI_2 = 45;
+    public static final int CP_CharacterCodepage_CP856 = 46;
+    public static final int CP_CharacterCodepage_CP874 = 47;
+    public static final int CP_CharacterCodepage_TCVN3 = 48;
+
+
+    public static final int CP_MultiByteEncoding_GBK = 0;
+    public static final int CP_MultiByteEncoding_UTF8 = 1;
+    public static final int CP_MultiByteEncoding_BIG5 = 3;
+    public static final int CP_MultiByteEncoding_ShiftJIS = 4;
+    public static final int CP_MultiByteEncoding_EUCKR = 5;
+
+
+    public static final int CP_ImageBinarizationMethod_Dithering = 0;
+    public static final int CP_ImageBinarizationMethod_Thresholding = 1;
+
+
+    public static final int CP_ImageCompressionMethod_None = 0;
+    public static final int CP_ImageCompressionMethod_Level1 = 1;
+    public static final int CP_ImageCompressionMethod_Level2 = 2;
+
+
+    public static final int CP_ImagePixelsFormat_MONO = 1;
+    public static final int CP_ImagePixelsFormat_MONOLSB = 2;
+    public static final int CP_ImagePixelsFormat_GRAY8 = 3;
+    public static final int CP_ImagePixelsFormat_BYTEORDERED_RGB24 = 4;
+    public static final int CP_ImagePixelsFormat_BYTEORDERED_BGR24 = 5;
+    public static final int CP_ImagePixelsFormat_BYTEORDERED_ARGB32 = 6;
+    public static final int CP_ImagePixelsFormat_BYTEORDERED_RGBA32 = 7;
+    public static final int CP_ImagePixelsFormat_BYTEORDERED_ABGR32 = 8;
+    public static final int CP_ImagePixelsFormat_BYTEORDERED_BGRA32 = 9;
+
+
+    public static final int CP_QRCodeECC_L = 1;
+    public static final int CP_QRCodeECC_M = 2;
+    public static final int CP_QRCodeECC_Q = 3;
+    public static final int CP_QRCodeECC_H = 4;
+
+
+    public static final int CP_Pos_Alignment_Left = 0;
+    public static final int CP_Pos_Alignment_HCenter = 1;
+    public static final int CP_Pos_Alignment_Right = 2;
+
+
+    public static final int CP_Pos_BarcodeType_UPCA = 0x41;
+    public static final int CP_Pos_BarcodeType_UPCE = 0x42;
+    public static final int CP_Pos_BarcodeType_EAN13 = 0x43;
+    public static final int CP_Pos_BarcodeType_EAN8 = 0x44;
+    public static final int CP_Pos_BarcodeType_CODE39 = 0x45;
+    public static final int CP_Pos_BarcodeType_ITF = 0x46;
+    public static final int CP_Pos_BarcodeType_CODEBAR = 0x47;
+    public static final int CP_Pos_BarcodeType_CODE93 = 0x48;
+    public static final int CP_Pos_BarcodeType_CODE128 = 0x49;
+
+
+    public static final int CP_Pos_BarcodeTextPrintPosition_None = 0;
+    public static final int CP_Pos_BarcodeTextPrintPosition_AboveBarcode = 1;
+    public static final int CP_Pos_BarcodeTextPrintPosition_BelowBarcode = 2;
+    public static final int CP_Pos_BarcodeTextPrintPosition_AboveAndBelowBarcode = 3;
+
+
+    public static final int CP_Page_DrawDirection_LeftToRight = 0;
+    public static final int CP_Page_DrawDirection_BottomToTop = 1;
+    public static final int CP_Page_DrawDirection_RightToLeft = 2;
+    public static final int CP_Page_DrawDirection_TopToBottom = 3;
+
+    // 页模式绘制函数（CP_Page_DrawXXX）
+    // 横向坐标和纵向坐标可以指定为 -1 -2 -3 表示按对齐打印
+    public static final int CP_Page_DrawAlignment_Left = -1;
+    public static final int CP_Page_DrawAlignment_HCenter = -2;
+    public static final int CP_Page_DrawAlignment_Right = -3;
+    public static final int CP_Page_DrawAlignment_Top = -1;
+    public static final int CP_Page_DrawAlignment_VCenter = -2;
+    public static final int CP_Page_DrawAlignment_Bottom = -3;
+
+
+    public static final int CP_Label_BarcodeType_UPCA = 0;
+    public static final int CP_Label_BarcodeType_UPCE = 1;
+    public static final int CP_Label_BarcodeType_EAN13 = 2;
+    public static final int CP_Label_BarcodeType_EAN8 = 3;
+    public static final int CP_Label_BarcodeType_CODE39 = 4;
+    public static final int CP_Label_BarcodeType_ITF = 5;
+    public static final int CP_Label_BarcodeType_CODEBAR = 6;
+    public static final int CP_Label_BarcodeType_CODE93 = 7;
+    public static final int CP_Label_BarcodeType_CODE128 = 8;
+    public static final int CP_Label_BarcodeType_CODE11 = 9;
+    public static final int CP_Label_BarcodeType_MSI = 10;
+    public static final int CP_Label_BarcodeType_128M = 11;
+    public static final int CP_Label_BarcodeType_EAN128 = 12;
+    public static final int CP_Label_BarcodeType_25C = 13;
+    public static final int CP_Label_BarcodeType_39C = 14;
+    public static final int CP_Label_BarcodeType_39 = 15;
+    public static final int CP_Label_BarcodeType_EAN13PLUS2 = 16;
+    public static final int CP_Label_BarcodeType_EAN13PLUS5 = 17;
+    public static final int CP_Label_BarcodeType_EAN8PLUS2 = 18;
+    public static final int CP_Label_BarcodeType_EAN8PLUS5 = 19;
+    public static final int CP_Label_BarcodeType_POST = 20;
+    public static final int CP_Label_BarcodeType_UPCAPLUS2 = 21;
+    public static final int CP_Label_BarcodeType_UPCAPLUS5 = 22;
+    public static final int CP_Label_BarcodeType_UPCEPLUS2 = 23;
+    public static final int CP_Label_BarcodeType_UPCEPLUS5 = 24;
+    public static final int CP_Label_BarcodeType_CPOST = 25;
+    public static final int CP_Label_BarcodeType_MSIC = 26;
+    public static final int CP_Label_BarcodeType_PLESSEY = 27;
+    public static final int CP_Label_BarcodeType_ITF14 = 28;
+    public static final int CP_Label_BarcodeType_EAN14 = 29;
+
+
+    public static final int CP_Label_BarcodeTextPrintPosition_None = 0;
+    public static final int CP_Label_BarcodeTextPrintPosition_AboveBarcode = 1;
+    public static final int CP_Label_BarcodeTextPrintPosition_BelowBarcode = 2;
+    public static final int CP_Label_BarcodeTextPrintPosition_AboveAndBelowBarcode = 3;
+
+
+    public static final int CP_Label_Rotation_0 = 0;
+    public static final int CP_Label_Rotation_90 = 1;
+    public static final int CP_Label_Rotation_180 = 2;
+    public static final int CP_Label_Rotation_270 = 3;
+
+
+    public static final int CP_Label_Color_White = 0;
+    public static final int CP_Label_Color_Black = 1;
+
+    // ERROR_CUTTER
+    //      切刀错误
+    // ERROR_FLASH
+    //      串行FLASH错误
+    // ERROR_NOPAPER
+    //      缺纸
+    // ERROR_VOLTAGE
+    //      电压错误
+    // ERROR_MARKER
+    //      黑标或缝标侦测错误
+    // ERROR_ENGINE
+    //      机芯未识别
+    // ERROR_OVERHEAT
+    //      过热
+    // ERROR_COVERUP
+    //      开盖或轴未压下
+    // ERROR_MOTOR
+    //      马达失步(一般为卡纸)
+    // INFO_LABELPAPER
+    //      当前纸张识别为标签纸(为0是连续纸)
+    // INFO_LABELMODE
+    //      当前为标签模式
+    // INFO_HAVEDATA
+    //      有数据开始处理
+    // INFO_NOPAPERCANCELED
+    //      上次单据是缺纸后取消了
+    // INFO_PAPERNOFETCH
+    //      单据未取走
+    // INFO_PRINTIDLE
+    //      当前打印空闲
+    // INFO_RECVIDLE
+    //      当前接收缓冲区为空
+    public class CP_PrinterStatus {
+
+        private long error_status = 0;
+        private long info_status = 0;
+
+        public CP_PrinterStatus(long error_status, long info_status) {
+            this.error_status = error_status;
+            this.info_status = info_status;
+        }
+        
+        public long errorStatus() {
+            return error_status;
+        }
+        
+        public long infoStatus() {
+            return info_status;
+        }
+
+        public boolean ERROR_OCCURED() {
+            return error_status != 0;
+        }
+
+        public boolean ERROR_CUTTER() {
+            return (error_status & 0x01) != 0;
+        }
+
+        public boolean ERROR_FLASH() {
+            return (error_status & 0x02) != 0;
+        }
+
+        public boolean ERROR_NOPAPER() {
+            return (error_status & 0x04) != 0;
+        }
+
+        public boolean ERROR_VOLTAGE() {
+            return (error_status & 0x08) != 0;
+        }
+
+        public boolean ERROR_MARKER() {
+            return (error_status & 0x10) != 0;
+        }
+
+        public boolean ERROR_ENGINE() {
+            return (error_status & 0x20) != 0;
+        }
+
+        public boolean ERROR_OVERHEAT() {
+            return (error_status & 0x40) != 0;
+        }
+
+        public boolean ERROR_COVERUP() {
+            return (error_status & 0x80) != 0;
+        }
+        
+        public boolean ERROR_MOTOR() {
+            return (error_status & 0x100) != 0;
+        }
+
+        public boolean INFO_LABELPAPER() {
+            return (info_status & 0x02) != 0;
+        }
+
+        public boolean INFO_LABELMODE() {
+            return (info_status & 0x04) != 0;
+        }
+
+        public boolean INFO_HAVEDATA() {
+            return (info_status & 0x08) != 0;
+        }
+
+        public boolean INFO_NOPAPERCANCELED() {
+            return (info_status & 0x10) != 0;
+        }
+
+        public boolean INFO_PAPERNOFETCH() {
+            return (info_status & 0x20) != 0;
+        }
+
+        public boolean INFO_PRINTIDLE() {
+            return (info_status & 0x40) != 0;
+        }
+
+        public boolean INFO_RECVIDLE() {
+            return (info_status & 0x80) != 0;
+        }
+    }
+
+    // 这里的实时状态，共占四字节。
+    // 从低字节到高字节依次对应指令集中这四个指令：
+    //   10 04 01
+    //   10 04 02
+    //   10 04 03
+    //   10 04 04
+    // 部分机型由于定制或其他原因，状态值定义可能与此处不一致，以实测为准。
+    //
+    // DRAWER_OPENED
+    //      钱箱打开
+    // OFFLINE
+    //      脱机
+    // COVERUP
+    //      盖子打开
+    // FEED_PRESSED
+    //      走纸键按下
+    // NOPAPER
+    //      缺纸
+    // ERROR_OCCURED
+    //      出错
+    // CUTTER_ERROR
+    //      切刀错误
+    // UNRECOVERABLE_ERROR
+    //      不可恢复错误
+    // DEGREE_OR_VOLTAGE_OVERRANGE
+    //      温度或电压错误
+    // PAPER_NEAREND
+    //      纸将近
+    // PAPER_TAKEOUT
+    //      纸取走
+    public class CP_RTSTATUS_Helper {
+        public static boolean CP_RTSTATUS_DRAWER_OPENED(long status) { return (((status >> 0) & 0x04) == 0x00); };
+        public static boolean CP_RTSTATUS_OFFLINE(long status) { return (((status >> 0) & 0x08) == 0x08); };
+        public static boolean CP_RTSTATUS_COVERUP(long status) { return (((status >> 8) & 0x04) == 0x04); };
+        public static boolean CP_RTSTATUS_FEED_PRESSED(long status) { return (((status >> 8) & 0x08) == 0x08); };
+        public static boolean CP_RTSTATUS_NOPAPER(long status) { return (((status >> 8) & 0x20) == 0x20); };
+        public static boolean CP_RTSTATUS_ERROR_OCCURED(long status) { return (((status >> 8) & 0x40) == 0x40); };
+        public static boolean CP_RTSTATUS_CUTTER_ERROR(long status) { return (((status >> 16) & 0x08) == 0x08); };
+        public static boolean CP_RTSTATUS_UNRECOVERABLE_ERROR(long status) { return (((status >> 16) & 0x20) == 0x20); };
+        public static boolean CP_RTSTATUS_DEGREE_OR_VOLTAGE_OVERRANGE(long status) { return (((status >> 16) & 0x40) == 0x40); };
+        public static boolean CP_RTSTATUS_PAPER_NEAREND(long status) { return (((status >> 24) & 0x0C) == 0x0C); };
+        public static boolean CP_RTSTATUS_PAPER_TAKEOUT(long status) { return (((status >> 24) & 0x04) == 0x04); };
+    }
+
+
+    public class CP_Label_TextStyle {
+
+        private int style = 0;
+
+        public CP_Label_TextStyle(boolean bold, boolean underline, boolean highlight, boolean strikethrough, int rotation, int widthscale, int heightscale) {
+            int style = 0;
+            if (bold)
+                style |= (1 << 0);
+            if (underline)
+                style |= (1 << 1);
+            if (highlight)
+                style |= (1 << 2);
+            if (strikethrough)
+                style |= (1 << 3);
+            style |= (rotation << 4);
+            style |= (widthscale << 8);
+            style |= (heightscale << 12);
+            this.style = style;
+        }
+
+        public int getStyle() {
+            return style;
+        }
+    }
+
+
+    public interface CP_OnNetPrinterDiscovered_Callback extends Callback {
+        void CP_OnNetPrinterDiscovered(String local_ip, String discovered_mac, String discovered_ip, String discovered_name, Pointer private_data);
+    }
+
+
+    public interface CP_OnBluetoothDeviceDiscovered_Callback extends Callback {
+        void CP_OnBluetoothDeviceDiscovered(String device_name, String device_address, Pointer private_data);
+    }
+
+
+    public interface CP_OnPortOpenedEvent_Callback extends Callback {
+        void CP_OnPortOpenedEvent(Pointer handle, String name, Pointer private_data);
+    }
+
+
+    public interface CP_OnPortOpenFailedEvent_Callback extends Callback {
+        void CP_OnPortOpenFailedEvent(Pointer handle, String name, Pointer private_data);
+    }
+
+
+    public interface CP_OnPortClosedEvent_Callback extends Callback {
+        void CP_OnPortClosedEvent(Pointer handle, Pointer private_data);
+    }
+
+
+    public interface CP_OnPrinterStatusEvent_Callback extends Callback {
+        void CP_OnPrinterStatusEvent(Pointer handle, long printer_error_status, long printer_info_status, Pointer private_data);
+    }
+
+
+    public interface CP_OnPrinterReceivedEvent_Callback extends Callback {
+        void CP_OnPrinterReceivedEvent(Pointer handle, int printer_received_byte_count, Pointer private_data);
+    }
+
+
+    public interface CP_OnPrinterPrintedEvent_Callback extends Callback {
+        void CP_OnPrinterPrintedEvent(Pointer handle, int printer_printed_page_id, Pointer private_data);
+    }
+
+    //      获取开发包版本字符串
+    //
+    //  return
+    //      返回开发包版本
+    public String CP_Library_Version();
+
+    //      枚举本地串口
+    //
+    //  pBuf
+    //      用来保存端口列表的缓冲区
+    //
+    //  cbBuf
+    //      缓冲区字节数
+    //
+    //  pcbNeeded
+    //      需要的缓冲区字节数
+    //
+    //  return
+    //      枚举到的端口数量
+    public int CP_Port_EnumCom(byte[] pBuf, int cbBuf, IntByReference pcbNeeded);
+
+    public class CP_Port_EnumCom_Helper {
+        public static String[] EnumCom() {
+            try {
+                return new SerialPortFinder().getAllDevicesPath();
+            } catch (Throwable tr) {
+                tr.printStackTrace();
+            }
+            return null;
+        }
+    }
+
+    //      枚举本地USB打印口
+    //
+    //  pBuf
+    //      用来保存端口列表的缓冲区
+    //
+    //  cbBuf
+    //      缓冲区字节数
+    //
+    //  pcbNeeded
+    //      需要的缓冲区字节数
+    //
+    //  return
+    //      枚举到的端口数量
+    public int CP_Port_EnumUsb(byte[] pBuf, int cbBuf, IntByReference pcbNeeded);
+
+    public class CP_Port_EnumUsb_Helper {
+        public static String[] EnumUsb() {
+            IntByReference pcbNeeded = new IntByReference();
+            INSTANCE.CP_Port_EnumUsb(null, 0, pcbNeeded);
+            if (pcbNeeded.getValue() > 0) {
+                byte[] pBuf = new byte[pcbNeeded.getValue()];
+                if (pBuf != null) {
+                    INSTANCE.CP_Port_EnumUsb(pBuf, pBuf.length, null);
+                    String s = new String(pBuf);
+                    String[] ss = s.split("\0");
+                    return ss;
+                }
+            }
+            return null;
+        }
+    }
+
+    //      枚举网络打印机
+    //
+    //  timeout
+    //      超时毫秒时间
+    //
+    //  cancel
+    //      取消标记位，如果设为非零，则枚举提前退出
+    //
+    //  on_discovered
+    //      枚举回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    //  return
+    //      无
+    public void CP_Port_EnumNetPrinter(int timeout, IntByReference cancel, CP_OnNetPrinterDiscovered_Callback on_discovered, Pointer data);
+
+    //      枚举蓝牙打印机
+    //
+    //  on_discovered
+    //      枚举回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    //  return
+    //      无
+    public void CP_Port_EnumBtDevice(int timeout, IntByReference cancel, CP_OnBluetoothDeviceDiscovered_Callback on_discovered, Pointer data);
+
+    //      枚举BLE蓝牙打印机
+    //
+    //  on_discovered
+    //      枚举回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    //  return
+    //      无
+    public void CP_Port_EnumBleDevice(int timeout, IntByReference cancel, CP_OnBluetoothDeviceDiscovered_Callback on_discovered, Pointer data);
+
+    //      打开串口
+    //
+    // name
+    //      端口名称
+    //      例如：COM1，COM2，COM3，...COM11...
+    //
+    // baudrate
+    //      波特率
+    //      一般取 9600,19200,38400,57600,115200.
+    //      需要和打印机波特率保持一致，建议使用高波特率以获得较好的打印速度
+    //
+    // databits
+    //      数据位，范围[4,8]
+    //
+    // parity
+    //      校验位，各值定义如下：
+    //      值    定义
+    //      0     无校验
+    //      1     奇校验
+    //      2     偶校验
+    //      3     标记校验
+    //      4     空白校验
+    //
+    // stopbits
+    //      停止位，各值定义如下：
+    //      值    定义
+    //      0     1位停止位
+    //      1     1.5位停止位
+    //      2     2位停止位
+    //
+    // flowcontrol
+    //      流控制
+    //
+    // autoreplymode
+    //      0 不开启自动回传模式
+    //      1 开启自动回传模式
+    //      注意：
+    //      仅部分机型支持自动回传模式，是否支持请询问卖家
+    //      启动自动回传模式之后，打印机会自动回传状态
+    //      不启动则无法自动获取打印机状态
+    //
+    // return
+    //      返回打开的端口句柄。非零表示打开成功，零表示打开失败。
+    //
+    // remarks
+    //      如果串口被占用，打开串口会失败。
+    //      如果波特率和打印机波特率不匹配，则无法打印。
+    public Pointer CP_Port_OpenCom(String name, int baudrate, int databits, int parity, int stopbits, int flowcontrol, int autoreplymode);
+
+    //      打开USB
+    //
+    // name
+    //      端口名称
+    //      可由EnumUsb获得
+    //      也可以不指定，这时候，如果找到 USB 打印机，会直接打开
+    //
+    // autoreplymode
+    //      0 不开启自动回传模式
+    //      1 开启自动回传模式
+    //      注意：
+    //      仅部分机型支持自动回传模式，是否支持请询问卖家
+    //      启动自动回传模式之后，打印机会自动回传状态
+    //      不启动则无法自动获取打印机状态
+    //
+    // return
+    //      返回打开的端口句柄。非零表示打开成功，零表示打开失败。
+    //
+    // remarks
+    //      USB 打印机接到电脑上，如果设备管理器中出现了 USB Printing Support，则可以使用该函数打开。
+    public Pointer CP_Port_OpenUsb(String name, int autoreplymode);
+
+    //      打开网口
+    //
+    // local_ip
+    //      绑定到本地IP
+    //      用于多网卡或多个本地IP时，选择指定的IP
+    //      传入0表示不指定
+    //
+    // dest_ip
+    //      地址或名称
+    //      例如：192.168.1.87
+    //
+    // dest_port
+    //      端口号
+    //      固定值：9100
+    //
+    // timeout
+    //      连接超时
+    //
+    // autoreplymode
+    //      0 不开启自动回传模式
+    //      1 开启自动回传模式
+    //      注意：
+    //      仅部分机型支持自动回传模式，是否支持请询问卖家
+    //      启动自动回传模式之后，打印机会自动回传状态
+    //      不启动则无法自动获取打印机状态
+    //
+    // return
+    //      返回打开的端口句柄。非零表示打开成功，零表示打开失败。
+    //
+    // remarks
+    //      PC和打印机需要同网段的才可以连接
+    public Pointer CP_Port_OpenTcp(String local_ip, String dest_ip, short dest_port, int timeout, int autoreplymode);
+
+    //      通过SPP连接蓝牙打印机
+    //
+    // address
+    //      打印机地址
+    //      例如："01:02:03:04:05:06"
+    //
+    // autoreplymode
+    //      0 不开启自动回传模式
+    //      1 开启自动回传模式
+    //      注意：
+    //      仅部分机型支持自动回传模式，是否支持请询问卖家
+    //      启动自动回传模式之后，打印机会自动回传状态
+    //      不启动则无法自动获取打印机状态
+    //
+    // return
+    //      返回打开的端口句柄。非零表示打开成功，零表示打开失败。
+    //
+    // remarks
+    //      only for android
+    public Pointer CP_Port_OpenBtSpp(String address, int autoreplymode);
+
+    //      通过BLE连接蓝牙打印机
+    //
+    // address
+    //      打印机地址
+    //      例如："01:02:03:04:05:06"
+    //
+    // autoreplymode
+    //      0 不开启自动回传模式
+    //      1 开启自动回传模式
+    //      注意：
+    //      仅部分机型支持自动回传模式，是否支持请询问卖家
+    //      启动自动回传模式之后，打印机会自动回传状态
+    //      不启动则无法自动获取打印机状态
+    //
+    // return
+    //      返回打开的端口句柄。非零表示打开成功，零表示打开失败。
+    //
+    // remarks
+    //      only for android
+    public Pointer CP_Port_OpenBtBle(String address, int autoreplymode);
+
+    //      向端口写入数据
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // buffer
+    //      要写入的数据
+    //
+    // count
+    //      要写入的长度
+    //
+    // timeout
+    //      写入超时毫秒
+    //
+    // return
+    //      返回写入的字节数，-1表示写入失败
+    public int CP_Port_Write(Pointer handle, byte[] buffer, int count, int timeout);
+
+    //      从端口接收数据
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // buffer
+    //      接收数据的缓冲区
+    //
+    // count
+    //      要接收的数据长度
+    //
+    // timeout
+    //      读取超时毫秒
+    //
+    // return
+    //      返回读取的字节数，-1表示失败
+    public int CP_Port_Read(Pointer handle, byte[] buffer, int count, int timeout);
+
+    //      从端口接收数据
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // buffer
+    //      接收数据的缓冲区
+    //
+    // count
+    //      要接收的数据长度
+    //
+    // timeout
+    //      读取超时毫秒
+    //
+    // breakByte
+    //      结束读取字符
+    //
+    // return
+    //      返回读取的字节数，-1表示失败
+    public int CP_Port_ReadUntilByte(Pointer handle, byte[] buffer, int count, int timeout, byte breakByte);
+
+    //      返回可读取的字节数
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回可读取的字节数，-1表示失败
+    public int CP_Port_Available(Pointer handle);
+
+    //      忽略接收缓冲区的数据
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Port_SkipAvailable(Pointer handle);
+
+    //      连接是否有效
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      如果端口已打开，且状态持续更新，则返回true
+    //      如果端口未打开，已关闭，或状态超过6秒未更新，则返回false
+    public boolean CP_Port_IsConnectionValid(Pointer handle);
+
+    //      连接是否有效
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      如果端口已打开，且连接未断开未关闭，则返回true
+    //      如果端口未打开，或连接已断开已关闭，则返回false
+    public boolean CP_Port_IsOpened(Pointer handle);
+
+    //      关闭端口
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Port_Close(Pointer handle);
+
+    //      添加回调接口，端口打开成功
+    //
+    //  event
+    //      回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Port_AddOnPortOpenedEvent(CP_OnPortOpenedEvent_Callback event, Pointer private_data);
+
+    //      添加回调接口，端口打开失败
+    //
+    //  event
+    //      回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Port_AddOnPortOpenFailedEvent(CP_OnPortOpenFailedEvent_Callback event, Pointer private_data);
+
+    //      添加回调接口，端口关闭
+    //
+    //  event
+    //      回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Port_AddOnPortClosedEvent(CP_OnPortClosedEvent_Callback event, Pointer private_data);
+
+    //      移除回调接口
+    //
+    //  event
+    //      回调接口
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Port_RemoveOnPortOpenedEvent(CP_OnPortOpenedEvent_Callback event);
+
+    //      移除回调接口
+    //
+    //  event
+    //      回调接口
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Port_RemoveOnPortOpenFailedEvent(CP_OnPortOpenFailedEvent_Callback event);
+
+    //      移除回调接口
+    //
+    //  event
+    //      回调接口
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Port_RemoveOnPortClosedEvent(CP_OnPortClosedEvent_Callback event);
+
+    //      添加回调接口，打印机状态更新
+    //
+    //  event
+    //      回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_AddOnPrinterStatusEvent(CP_OnPrinterStatusEvent_Callback event, Pointer private_data);
+
+    //      添加回调接口，打印机已接收字节数更新
+    //
+    //  event
+    //      回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_AddOnPrinterReceivedEvent(CP_OnPrinterReceivedEvent_Callback event, Pointer private_data);
+
+    //      添加回调接口，打印机已打印页面ID更新
+    //
+    //  event
+    //      回调接口
+    //
+    //  private_data
+    //      传给回调接口的参数
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_AddOnPrinterPrintedEvent(CP_OnPrinterPrintedEvent_Callback event, Pointer private_data);
+
+    //      移除回调接口
+    //
+    //  event
+    //      回调接口
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_RemoveOnPrinterStatusEvent(CP_OnPrinterStatusEvent_Callback event);
+
+    //      移除回调接口
+    //
+    //  event
+    //      回调接口
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_RemoveOnPrinterReceivedEvent(CP_OnPrinterReceivedEvent_Callback event);
+
+    //      移除回调接口
+    //
+    //  event
+    //      回调接口
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_RemoveOnPrinterPrintedEvent(CP_OnPrinterPrintedEvent_Callback event);
+
+    //      获取打印机分辨率信息
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    //  width_mm
+    //      标签最大宽度
+    //
+    //  height_mm
+    //      标签最大高度
+    //
+    //  dots_per_mm
+    //      没毫米打印点数
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_GetPrinterResolutionInfo(Pointer handle, IntByReference width_mm, IntByReference height_mm, IntByReference dots_per_mm);
+
+    //      获取打印机固件版本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    //  pBuf
+    //      缓冲区
+    //
+    //  cbBuf
+    //      缓冲区字节数
+    //
+    //  pcbNeeded
+    //      需要的缓冲区字节数
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_GetPrinterFirmwareVersion(Pointer handle, byte[] pBuf, int cbBuf, IntByReference pcbNeeded);
+
+    public class CP_Printer_GetPrinterFirmwareVersion_Helper {
+        public static String GetPrinterFirmwareVersion(Pointer handle) {
+            IntByReference pcbNeeded = new IntByReference();
+            INSTANCE.CP_Printer_GetPrinterFirmwareVersion(handle, null, 0, pcbNeeded);
+            if (pcbNeeded.getValue() > 0) {
+                byte[] pBuf = new byte[pcbNeeded.getValue()];
+                if (pBuf != null) {
+                    INSTANCE.CP_Printer_GetPrinterFirmwareVersion(handle, pBuf, pBuf.length, null);
+                    String s = new String(pBuf);
+                    return s;
+                }
+            }
+            return null;
+        }
+    }
+
+    //      获取打印机状态
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    //  printer_error_status
+    //      打印机错误状态
+    //
+    //  printer_info_status
+    //      打印机信息状态
+    //
+    //  timestamp_ms
+    //      时间戳
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_GetPrinterStatusInfo(Pointer handle, LongByReference printer_error_status, LongByReference printer_info_status, LongByReference timestamp_ms);
+
+    //      获取打印机已接收字节数
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    //  printer_received_byte_count
+    //      打印机已接收字节数
+    //
+    //  timestamp_ms
+    //      时间戳
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_GetPrinterReceivedInfo(Pointer handle, IntByReference printer_received_byte_count, LongByReference timestamp_ms);
+
+    //      获取打印机已打印的单据号
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    //  printer_printed_page_id
+    //      打印机已打印的单据号
+    //
+    //  timestamp_ms
+    //      时间戳
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_GetPrinterPrintedInfo(Pointer handle, IntByReference printer_printed_page_id, LongByReference timestamp_ms);
+
+    //      获取打印机标签位置微调信息
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    //  label_print_position_adjustment
+    //      打印机标签打印位置微调
+    //
+    //  label_tear_position_adjustment
+    //      打印机标签撕纸位置微调
+    //
+    //  timestamp_ms
+    //      时间戳
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_GetPrinterLabelPositionAdjustmentInfo(Pointer handle, DoubleByReference label_print_position_adjustment, DoubleByReference label_tear_position_adjustment, LongByReference timestamp_ms);
+
+    //      设置标签打印位置和撕纸位置微调
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // label_print_position_adjustment
+    //      标签打印位置微调mm（微调不超过±4mm）
+    //
+    // label_tear_position_adjustment
+    //      标签撕纸位置微调mm（微调不超过±4mm）
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Printer_SetPrinterLabelPositionAdjustmentInfo(Pointer handle, double label_print_position_adjustment, double label_tear_position_adjustment);
+
+    //      实时清除打印机缓存
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_ClearPrinterBuffer(Pointer handle);
+
+    //      实时清除打印机错误
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      true on success.
+    //      false on failed.
+    public boolean CP_Printer_ClearPrinterError(Pointer handle);
+
+    //      查询打印机实时状态
+    //      如果是支持自动回传的机型，状态会自动回传，不需要使用本指令查询
+    //      由于实时状态指令，无校验，无法保证结果一定正确
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // timeout
+    //      超时毫秒时间。
+    //      查询等待时间不超过此时间。
+    //
+    // return
+    //      返回值仅指示指令是否成功。成功返回实时状态，失败返回0。
+    //      详细状态请查看CP_RTSTATUS_XXX，如果状态定义与实际机型不符，以实测为准。
+    public int CP_Pos_QueryRTStatus(Pointer handle, int timeout);
+
+    //      查询前面内容的打印结果
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nPageID
+    //      页编号
+    //
+    // timeout
+    //      超时毫秒时间。
+    //      查询打印结果等待时间不超过此时间。
+    //
+    // return
+    //      返回值仅指示指令是否打印成功。返回true表示打印成功，返回false表示打印失败或查询失败。
+    public boolean CP_Pos_QueryPrintResult(Pointer handle, int nPageID, int timeout);
+
+    //      开钱箱（产生钱箱脉冲）
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nDrawerIndex
+    //      钱箱编号，各值说明如下
+    //      编号      说明
+    //        0      钱箱引脚2
+    //        1      钱箱引脚5
+    //
+    // nHighLevelTime
+    //      高电平毫秒时间
+    //
+    // nLowLevelTime
+    //      低电平毫秒时间
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_KickOutDrawer(Pointer handle, int nDrawerIndex, int nHighLevelTime, int nLowLevelTime);
+
+    //      蜂鸣器鸣叫
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nBeepCount
+    //      鸣叫次数
+    //
+    // nBeepMs
+    //      蜂鸣毫秒时间，取值范围[100,900]。取整到百毫秒。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_Beep(Pointer handle, int nBeepCount, int nBeepMs);
+
+    //      走纸到切刀位置并半切纸
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_FeedAndHalfCutPaper(Pointer handle);
+
+    //      切刀全切
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_FullCutPaper(Pointer handle);
+
+    //      切刀半切
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_HalfCutPaper(Pointer handle);
+
+    //      打印机进纸指定行数
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // numLines
+    //      要进的行数
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_FeedLine(Pointer handle, int numLines);
+
+    //      打印机进纸指定点数
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // numDots
+    //      要进的点数
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_FeedDot(Pointer handle, int numDots);
+
+    //      打印机打印自检页
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintSelfTestPage(Pointer handle);
+
+    //      打印文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintText(Pointer handle, String str);
+
+    //      打印文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为UTF8编码发送。
+    public boolean CP_Pos_PrintTextInUTF8(Pointer handle, WString str);
+
+    //      打印文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为GBK编码发送。
+    public boolean CP_Pos_PrintTextInGBK(Pointer handle, WString str);
+
+    //      打印文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为BIG5编码发送。
+    public boolean CP_Pos_PrintTextInBIG5(Pointer handle, WString str);
+
+    //      打印文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为ShiftJIS编码发送。
+    public boolean CP_Pos_PrintTextInShiftJIS(Pointer handle, WString str);
+
+    //      打印文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为EUCKR编码发送。
+    public boolean CP_Pos_PrintTextInEUCKR(Pointer handle, WString str);
+
+    //      打印一维条码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nBarcodeType
+    //      标识条码类型
+    //      各值定义如下：
+    //      值    类型
+    //      0x41     UPC-A
+    //      0x42     UPC-E
+    //      0x43     EAN13
+    //      0x44     EAN8
+    //      0x45     CODE39
+    //      0x46     ITF
+    //      0x47     CODABAR
+    //      0x48     CODE93
+    //      0x49     CODE128
+    //
+    // str
+    //      要打印的条码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintBarcode(Pointer handle, int nBarcodeType, String str);
+
+    //      打印QR码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nVersion
+    //      指定字符版本。取值范围：[0,16]。
+    //      当 version 为 0 时，打印机根据字符串长度自动计算版本号。
+    //
+    // nECCLevel
+    //      指定纠错等级。取值范围：[1, 4]。
+    //      各值定义如下：
+    //      ECC 纠错等级
+    //      1   L：7%，低纠错，数据多。
+    //      2   M：15%，中纠错
+    //      3   Q：优化纠错
+    //      4   H：30%，最高纠错，数据少。
+    //
+    // str
+    //      要打印的QR码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintQRCode(Pointer handle, int nVersion, int nECCLevel, String str);
+
+    //      打印QR码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nQRCodeUnitWidth
+    //      QRCode 码码块宽度，取值范围：[1, 16]。
+    //
+    // nECCLevel
+    //      指定纠错等级。取值范围：[1, 4]。
+    //      各值定义如下：
+    //      ECC 纠错等级
+    //      1   L：7%，低纠错，数据多。
+    //      2   M：15%，中纠错
+    //      3   Q：优化纠错
+    //      4   H：30%，最高纠错，数据少。
+    //
+    // str
+    //      要打印的QR码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintQRCodeUseEpsonCmd(Pointer handle, int nQRCodeUnitWidth, int nECCLevel, String str);
+
+    //      打印两个QR码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nQRCodeUnitWidth
+    //      QRCode 码码块宽度，取值范围：[1, 8]。
+    //
+    // nQR1Position
+    // nQR2Position
+    //      QRCode position
+    //
+    // nQR1Version
+    // nQR2Version
+    //      指定字符版本。取值范围：[0,16]。
+    //      当 version 为 0 时，打印机根据字符串长度自动计算版本号。
+    //
+    // nQR1ECCLevel
+    // nQR2ECCLevel
+    //      指定纠错等级。取值范围：[1, 4]。
+    //      各值定义如下：
+    //      ECC 纠错等级
+    //      1   L：7%，低纠错，数据多。
+    //      2   M：15%，中纠错
+    //      3   Q：优化纠错
+    //      4   H：30%，最高纠错，数据少。
+    //
+    // strQR1
+    // strQR2
+    //      要打印的QR码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintDoubleQRCode(Pointer handle, int nQRCodeUnitWidth, int nQR1Position, int nQR1Version, int nQR1ECCLevel, String strQR1, int nQR2Position, int nQR2Version, int nQR2ECCLevel, String strQR2);
+
+    //      打印PDF417条码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // columnCount
+    //      列数，取值范围[0,30]
+    //
+    // rowCount
+    //      行数，取值范围0,[3,90]
+    //
+    // unitWidth
+    //      模块单元宽度，取值范围[2,8]
+    //
+    // rowHeight
+    //      行高，取值范围[2,8]
+    //
+    // nECCLevel
+    //      指定纠错等级。取值范围：[0,8]。
+    //
+    // dataProcessingMode
+    //      数据处理模式。0选择标准PDF417，1选择截断PDF417。
+    //
+    // str
+    //      要打印的PDF417码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintPDF417BarcodeUseEpsonCmd(Pointer handle, int columnCount, int rowCount, int unitWidth, int rowHeight, int nECCLevel, int dataProcessingMode, String str);
+
+    //      打印图片
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // dstw
+    //      要打印的宽度
+    //
+    // dsth
+    //      要打印的高度
+    //
+    // pszFile
+    //      图片的路径
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // compress_method
+    //      最终打印数据的压缩方式，各值定义如下
+    //      值    定义
+    //      0     不压缩
+    //      1     一级压缩
+    //      2     二级压缩
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintRasterImageFromFile(Pointer handle, int dstw, int dsth, String pszFile, int binaryzation_method, int compress_method);
+
+    //      打印图片（图片可由文件读取）
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // dstw
+    //      要打印的宽度
+    //
+    // dsth
+    //      要打印的高度
+    //
+    // data
+    //      图片数据。
+    //
+    // data_size
+    //      图片数据长度
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // compress_method
+    //      最终打印数据的压缩方式，各值定义如下
+    //      值    定义
+    //      0     不压缩
+    //      1     一级压缩
+    //      2     二级压缩
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintRasterImageFromData(Pointer handle, int dstw, int dsth, byte[] data, int data_size, int binaryzation_method, int compress_method);
+    public class CP_Pos_PrintRasterImageFromData_Helper {
+        public static boolean PrintRasterImageFromBitmap(Pointer handle, int dstw, int dsth, Bitmap bitmap, int binaryzation_method, int compress_method) {
+            boolean result = false;
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            if (bitmap.compress(Bitmap.CompressFormat.PNG, 100, os)) {
+                byte[] data = os.toByteArray();
+                result = INSTANCE.CP_Pos_PrintRasterImageFromData(handle, dstw, dsth, data, data.length, binaryzation_method, compress_method);
+            }
+            return result;
+        }
+    }
+
+    //      打印图片像素数据
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // img_data
+    //      图片的像素数据。
+    //
+    // img_datalen
+    //      图片的像素数据字节数。
+    //
+    // img_width
+    //      图片的像素宽度。
+    //
+    // img_height
+    //      图片的像素高度。
+    //
+    // img_stride
+    //      图片水平跨度。表示每行字节数。
+    //
+    // img_format
+    //      图片像素数据格式，各值定义如下
+    //      值    定义
+    //      1     mono
+    //      2     monolsb
+    //      3     gray
+    //      4     r.g.b in byte-ordered
+    //      5     b.g.r in byte-ordered
+    //      6     a.r.g.b in byte-ordered
+    //      7     r.g.b.a in byte-ordered
+    //      8     a.b.g.r in byte-ordered
+    //      9     b.g.r.a in byte-ordered
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // compress_method
+    //      最终打印数据的压缩方式，各值定义如下
+    //      值    定义
+    //      0     不压缩
+    //      1     一级压缩
+    //      2     二级压缩
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintRasterImageFromPixels(Pointer handle, byte[] img_data, int img_datalen, int img_width, int img_height, int img_stride, int img_format, int binaryzation_method, int compress_method);
+
+    //      打印一条水平线
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nLineStartPosition
+    //      线段起点位置
+    //
+    // nLineEndPosition
+    //      线段终点位置
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintHorizontalLine(Pointer handle, int nLineStartPosition, int nLineEndPosition);
+
+    //      打印一条水平线
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nLineStartPosition
+    //      线段起点位置
+    //
+    // nLineEndPosition
+    //      线段终点位置
+    //
+    // nLineThickness
+    //      线段粗细
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintHorizontalLineSpecifyThickness(Pointer handle, int nLineStartPosition, int nLineEndPosition, int nLineThickness);
+
+    //      同一行上打印多条水平线，连续调用可打印曲线
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nLineCount
+    //      线段条数
+    //
+    // pLineStartPosition
+    //      线段起点位置
+    //
+    // pLineEndPosition
+    //      线段终点位置
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_PrintMultipleHorizontalLinesAtOneRow(Pointer handle, int nLineCount, int[] pLineStartPosition, int[] pLineEndPosition);
+
+    //      复位打印机，清除设置
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_ResetPrinter(Pointer handle);
+
+    //      设置打印速度（部分机型支持）
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nSpeed
+    //      打印速度，单位毫米每秒
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetPrintSpeed(Pointer handle, int nSpeed);
+
+    //      设置打印浓度（部分机型支持）
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nDensity
+    //      设置打印浓度[0,15]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetPrintDensity(Pointer handle, int nDensity);
+
+    //      设置打印机为单字节编码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetSingleByteMode(Pointer handle);
+
+    //      设置打印机字符集
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nCharacterSet
+    //      打印机字符集，范围[0,15]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetCharacterSet(Pointer handle, int nCharacterSet);
+
+    //      设置字符代码页
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nCharacterCodepage
+    //      字符代码页，范围[0,255]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetCharacterCodepage(Pointer handle, int nCharacterCodepage);
+
+    //      设置打印机为多字节编码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetMultiByteMode(Pointer handle);
+
+    //      设置打印机多字节编码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nEncoding
+    //      多字节编码，各值定义如下：
+    //      值  定义
+    //      0   GBK
+    //      1   UTF8
+    //      3   BIG5
+    //      4   SHIFT-JIS
+    //      5   EUC-KR
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetMultiByteEncoding(Pointer handle, int nEncoding);
+
+    //      设置打印移动单位
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nHorizontalMovementUnit
+    //      水平移动单位
+    //
+    // nVerticalMovementUnit
+    //      垂直移动单位
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      移动单位设置为200，则1mm=8点。
+    public boolean CP_Pos_SetMovementUnit(Pointer handle, int nHorizontalMovementUnit, int nVerticalMovementUnit);
+
+    //      设置打印区域左边空白
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nLeftMargin
+    //      左边空白
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetPrintAreaLeftMargin(Pointer handle, int nLeftMargin);
+
+    //      设置打印区域宽度
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nWidth
+    //      打印区域宽度
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetPrintAreaWidth(Pointer handle, int nWidth);
+
+    //      设置横向绝对打印位置
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nPosition
+    //      打印位置
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetHorizontalAbsolutePrintPosition(Pointer handle, int nPosition);
+
+    //      设置横向相对打印位置
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nPosition
+    //      打印位置
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetHorizontalRelativePrintPosition(Pointer handle, int nPosition);
+
+    //      设置纵向绝对打印位置，仅在页模式下有效。
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nPosition
+    //      打印位置
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetVerticalAbsolutePrintPosition(Pointer handle, int nPosition);
+
+    //      设置纵向相对打印位置，仅在页模式下有效。
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nPosition
+    //      打印位置
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetVerticalRelativePrintPosition(Pointer handle, int nPosition);
+
+    //      设置打印对齐方式
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nAlignment
+    //      打印对齐方式，各值定义如下：
+    //      值  定义
+    //      0   左对齐
+    //      1   中对齐
+    //      2   右对齐
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetAlignment(Pointer handle, int nAlignment);
+
+    //      设置文本放大倍数
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nWidthScale
+    //      宽度放大倍数
+    //
+    // nHeightScale
+    //      高度放大倍数
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetTextScale(Pointer handle, int nWidthScale, int nHeightScale);
+
+    //      设置英文字符字体类型
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nFontType
+    //      英文字符字体类型，各值定义如下：
+    //      值  定义
+    //      0   字型A（12x24）
+    //      1   字型B（9x17）
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetAsciiTextFontType(Pointer handle, int nFontType);
+
+    //      设置文本加粗打印
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nBold
+    //      是否加粗，各值定义如下：
+    //      值  定义
+    //      0   不加粗
+    //      1   加粗
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetTextBold(Pointer handle, int nBold);
+
+    //      设置文本下划线
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nUnderline
+    //      文本下划线，各值定义如下：
+    //      值  定义
+    //      0   无下划线
+    //      1   1点下划线
+    //      2   2点下划线
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetTextUnderline(Pointer handle, int nUnderline);
+
+    //      设置文本倒置打印
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nUpsideDown
+    //      倒置打印，各值定义如下：
+    //      值  定义
+    //      0   不倒置打印
+    //      1   倒置打印
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetTextUpsideDown(Pointer handle, int nUpsideDown);
+
+    //      设置黑白反显
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nWhiteOnBlack
+    //      黑白反显，各值定义如下：
+    //      值  定义
+    //      0   不黑白反显
+    //      1   黑白反显
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetTextWhiteOnBlack(Pointer handle, int nWhiteOnBlack);
+
+    //      设置文本旋转90度打印
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nRotate
+    //      旋转打印，各值定义如下：
+    //      值  定义
+    //      0   不旋转打印
+    //      1   旋转90度打印
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetTextRotate(Pointer handle, int nRotate);
+
+    //      设置行高
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nLineHeight
+    //      行高，范围[1,255]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetTextLineHeight(Pointer handle, int nLineHeight);
+
+    //      设置ASCII字符右边空白
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nSpacing
+    //      右边空白，范围[1,255]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetAsciiTextCharRightSpacing(Pointer handle, int nSpacing);
+
+    //      设置汉字文本字符左边空白和右边空白
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nLeftSpacing
+    //      右边空白，范围[1,255]
+    //
+    // nRightSpacing
+    //      右边空白，范围[1,255]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetKanjiTextCharSpacing(Pointer handle, int nLeftSpacing, int nRightSpacing);
+
+    //      设置条码和二维码单元宽度
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nBarcodeUnitWidth
+    //      条码单元宽度，取值范围：[1,6]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetBarcodeUnitWidth(Pointer handle, int nBarcodeUnitWidth);
+
+    //      设置条码高度
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nBarcodeHeight
+    //      定义条码高度。取值范围：[1,255]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetBarcodeHeight(Pointer handle, int nBarcodeHeight);
+
+    //      设置条码可读字符字体类型
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nFontType
+    //      指定可读字符的字体类型，各值定义如下：
+    //      值  类型
+    //      0   标准ASCII
+    //      1   压缩ASCII
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetBarcodeReadableTextFontType(Pointer handle, int nFontType);
+
+    //      设置条码可读字符打印位置
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nTextPosition
+    //      条码可读字符位置，取值范围：[0, 3].
+    //      各值定义如下：
+    //      值 定义
+    //      0 不显示可读字符
+    //      1 在条码下方显示可读字符
+    //      2 在条码上方显示可读字符
+    //      3 在条码上方和条码下方显示可读字符
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Pos_SetBarcodeReadableTextPosition(Pointer handle, int nTextPosition);
+
+    //      选择页模式
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_SelectPageMode(Pointer handle);
+
+    //      选择页模式，并设置移动单位和页面大小，还会设置其他一系列参数为默认值
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nHorizontalMovementUnit
+    //      水平移动单位
+    //
+    // nVerticalMovementUnit
+    //      垂直移动单位
+    //
+    // x
+    //      横向起始位置
+    //
+    // y
+    //      纵向起始位置
+    //
+    // width
+    //      打印区域宽度
+    //
+    // height
+    //      打印区域高度
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_SelectPageModeEx(Pointer handle, int nHorizontalMovementUnit, int nVerticalMovementUnit, int x, int y, int width, int height);
+
+    //      退出页模式并回到标准模式
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_ExitPageMode(Pointer handle);
+
+    //      页模式下打印内容
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_PrintPage(Pointer handle);
+
+    //      页模式下清除页面
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_ClearPage(Pointer handle);
+
+    //      页模式下设置页区域，页面最高2000点（1mm8点）
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向起始位置
+    //
+    // y
+    //      纵向起始位置
+    //
+    // width
+    //      打印区域宽度
+    //
+    // height
+    //      打印区域高度
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_SetPageArea(Pointer handle, int x, int y, int width, int height);
+
+    //      页模式下设置打印方向
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // nDirection
+    //      打印区域方向，各值定义如下：
+    //      0    从左到右
+    //      1    从下到上
+    //      2    从右到左
+    //      3    从上到下
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_SetPageDrawDirection(Pointer handle, int nDirection);
+
+    //      画矩形
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // width
+    //      矩形宽度
+    //
+    // height
+    //      矩形高度
+    //
+    // color
+    //      矩形颜色，0是白色，1是黑色
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_DrawRect(Pointer handle, int x, int y, int width, int height, int color);
+
+    //      画矩形框
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // width
+    //      矩形框宽度
+    //
+    // height
+    //      矩形框高度
+    //
+    // borderwidth
+    //      矩形框边框宽度
+    //
+    // bordercolor
+    //      矩形框边框颜色，0是白色，1是黑色
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_DrawBox(Pointer handle, int x, int y, int width, int height, int borderwidth, int bordercolor);
+
+    //      画文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_DrawText(Pointer handle, int x, int y, String str);
+
+    //      画文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为UTF8编码发送。
+    public boolean CP_Page_DrawTextInUTF8(Pointer handle, int x, int y, WString str);
+
+    //      画文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为GBK编码发送。
+    public boolean CP_Page_DrawTextInGBK(Pointer handle, int x, int y, WString str);
+
+    //      画文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为BIG5编码发送。
+    public boolean CP_Page_DrawTextInBIG5(Pointer handle, int x, int y, WString str);
+
+    //      画文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为ShiftJIS编码发送。
+    public boolean CP_Page_DrawTextInShiftJIS(Pointer handle, int x, int y, WString str);
+
+    //      画文本
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为EUCKR编码发送。
+    public boolean CP_Page_DrawTextInEUCKR(Pointer handle, int x, int y, WString str);
+
+    //      打印一维条码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // nBarcodeType
+    //      标识条码类型
+    //      各值定义如下：
+    //      值    类型
+    //      0x41     UPC-A
+    //      0x42     UPC-E
+    //      0x43     EAN13
+    //      0x44     EAN8
+    //      0x45     CODE39
+    //      0x46     ITF
+    //      0x47     CODABAR
+    //      0x48     CODE93
+    //      0x49     CODE128
+    //
+    // str
+    //      要打印的条码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_DrawBarcode(Pointer handle, int x, int y, int nBarcodeType, String str);
+
+    //      打印QR码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // nVersion
+    //      指定字符版本。取值范围：[0,16]。
+    //      当 version 为 0 时，打印机根据字符串长度自动计算版本号。
+    //
+    // nECCLevel
+    //      指定纠错等级。取值范围：[1, 4]。
+    //      各值定义如下：
+    //      ECC 纠错等级
+    //      1   L：7%，低纠错，数据多。
+    //      2   M：15%，中纠错
+    //      3   Q：优化纠错
+    //      4   H：30%，最高纠错，数据少。
+    //
+    // str
+    //      要打印的QR码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_DrawQRCode(Pointer handle, int x, int y, int nVersion, int nECCLevel, String str);
+
+    //      打印图片
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // dstw
+    //      要打印的宽度
+    //
+    // dsth
+    //      要打印的高度
+    //
+    // pszFile
+    //      图片的路径
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_DrawRasterImageFromFile(Pointer handle, int x, int y, int dstw, int dsth, String pszFile, int binaryzation_method);
+
+    //      打印图片（图片可由文件读取）
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // dstw
+    //      要打印的宽度
+    //
+    // dsth
+    //      要打印的高度
+    //
+    // data
+    //      图片数据。
+    //
+    // data_size
+    //      图片数据长度
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_DrawRasterImageFromData(Pointer handle, int x, int y, int dstw, int dsth, byte[] data, int data_size, int binaryzation_method);
+    public class CP_Page_DrawRasterImageFromData_Helper {
+        public static boolean DrawRasterImageFromBitmap(Pointer handle, int x, int y, int dstw, int dsth, Bitmap bitmap, int binaryzation_method) {
+            boolean result = false;
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            if (bitmap.compress(Bitmap.CompressFormat.PNG, 100, os)) {
+                byte[] data = os.toByteArray();
+                result = INSTANCE.CP_Page_DrawRasterImageFromData(handle, x, y, dstw, dsth, data, data.length, binaryzation_method);
+            }
+            return result;
+        }
+    }
+
+    //      打印图片像素数据
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // img_data
+    //      图片的像素数据。
+    //
+    // img_datalen
+    //      图片的像素数据字节数。
+    //
+    // img_width
+    //      图片的像素宽度。
+    //
+    // img_height
+    //      图片的像素高度。
+    //
+    // img_stride
+    //      图片水平跨度。表示每行字节数。
+    //
+    // img_format
+    //      图片像素数据格式，各值定义如下
+    //      值    定义
+    //      1     mono
+    //      2     monolsb
+    //      3     gray
+    //      4     r.g.b in byte-ordered
+    //      5     b.g.r in byte-ordered
+    //      6     a.r.g.b in byte-ordered
+    //      7     r.g.b.a in byte-ordered
+    //      8     a.b.g.r in byte-ordered
+    //      9     b.g.r.a in byte-ordered
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Page_DrawRasterImageFromPixels(Pointer handle, int x, int y, byte[] img_data, int img_datalen, int img_width, int img_height, int img_stride, int img_format, int binaryzation_method);
+
+    //      启用黑标模式，重启打印机生效
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_BlackMark_EnableBlackMarkMode(Pointer handle);
+
+    //      禁用黑标模式
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_BlackMark_DisableBlackMarkMode(Pointer handle);
+
+    //      设置黑标最大查找距离（重启仍有效）
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // maxFindLength
+    //      最大查找距离（maxFindLength x 0.125 毫米）
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_BlackMark_SetBlackMarkMaxFindLength(Pointer handle, int maxFindLength);
+
+    //      查找下一个黑标
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_BlackMark_FindNextBlackMark(Pointer handle);
+
+    //      黑标模式下，设置起始打印位置的调整值
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // position
+    //      大于0则指定为进纸，小于0则指定为退纸。距离为 position x 0.125 毫米。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_BlackMark_SetBlackMarkPaperPrintPosition(Pointer handle, int position);
+
+    //      黑标模式下，设置切纸位置
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // position
+    //      大于0则指定为进纸，小于0则指定为退纸。距离为 position x 0.125 毫米。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_BlackMark_SetBlackMarkPaperCutPosition(Pointer handle, int position);
+
+    //      切刀全切
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_BlackMark_FullCutBlackMarkPaper(Pointer handle);
+
+    //      切刀半切
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_BlackMark_HalfCutBlackMarkPaper(Pointer handle);
+
+    //      启用标签模式
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_EnableLabelMode(Pointer handle);
+
+    //      关闭标签模式
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DisableLabelMode(Pointer handle);
+
+    //      校准标签纸（更换不同规格标签纸，需要校准）
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_CalibrateLabel(Pointer handle);
+
+    //      走纸到标签缝隙处
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_FeedLabel(Pointer handle);
+
+    //      指示一个 Page 页面的开始，并设置 Page 页的大小，参考点坐标和页面旋转角度
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      页面起始点 x 坐标
+    //
+    // y
+    //      页面起始点 y 坐标
+    //
+    // width
+    //      页面页宽
+    //
+    // height
+    //      页面页高
+    //
+    // rotation
+    //      页面旋转。 rotate 的取值范围为{0,1}。为 0，页面不旋转打印，为 1，页面旋转 90 度打印。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_PageBegin(Pointer handle, int x, int y, int width, int height, int rotation);
+
+    //      将 Page 页上的内容打印到标签纸上
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // copies
+    //      份数 [ 1 - 255 ]
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_PagePrint(Pointer handle, int copies);
+
+    //      在 Page 页面上指定位置绘制文本。只能单行打印。
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      定义文本起始位置 x 坐标，取值范围：[0, Page_Width-1]
+    //
+    // y
+    //      定义文本起始位置 y 坐标，取值范围：[0, Page_Height-1]
+    //
+    // font
+    //      选择字体，可以使用24。
+    //      带矢量字机型支持16,[20,99]。
+    //
+    // style
+    //      字符风格。
+    //      数据位               定义
+    //      0 加粗标志位：       置 1 字体加粗，清零则字体不加粗。
+    //      1 下划线标志位：     置 1 文本带下划线，清零则无下划线。
+    //      2 反白标志位：       置 1 文本反白(黑底白字)，清零不反白。
+    //      3 删除线标志位：     置 1 文本带删除线，清零则无删除线。
+    //      [5,4] 旋转标志位：   00 旋转 0° ；
+    //                           01 旋转 90°；
+    //                           10 旋转 180°；
+    //                           11 旋转 270°；
+    //      [11,8] 字体宽度放大倍数；
+    //      [15,12] 字体高度放大倍数；
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawText(Pointer handle, int x, int y, int font, int style, String str);
+
+    //      在 Page 页面上指定位置绘制文本。只能单行打印。
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      定义文本起始位置 x 坐标，取值范围：[0, Page_Width-1]
+    //
+    // y
+    //      定义文本起始位置 y 坐标，取值范围：[0, Page_Height-1]
+    //
+    // font
+    //      选择字体，可以使用24。
+    //      带矢量字机型支持16,[20,99]。
+    //
+    // style
+    //      字符风格。
+    //      数据位               定义
+    //      0 加粗标志位：       置 1 字体加粗，清零则字体不加粗。
+    //      1 下划线标志位：     置 1 文本带下划线，清零则无下划线。
+    //      2 反白标志位：       置 1 文本反白(黑底白字)，清零不反白。
+    //      3 删除线标志位：     置 1 文本带删除线，清零则无删除线。
+    //      [5,4] 旋转标志位：   00 旋转 0° ；
+    //                           01 旋转 90°；
+    //                           10 旋转 180°；
+    //                           11 旋转 270°；
+    //      [11,8] 字体宽度放大倍数；
+    //      [15,12] 字体高度放大倍数；
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为UTF8编码发送。
+    public boolean CP_Label_DrawTextInUTF8(Pointer handle, int x, int y, int font, int style, WString str);
+
+    //      在 Page 页面上指定位置绘制文本。只能单行打印。
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      定义文本起始位置 x 坐标，取值范围：[0, Page_Width-1]
+    //
+    // y
+    //      定义文本起始位置 y 坐标，取值范围：[0, Page_Height-1]
+    //
+    // font
+    //      选择字体，可以使用24。
+    //      带矢量字机型支持16,[20,99]。
+    //
+    // style
+    //      字符风格。
+    //      数据位               定义
+    //      0 加粗标志位：       置 1 字体加粗，清零则字体不加粗。
+    //      1 下划线标志位：     置 1 文本带下划线，清零则无下划线。
+    //      2 反白标志位：       置 1 文本反白(黑底白字)，清零不反白。
+    //      3 删除线标志位：     置 1 文本带删除线，清零则无删除线。
+    //      [5,4] 旋转标志位：   00 旋转 0° ；
+    //                           01 旋转 90°；
+    //                           10 旋转 180°；
+    //                           11 旋转 270°；
+    //      [11,8] 字体宽度放大倍数；
+    //      [15,12] 字体高度放大倍数；
+    //
+    // str
+    //      要打印的字符串
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    //
+    // remarks
+    //      该函数会将数据转为GBK编码发送。
+    public boolean CP_Label_DrawTextInGBK(Pointer handle, int x, int y, int font, int style, WString str);
+
+    //      在 Page 页指定位置绘制一维条码。
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      条码左上角 x 坐标值，取值范围：[0, Page_Width-1]。
+    //
+    // y
+    //      条码左上角 y 坐标值，取值范围：[0, Page_Height-1]。
+    //
+    // nBarcodeType
+    //      标识条码类型
+    //      各值定义看宏定义
+    //
+    // nBarcodeTextPrintPosition
+    //      条码可读字符位置，取值范围：[0, 3].
+    //      各值定义如下：
+    //      值 定义
+    //      0 不显示可读字符
+    //      1 在条码下方显示可读字符
+    //      2 在条码上方显示可读字符
+    //      3 在条码上方和条码下方显示可读字符
+    //
+    // height
+    //      定义条码高度。
+    //
+    // unitwidth
+    //      定义码块单元宽度。取值范围：[1, 4]。
+    //
+    // rotation
+    //      表示旋转角度。取值范围：[0, 3]。各值定义如下：
+    //      值 定义
+    //      0  不旋转绘制。
+    //      1  旋转 90°绘制。
+    //      2  旋转 180°绘制。
+    //      3  旋转 270°绘制。
+    //
+    // str
+    //      要打印的条码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawBarcode(Pointer handle, int x, int y, int nBarcodeType, int nBarcodeTextPrintPosition, int height, int unitwidth, int rotation, String str);
+
+    //      在 Page 页指定位置绘制QR码。
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      左上角 x 坐标值，取值范围：[0，Page_Width-1]。
+    //
+    // y
+    //      左上角 y 坐标值，取值范围：[0, Page_Height-1]。
+    //
+    // nVersion
+    //      指定字符版本。取值范围：[0,16]。
+    //      当 version 为 0 时，打印机根据字符串长度自动计算版本号。
+    //
+    // nECCLevel
+    //      指定纠错等级。取值范围：[1, 4]。
+    //      各值定义如下：
+    //      ECC 纠错等级
+    //      1   L：7%，低纠错，数据多。
+    //      2   M：15%，中纠错
+    //      3   Q：优化纠错
+    //      4   H：30%，最高纠错，数据少。
+    //
+    // unitwidth
+    //      定义码块单元宽度。取值范围：[1, 4]。
+    //
+    // rotation
+    //      表示旋转角度。取值范围：[0, 3]。各值定义如下：
+    //      值 定义
+    //      0  不旋转绘制。
+    //      1  旋转 90°绘制。
+    //      2  旋转 180°绘制。
+    //      3  旋转 270°绘制。
+    //
+    // str
+    //      要打印的QR码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawQRCode(Pointer handle, int x, int y, int nVersion, int nECCLevel, int unitwidth, int rotation, String str);
+
+    //      在 Page 页指定位置绘制 PDF417 条码
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      左上角 x 坐标值，取值范围：[0, Page_Width-1]。
+    //
+    // y
+    //      左上角 y 坐标值，取值范围：[0, Page_Height-1]。
+    //
+    // column
+    //      ColNum 为列数，表述每行容纳多少码字。一个码字为 17*UnitWidth 个点。行数由打印机自动产生，行数范围限定为 3~90。ColNum 的取值范围：[1,30]。
+    //
+    // nECCLevel
+    //      指定纠错等级。取值范围：[0, 8]。
+    //      纠错等级取值 纠错码数 可存资料量（字节）
+    //      0 2 1108
+    //      1 4 1106
+    //      2 8 1101
+    //      3 16 1092
+    //      4 32 1072
+    //      5 64 1024
+    //      6 128 957
+    //      7 256 804
+    //      8 512 496
+    //
+    // unitwidth
+    //      定义码块单元宽度。取值范围：[1, 3]。
+    //
+    // rotation
+    //      表示旋转角度。取值范围：[0, 3]。各值定义如下：
+    //      值 定义
+    //      0  不旋转绘制。
+    //      1  旋转 90°绘制。
+    //      2  旋转 180°绘制。
+    //      3  旋转 270°绘制。
+    //
+    // str
+    //      要打印的PDF417码
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawPDF417Code(Pointer handle, int x, int y, int column, int nAspectRatio, int nECCLevel, int unitwidth, int rotation, String str);
+
+    //      在 Page 页指定位置绘制位图
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      左上角 x 坐标值，取值范围：[0, Page_Width-1]。
+    //
+    // y
+    //      左上角 y 坐标值，取值范围：[0, Page_Height-1]。
+    //
+    // dstw
+    //      要打印的宽度
+    //
+    // dsth
+    //      要打印的高度
+    //
+    // pszFile
+    //      图片的路径
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawImageFromFile(Pointer handle, int x, int y, int dstw, int dsth, String pszFile, int binaryzation_method);
+
+    //      在 Page 页指定位置绘制位图
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      左上角 x 坐标值，取值范围：[0, Page_Width-1]。
+    //
+    // y
+    //      左上角 y 坐标值，取值范围：[0, Page_Height-1]。
+    //
+    // dstw
+    //      要打印的宽度
+    //
+    // dsth
+    //      要打印的高度
+    //
+    // data
+    //      图片数据。
+    //
+    // data_size
+    //      图片数据长度
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawImageFromData(Pointer handle, int x, int y, int dstw, int dsth, byte[] data, int data_size, int binaryzation_method);
+
+    public class CP_Label_DrawImageFromData_Helper {
+        public static boolean DrawImageFromBitmap(Pointer handle, int x, int y, int dstw, int dsth, Bitmap bitmap, int binaryzation_method) {
+            boolean result = false;
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            if (bitmap.compress(Bitmap.CompressFormat.PNG, 100, os)) {
+                byte[] data = os.toByteArray();
+                result = INSTANCE.CP_Label_DrawImageFromData(handle, x, y, dstw, dsth, data, data.length, binaryzation_method);
+            }
+            return result;
+        }
+    }
+
+    //      在 Page 页指定位置绘制位图
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      左上角 x 坐标值，取值范围：[0, Page_Width-1]。
+    //
+    // y
+    //      左上角 y 坐标值，取值范围：[0, Page_Height-1]。
+    //
+    // img_data
+    //      图片的像素数据。
+    //
+    // img_datalen
+    //      图片的像素数据字节数。
+    //
+    // img_width
+    //      图片的像素宽度。
+    //
+    // img_height
+    //      图片的像素高度。
+    //
+    // img_stride
+    //      图片水平跨度。表示每行字节数。
+    //
+    // img_format
+    //      图片像素数据格式，各值定义如下
+    //      值    定义
+    //      1     mono
+    //      2     monolsb
+    //      3     gray
+    //      4     r.g.b in byte-ordered
+    //      5     b.g.r in byte-ordered
+    //      6     a.r.g.b in byte-ordered
+    //      7     r.g.b.a in byte-ordered
+    //      8     a.b.g.r in byte-ordered
+    //      9     b.g.r.a in byte-ordered
+    //
+    // binaryzation_method
+    //      图片二值化算法。0表示抖动算法，1表示阀值算法。具体效果请测试查看。
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawImageFromPixels(Pointer handle, int x, int y, byte[] img_data, int img_datalen, int img_width, int img_height, int img_stride, int img_format, int binaryzation_method);
+
+    //      画线段
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // startx
+    //      直线段起始点 x 坐标值，取值范围：[0, Page_Width-1]。
+    //
+    // starty
+    //      直线段起始点 y 坐标值，取值范围：[0，Page_Height-1]。
+    //
+    // endx
+    //      直线段终止点 x 坐标值，取值范围：[0, Page_Width-1]。
+    //
+    // endy
+    //      直线段终止点 y 坐标值，取值范围：[0,Page_Height-1]。
+    //
+    // linewidth
+    //      直线段线宽，取值范围：[1，Page_Height-1]。
+    //
+    // linecolor
+    //      直线段颜色线条颜色，0是白色，1是黑色
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawLine(Pointer handle, int startx, int starty, int endx, int endy, int linewidth, int linecolor);
+
+    //      画矩形
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // width
+    //      矩形宽度
+    //
+    // height
+    //      矩形高度
+    //
+    // color
+    //      矩形颜色，0是白色，1是黑色
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawRect(Pointer handle, int x, int y, int width, int height, int color);
+
+    //      画矩形框
+    //
+    // handle
+    //      端口句柄，由OpenXXX返回
+    //
+    // x
+    //      横向坐标
+    //
+    // y
+    //      纵向坐标
+    //
+    // width
+    //      矩形框宽度
+    //
+    // height
+    //      矩形框高度
+    //
+    // borderwidth
+    //      矩形框边框宽度
+    //
+    // bordercolor
+    //      矩形框边框颜色，0是白色，1是黑色
+    //
+    // return
+    //      返回值仅指示指令是否写入成功。返回true表示写入成功，返回false表示写入失败。
+    public boolean CP_Label_DrawBox(Pointer handle, int x, int y, int width, int height, int borderwidth, int bordercolor);
+
+
+}
+
