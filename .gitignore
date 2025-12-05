@@ -34,3 +34,15 @@ firebase-service-account.json
 setCustomClaims*.js
 setCustomClaims*.cjs
 backup_*.txt
+
+# Android/Gradle build artifacts
+pos-print-sdk/.gradle/
+pos-print-sdk/**/build/
+pos-print-sdk/**/intermediates/
+pos-print-sdk/**/outputs/
+pos-print-sdk/**/*.apk
+pos-print-sdk/**/*.jar
+pos-print-sdk/**/*.class
+pos-print-sdk/**/*.dex
+*.apk
+*.aab

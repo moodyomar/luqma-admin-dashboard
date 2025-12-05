@@ -1,4 +1,0 @@
-com.luqma.pos.test.poswebview-androidTest-0 /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/build/generated/res/resValues/androidTest/debug
-com.luqma.pos.test.poswebview-mergeDebugAndroidTestResources-1 /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merged.dir
-com.luqma.pos.test.poswebview-mergeDebugAndroidTestResources-2 /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/stripped.dir
-com.luqma.pos.test.poswebview-merged_res-3 /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/build/intermediates/merged_res/debugAndroidTest

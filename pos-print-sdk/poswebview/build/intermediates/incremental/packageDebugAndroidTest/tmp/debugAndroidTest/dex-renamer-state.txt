@@ -1,4 +1,0 @@
-#Thu Dec 04 11:08:10 IST 2025
-base.0=/Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/0/classes.dex
-path.0=0/classes.dex
-renamed.0=classes.dex
