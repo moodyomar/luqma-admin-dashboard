@@ -33,6 +33,7 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
   const [selectedMeal, setSelectedMeal] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [isOptionsExpanded, setIsOptionsExpanded] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({});
 
   const handleLabelChange = (index, lang, value) => {
     const updated = [...options];
@@ -177,18 +178,57 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
     setIsOptionsExpanded(!isOptionsExpanded);
   };
 
+  const toggleCategory = (categoryId) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
+  };
+
   const handleCopyFromMeal = (sourceMeal) => {
     if (sourceMeal.options && sourceMeal.options.length > 0) {
       // Deep copy the options to ensure they are completely independent
-      const deepCopiedOptions = sourceMeal.options.map(option => ({
-        ...option,
-        displayAs: option.displayAs || 'text',
-        values: option.values.map(value => ({
-          ...value,
-          value: `opt_${Date.now()}_${Math.random()}`, // Generate new unique value ID
-          color: value.color || undefined,
-        }))
-      }));
+      const deepCopiedOptions = sourceMeal.options.map((option, optIndex) => {
+        // Generate unique timestamp for each option to ensure unique IDs
+        const baseTimestamp = Date.now() + optIndex;
+        
+        return {
+          ...option,
+          displayAs: option.displayAs || 'text',
+          // Deep copy label object
+          label: {
+            ar: option.label?.ar || '',
+            he: option.label?.he || '',
+          },
+          // Deep copy inputPlaceholder if it exists
+          inputPlaceholder: option.inputPlaceholder ? {
+            ar: option.inputPlaceholder.ar || '',
+            he: option.inputPlaceholder.he || '',
+          } : { ar: '', he: '' },
+          // Deep copy limitsBySelectValue if it exists
+          limitsBySelectValue: option.limitsBySelectValue ? {
+            ...Object.keys(option.limitsBySelectValue).reduce((acc, key) => {
+              acc[key] = option.limitsBySelectValue[key];
+              return acc;
+            }, {})
+          } : {},
+          // Deep copy values array with new unique IDs
+          values: option.values.map((value, valIndex) => ({
+            ...value,
+            // Generate new unique value ID using timestamp + random + indices
+            value: `opt_${baseTimestamp}_${valIndex}_${Math.random().toString(36).substr(2, 9)}`,
+            // Deep copy label object for each value
+            label: {
+              ar: value.label?.ar || '',
+              he: value.label?.he || '',
+            },
+            // Copy primitive values
+            extra: value.extra || (option.type === 'select' ? 0 : undefined),
+            image: value.image || (option.displayAs === 'color' ? undefined : ''),
+            color: value.color || (option.displayAs === 'color' ? '#000000' : undefined),
+          }))
+        };
+      });
       onChange(deepCopiedOptions);
       setShowCopyModal(false);
     }
@@ -214,15 +254,46 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
   const handleCopySelectedOptions = () => {
     if (selectedOptions.length > 0 && selectedMeal) {
       // Deep copy the selected options to ensure they are completely independent
-      const optionsToCopy = selectedOptions.map(index => {
-        const option = selectedMeal.options[index];
+      const baseTimestamp = Date.now();
+      const optionsToCopy = selectedOptions.map((selectedIndex, copyIndex) => {
+        const option = selectedMeal.options[selectedIndex];
+        // Generate unique timestamp for each option to ensure unique IDs
+        const optionTimestamp = baseTimestamp + copyIndex;
+        
         return {
           ...option,
           displayAs: option.displayAs || 'text',
-          values: option.values.map(value => ({
+          // Deep copy label object
+          label: {
+            ar: option.label?.ar || '',
+            he: option.label?.he || '',
+          },
+          // Deep copy inputPlaceholder if it exists
+          inputPlaceholder: option.inputPlaceholder ? {
+            ar: option.inputPlaceholder.ar || '',
+            he: option.inputPlaceholder.he || '',
+          } : { ar: '', he: '' },
+          // Deep copy limitsBySelectValue if it exists
+          limitsBySelectValue: option.limitsBySelectValue ? {
+            ...Object.keys(option.limitsBySelectValue).reduce((acc, key) => {
+              acc[key] = option.limitsBySelectValue[key];
+              return acc;
+            }, {})
+          } : {},
+          // Deep copy values array with new unique IDs
+          values: option.values.map((value, valIndex) => ({
             ...value,
-            value: `opt_${Date.now()}_${Math.random()}`, // Generate new unique value ID
-            color: value.color || undefined,
+            // Generate new unique value ID using timestamp + random + indices
+            value: `opt_${optionTimestamp}_${valIndex}_${Math.random().toString(36).substr(2, 9)}`,
+            // Deep copy label object for each value
+            label: {
+              ar: value.label?.ar || '',
+              he: value.label?.he || '',
+            },
+            // Copy primitive values
+            extra: value.extra || (option.type === 'select' ? 0 : undefined),
+            image: value.image || (option.displayAs === 'color' ? undefined : ''),
+            color: value.color || (option.displayAs === 'color' ? '#000000' : undefined),
           }))
         };
       });
@@ -268,6 +339,20 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
         >
           <span>{isOptionsExpanded ? '🔽' : '➕'}</span>
           الإضافات والخيارات
+          {options.length > 0 && (
+            <span style={{
+              fontSize: 13,
+              backgroundColor: '#28a745',
+              color: 'white',
+              padding: '2px 8px',
+              borderRadius: 12,
+              fontWeight: 600,
+              minWidth: 24,
+              textAlign: 'center'
+            }}>
+              {options.length}
+            </span>
+          )}
         </h3>
         
         {isOptionsExpanded && (
@@ -375,55 +460,83 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                       );
                     }
 
-                    return allMealsWithOptions.map(({ category, meals }) => (
-                      <div key={category.id} style={{ marginBottom: 8 }}>
-                        <div style={{ 
-                          fontSize: 15, 
-                          fontWeight: 600, 
-                          marginBottom: 8,
-                          color: '#007bff',
-                          padding: '8px 12px',
-                          background: '#e7f3ff',
-                          borderRadius: 6,
-                          borderRight: '4px solid #007bff'
-                        }}>
-                          {category.name?.ar || category.name?.he || 'قسم'}
+                    return allMealsWithOptions.map(({ category, meals }) => {
+                      const isExpanded = expandedCategories[category.id] === true; // Default to collapsed
+                      
+                      return (
+                        <div key={category.id} style={{ marginBottom: 8 }}>
+                          <div 
+                            onClick={() => toggleCategory(category.id)}
+                            style={{ 
+                              fontSize: 15, 
+                              fontWeight: 600, 
+                              marginBottom: 8,
+                              color: '#007bff',
+                              padding: '8px 12px',
+                              background: '#e7f3ff',
+                              borderRadius: 6,
+                              borderRight: '4px solid #007bff',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              transition: 'all 0.2s ease',
+                              userSelect: 'none'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#d0e7ff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = '#e7f3ff';
+                            }}
+                          >
+                            <span>{category.name?.ar || category.name?.he || 'قسم'}</span>
+                            <span style={{ 
+                              fontSize: 18, 
+                              transition: 'transform 0.2s ease',
+                              transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'
+                            }}>
+                              ▼
+                            </span>
+                          </div>
+                          {isExpanded && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 8 }}>
+                              {meals.map((meal, index) => (
+                                <button
+                                  key={meal.id || index}
+                                  onClick={() => handleSelectMeal(meal)}
+                                  style={{
+                                    padding: '12px 16px',
+                                    border: '1px solid #ddd',
+                                    borderRadius: 8,
+                                    background: '#f8f9fa',
+                                    cursor: 'pointer',
+                                    textAlign: 'right',
+                                    fontSize: 14,
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = '#e9ecef';
+                                    e.currentTarget.style.borderColor = '#adb5bd';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = '#f8f9fa';
+                                    e.currentTarget.style.borderColor = '#ddd';
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                                    {meal.name?.ar || meal.name?.he || 'وجبة بدون اسم'}
+                                  </div>
+                                  <div style={{ fontSize: 12, color: '#666' }}>
+                                    {meal.options?.length || 0} إضافات متاحة
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 8 }}>
-                          {meals.map((meal, index) => (
-                            <button
-                              key={meal.id || index}
-                              onClick={() => handleSelectMeal(meal)}
-                              style={{
-                                padding: '12px 16px',
-                                border: '1px solid #ddd',
-                                borderRadius: 8,
-                                background: '#f8f9fa',
-                                cursor: 'pointer',
-                                textAlign: 'right',
-                                fontSize: 14,
-                                transition: 'all 0.2s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#e9ecef';
-                                e.currentTarget.style.borderColor = '#adb5bd';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = '#f8f9fa';
-                                e.currentTarget.style.borderColor = '#ddd';
-                              }}
-                            >
-                              <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                                {meal.name?.ar || meal.name?.he || 'وجبة بدون اسم'}
-                              </div>
-                              <div style={{ fontSize: 12, color: '#666' }}>
-                                {meal.options?.length || 0} إضافات متاحة
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ));
+                      );
+                    });
                   })()}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>

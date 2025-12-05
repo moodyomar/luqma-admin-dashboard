@@ -464,6 +464,30 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     setShowPrepTime(true);
   };
 
+  // Silent print function - only uses native POS printer (no browser dialog)
+  const silentPrint = async (orderData) => {
+    if (!canUseNativePrinter()) {
+      console.log('⚠️ Native printer not available, skipping silent print');
+      return;
+    }
+
+    try {
+      console.log('🖨️ Silent print for order:', orderData.id);
+      const receiptText = buildReceiptText(orderData);
+      const result = await window.PosPrinter.printText(receiptText);
+      
+      if (result && result.includes('success')) {
+        console.log('✅ Silent print successful');
+      } else if (result && result.includes('error')) {
+        console.error('❌ Silent print error:', result);
+        // Don't show toast for silent print to avoid interruption
+      }
+    } catch (err) {
+      console.error('❌ Silent print failed:', err);
+      // Don't show toast for silent print errors
+    }
+  };
+
   const handleSetTimeAndAccept = async () => {
     setLoading(true);
     try {
@@ -479,8 +503,30 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       const prepTimeMinutes = selectedTime.value;
       startTimerForOrder(order.id || order.uid, prepTimeMinutes);
       
+      // 🔥 AUTO-PRINT: Print receipt automatically after accepting order
+      // Create updated order object with new status for printing
+      const updatedOrder = {
+        ...order,
+        status: 'preparing',
+        prepTimeMinutes: selectedTime.value,
+        prepTimeUnit: selectedTime.unit,
+        acceptedAt: new Date().toISOString(),
+      };
+      
       setShowPrepTime(false);
+      
+      // Print immediately after order is accepted (silent - uses native POS printer only)
+      // Small delay to ensure UI updates first
+      setTimeout(() => {
+        silentPrint(updatedOrder);
+      }, 300);
+      
+      toast.success('✅ تم قبول الطلب وتمت الطباعة تلقائياً', {
+        duration: 2000,
+        position: 'top-center',
+      });
     } catch (err) {
+      console.error('Error accepting order:', err);
       alert('שגיאה בעדכון ההזמנה.');
     } finally {
       setLoading(false);
