@@ -515,10 +515,11 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       
       setShowPrepTime(false);
       
-      // Print immediately after order is accepted (silent - uses native POS printer only)
+      // Print immediately after order is accepted - uses EXACT same logic as print button
+      // Tries native POS printer first (silent), falls back to browser print dialog if needed
       // Small delay to ensure UI updates first
-      setTimeout(() => {
-        silentPrint(updatedOrder);
+      setTimeout(async () => {
+        await handlePrint(updatedOrder);
       }, 300);
       
       toast.success('✅ تم قبول الطلب وتمت الطباعة تلقائياً', {
