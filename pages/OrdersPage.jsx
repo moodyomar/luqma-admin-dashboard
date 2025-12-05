@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import brandConfig from '../constants/brandConfig';
 import { db } from '../firebase/firebaseConfig';
-import { collection, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css';
@@ -95,6 +95,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   const [selectedTime, setSelectedTime] = useState(null);
   const [prepTimeOptions, setPrepTimeOptions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showTableAssignment, setShowTableAssignment] = useState(false);
+  const [selectedTableNumber, setSelectedTableNumber] = useState('');
+  const [tableAssignmentLoading, setTableAssignmentLoading] = useState(false);
 
   // Fetch prep time options from business config
   useEffect(() => {
@@ -124,7 +127,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     const addressBlock = order.deliveryMethod === 'delivery'
       ? `العنوان: ${order.address || 'غير محدد'}`
       : order.deliveryMethod === 'eat_in' && order.tableNumber
-        ? `رقم الطاولة: ${order.tableNumber}`
+        ? `رقم الطاولة: ${order.tableNumber}${order.numberOfPeople ? ` (${order.numberOfPeople} أشخاص)` : ''}`
         : 'نوع الطلب: استلام من المطعم';
 
     const items = (order.cart || []).map((item, index) => {
@@ -209,6 +212,72 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       if (!Number.isFinite(num)) return '₪0.00';
       return `₪${num.toFixed(2)}`;
     };
+    
+    // Word wrap function for receipt (384px width, ~32 chars per line for Arabic - very conservative)
+    const wrapText = (text, maxChars = 32, indent = '') => {
+      if (!text || typeof text !== 'string') return [text || ''];
+      const trimmedText = text.trim();
+      if (trimmedText.length <= maxChars) {
+        return [trimmedText];
+      }
+      
+      console.log('🔄 Wrapping text:', trimmedText, 'Length:', trimmedText.length, 'Max:', maxChars);
+      
+      const wrappedLines = [];
+      // Split by ' + ' pattern (this preserves the separator)
+      const parts = trimmedText.split(/(\s*\+\s*)/);
+      let currentLine = '';
+      
+      parts.forEach((part) => {
+        if (!part || part.trim() === '') return;
+        
+        const testLine = currentLine + part;
+        
+        // If adding this part exceeds max length and we have content, wrap
+        if (testLine.length > maxChars && currentLine.trim().length > 0) {
+          wrappedLines.push(currentLine.trimEnd());
+          // Start new line with indent
+          currentLine = indent + part.trimStart();
+        } else {
+          currentLine = testLine;
+        }
+      });
+      
+      // Add the last line
+      if (currentLine.trim()) {
+        wrappedLines.push(currentLine.trimEnd());
+      }
+      
+      // Final safety: force break any remaining long lines
+      const finalLines = [];
+      wrappedLines.forEach(line => {
+        if (line.length <= maxChars) {
+          finalLines.push(line);
+        } else {
+          // Break at word boundaries
+          let remaining = line;
+          while (remaining.length > maxChars) {
+            // Look for break point (space or +)
+            let breakPoint = maxChars;
+            for (let i = maxChars; i >= Math.max(0, maxChars - 15); i--) {
+              if (remaining[i] === ' ' || remaining[i] === '+') {
+                breakPoint = i + 1;
+                break;
+              }
+            }
+            
+            finalLines.push(remaining.substring(0, breakPoint).trimEnd());
+            remaining = indent + remaining.substring(breakPoint).trimStart();
+          }
+          if (remaining.trim()) {
+            finalLines.push(remaining.trimEnd());
+          }
+        }
+      });
+      
+      console.log('✅ Wrapped into', finalLines.length, 'lines:', finalLines);
+      return finalLines.filter(line => line && line.length > 0);
+    };
 
     // Order Header
     lines.push('================================');
@@ -226,10 +295,14 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     // Delivery Details
     lines.push('');
     lines.push('--- تفاصيل التوصيل ---');
-    if (order.deliveryMethod === 'delivery') {
+      if (order.deliveryMethod === 'delivery') {
       lines.push(`نوع الطلب: توصيل للمنزل`);
-      lines.push(`العنوان: ${order.address || 'غير محدد'}`);
-      if (order.extraNotes) lines.push(`ملاحظات: ${order.extraNotes}`);
+      const addressText = `العنوان: ${order.address || 'غير محدد'}`;
+      wrapText(addressText, 38).forEach(line => lines.push(line));
+      if (order.extraNotes) {
+        const notesText = `ملاحظات: ${order.extraNotes}`;
+        wrapText(notesText, 38).forEach(line => lines.push(line));
+      }
     } else if (order.deliveryMethod === 'eat_in') {
       lines.push(`نوع الطلب: أكل بالمطعم`);
       if (order.tableNumber) lines.push(`رقم الطاولة: ${order.tableNumber}`);
@@ -255,8 +328,10 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       const price = money(item.totalPrice || item.price || 0);
       const options = item.optionsText ? ` (${item.optionsText})` : '';
       
-      // Item line with clear formatting
-      lines.push(`${index + 1}. ${name}${options}`);
+      // Item line with clear formatting (wrap if too long)
+      const itemLine = `${index + 1}. ${name}${options}`;
+      const wrappedItemLine = wrapText(itemLine, 38);
+      wrappedItemLine.forEach(line => lines.push(line));
       lines.push(`   الكمية: ${qty} × ${price}`);
 
       if (Array.isArray(item.selectedExtras) && item.selectedExtras.length) {
@@ -264,12 +339,22 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : extra))
           .filter(Boolean);
         if (extras.length) {
-          lines.push(`   إضافات: ${extras.join(' + ')}`);
+          // Build extras text with proper spacing
+          const extrasText = `   إضافات: ${extras.join(' + ')}`;
+          // Wrap extras text, keeping indentation for continuation lines
+          // Use 35 chars max (more conservative for 384px width)
+          const wrappedExtras = wrapText(extrasText, 35, '   ');
+          wrappedExtras.forEach(line => {
+            // Ensure each line is properly formatted
+            lines.push(line);
+          });
         }
       }
 
       if (item.note) {
-        lines.push(`   ملاحظة خاصة: ${item.note}`);
+        const noteText = `   ملاحظة خاصة: ${item.note}`;
+        const wrappedNote = wrapText(noteText, 38, '   ');
+        wrappedNote.forEach(line => lines.push(line));
       }
       
       lines.push(''); // Space between items
@@ -277,7 +362,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
     if (order.note) {
       lines.push('--- ملاحظة العميل ---');
-      lines.push(order.note);
+      const wrappedCustomerNote = wrapText(order.note, 38);
+      wrappedCustomerNote.forEach(line => lines.push(line));
       lines.push('');
     }
 
@@ -398,6 +484,72 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       alert('שגיאה בעדכון ההזמנה.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Check if table is available
+  const checkTableAvailability = async (tableNum) => {
+    try {
+      const ordersRef = collection(db, 'menus', activeBusinessId, 'orders');
+      const tableQuery = query(
+        ordersRef,
+        where('deliveryMethod', '==', 'eat_in'),
+        where('tableNumber', '==', tableNum.toString().trim())
+      );
+      const snapshot = await getDocs(tableQuery);
+      
+      const activeStatuses = ['pending', 'preparing', 'ready'];
+      for (const docSnap of snapshot.docs) {
+        const orderData = docSnap.data();
+        // Skip current order
+        if (docSnap.id === order.id) continue;
+        // Check if table is in use by active order
+        if (activeStatuses.includes(orderData.status)) {
+          return false;
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Error checking table availability:', error);
+      return false;
+    }
+  };
+
+  // Assign table to order
+  const handleAssignTable = async () => {
+    if (!selectedTableNumber.trim()) {
+      alert('يرجى إدخال رقم الطاولة');
+      return;
+    }
+
+    setTableAssignmentLoading(true);
+    try {
+      const tableNum = selectedTableNumber.trim();
+      const isAvailable = await checkTableAvailability(tableNum);
+      
+      if (!isAvailable) {
+        alert('الطاولة غير متاحة حالياً. يرجى اختيار طاولة أخرى.');
+        setTableAssignmentLoading(false);
+        return;
+      }
+
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
+      await updateDoc(ref, {
+        tableNumber: tableNum,
+        tableAssignedAt: new Date().toISOString(),
+      });
+      
+      setShowTableAssignment(false);
+      setSelectedTableNumber('');
+      toast.success(`تم تعيين الطاولة ${tableNum} بنجاح`, {
+        duration: 2000,
+        position: 'top-center',
+      });
+    } catch (err) {
+      console.error('Error assigning table:', err);
+      alert('خطأ في تعيين الطاولة: ' + err.message);
+    } finally {
+      setTableAssignmentLoading(false);
     }
   };
 
@@ -712,12 +864,103 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         </p>
       )}
 
-      {/* Show table number for eat-in orders */}
-      {order.deliveryMethod === 'eat_in' && order.tableNumber && (
-        <p>
-          <span className="label">🪑 رقم الطاولة:</span>
-          <span className="value">{order.tableNumber}</span>
-        </p>
+      {/* Show number of people and table assignment for eat-in orders */}
+      {order.deliveryMethod === 'eat_in' && (
+        <>
+          {order.numberOfPeople && (
+            <p>
+              <span className="label">👥 عدد الأشخاص:</span>
+              <span className="value">{order.numberOfPeople}</span>
+            </p>
+          )}
+          {order.tableNumber ? (
+            <p>
+              <span className="label">🪑 رقم الطاولة:</span>
+              <span className="value">{order.tableNumber}</span>
+            </p>
+          ) : (
+            <div style={{ marginTop: 12, marginBottom: 12 }}>
+              {!showTableAssignment ? (
+                <button 
+                  onClick={() => setShowTableAssignment(true)} 
+                  disabled={loading}
+                  style={{ 
+                    fontWeight: 600, 
+                    padding: '8px 16px', 
+                    borderRadius: 8, 
+                    background: '#007aff', 
+                    color: '#fff', 
+                    border: 'none', 
+                    cursor: 'pointer', 
+                    fontSize: 14,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>🪑</span>
+                  <span>تعيين طاولة</span>
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    value={selectedTableNumber}
+                    onChange={(e) => setSelectedTableNumber(e.target.value)}
+                    placeholder="أدخل رقم الطاولة"
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: '1px solid #ddd',
+                      fontSize: 14,
+                      width: '150px'
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAssignTable();
+                      }
+                    }}
+                  />
+                  <button 
+                    onClick={handleAssignTable} 
+                    disabled={tableAssignmentLoading}
+                    style={{ 
+                      fontWeight: 600, 
+                      padding: '8px 16px', 
+                      borderRadius: 8, 
+                      background: '#34C759', 
+                      color: '#fff', 
+                      border: 'none', 
+                      cursor: 'pointer', 
+                      fontSize: 14
+                    }}
+                  >
+                    {tableAssignmentLoading ? 'جاري...' : 'تأكيد'}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowTableAssignment(false);
+                      setSelectedTableNumber('');
+                    }}
+                    disabled={tableAssignmentLoading}
+                    style={{ 
+                      fontWeight: 600, 
+                      padding: '8px 16px', 
+                      borderRadius: 8, 
+                      background: '#ccc', 
+                      color: '#222', 
+                      border: 'none', 
+                      cursor: 'pointer', 
+                      fontSize: 14
+                    }}
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Show extraNotes for delivery orders */}
@@ -836,7 +1079,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
                 fontWeight: 500,
                 border: '1px solid #dee2e6'
               }}>
-                الطلب جاهز للطاولة {order.tableNumber} 🔔
+                {order.tableNumber ? `الطلب جاهز للطاولة ${order.tableNumber} 🔔` : 'الطلب جاهز للتقديم 🔔'}
               </div>
               <button
                 onClick={async () => {
@@ -1644,7 +1887,6 @@ const OrdersPage = () => {
             طلبات جديدة
           </span>
         </button>
-
         <button
           onClick={() => setViewType('active')}
           style={{
