@@ -46,3 +46,9 @@ pos-print-sdk/**/*.class
 pos-print-sdk/**/*.dex
 *.apk
 *.aab
+
+# Test/Preview HTML files (development tools only - not used in production)
+pages/ReceiptTestPreview.html
+pages/ReceiptWordWrapPreview.html
+RECEIPT_VISUAL_PREVIEW.html
+# pages/ReceiptPreview.html - Optional: can commit or ignore (dev tool)
