@@ -190,7 +190,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         <div>عدد المنتجات: ${order.cart?.length || 0}</div>
       </div>
       ${(() => {
-        // Future Order Indicator - Show if order is scheduled for future (English format, before total)
+        // Future Order Indicator - Show if order is scheduled for future (Arabic format, before total)
         if (!order.deliveryDateTime) return '';
         try {
           let deliveryDate;
@@ -206,21 +206,25 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           if (!isNaN(deliveryDate.getTime())) {
             const now = new Date();
             if (deliveryDate > now) {
-              // Format date and time in English format (YYYY-MM-DD HH:MM)
+              // Format date and time in Arabic format (DD-MM-YYYY HH:MM)
               const year = deliveryDate.getFullYear();
               const month = String(deliveryDate.getMonth() + 1).padStart(2, '0');
               const day = String(deliveryDate.getDate()).padStart(2, '0');
               const hours = String(deliveryDate.getHours()).padStart(2, '0');
               const minutes = String(deliveryDate.getMinutes()).padStart(2, '0');
               
-              const dateStr = `${year}-${month}-${day}`;
+              // Get Arabic day name
+              const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+              const dayName = dayNames[deliveryDate.getDay()];
+              
+              const dateStr = `${day}-${month}-${year}`;
               const timeStr = `${hours}:${minutes}`;
               
               return `
         <div class="section" style="background-color: #fff3cd; padding: 8px; border-radius: 4px; border: 1px solid #ffc107; margin-bottom: 10px;">
-          <div class="section-title" style="color: #856404;">⚠️ Scheduled Order</div>
-          <div style="color: #856404;">Date: ${dateStr}</div>
-          <div style="color: #856404;">Time: ${timeStr}</div>
+          <div class="section-title" style="color: #856404;">⚠️ طلب مستقبلي ليوم ${dayName}</div>
+          <div style="color: #856404;">تاريخ: ${dateStr}</div>
+          <div style="color: #856404;">الساعه: ${timeStr}</div>
         </div>`;
             }
           }
@@ -411,7 +415,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       lines.push('');
     }
 
-    // Future Order Indicator - Show if order is scheduled for future (English format, before total)
+    // Future Order Indicator - Show if order is scheduled for future (Arabic format, before total)
     if (order.deliveryDateTime) {
       try {
         let deliveryDate;
@@ -427,20 +431,24 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         if (!isNaN(deliveryDate.getTime())) {
           const now = new Date();
           if (deliveryDate > now) {
-            // Format date and time in English format (YYYY-MM-DD HH:MM)
+            // Format date and time in Arabic format (DD-MM-YYYY HH:MM)
             const year = deliveryDate.getFullYear();
             const month = String(deliveryDate.getMonth() + 1).padStart(2, '0');
             const day = String(deliveryDate.getDate()).padStart(2, '0');
             const hours = String(deliveryDate.getHours()).padStart(2, '0');
             const minutes = String(deliveryDate.getMinutes()).padStart(2, '0');
             
-            const dateStr = `${year}-${month}-${day}`;
+            // Get Arabic day name
+            const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const dayName = dayNames[deliveryDate.getDay()];
+            
+            const dateStr = `${day}-${month}-${year}`;
             const timeStr = `${hours}:${minutes}`;
             
             lines.push('');
-            lines.push('⚠️ Scheduled Order');
-            lines.push(`Date: ${dateStr}`);
-            lines.push(`Time: ${timeStr}`);
+            lines.push(`⚠️ طلب مستقبلي ليوم ${dayName}`);
+            lines.push(`تاريخ: ${dateStr}`);
+            lines.push(`الساعه: ${timeStr}`);
             lines.push('- - - - - - - - - - - - - - - -');
           }
         }
