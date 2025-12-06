@@ -185,10 +185,53 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       </div>
       <div class="section">
         <div>طريقة التوصيل: ${deliveryString}</div>
+        ${order.deliveryMethod === 'eat_in' && order.numberOfPeople ? `<div>عدد الأشخاص: ${order.numberOfPeople}</div>` : ''}
         <div>الدفع: ${paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString}</div>
         <div>عدد المنتجات: ${order.cart?.length || 0}</div>
         <div>الإجمالي: ₪${order.total || order.price}</div>
       </div>
+      ${(() => {
+        // Future Order Indicator - Show if order is scheduled for future
+        if (!order.deliveryDateTime) return '';
+        try {
+          let deliveryDate;
+          // Handle Firestore Timestamp
+          if (order.deliveryDateTime.toDate && typeof order.deliveryDateTime.toDate === 'function') {
+            deliveryDate = order.deliveryDateTime.toDate();
+          } else if (order.deliveryDateTime instanceof Date) {
+            deliveryDate = order.deliveryDateTime;
+          } else {
+            deliveryDate = new Date(order.deliveryDateTime);
+          }
+          
+          if (!isNaN(deliveryDate.getTime())) {
+            const now = new Date();
+            if (deliveryDate > now) {
+              // Format date and time in Arabic-friendly format
+              const dateStr = deliveryDate.toLocaleDateString('ar-EG', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short'
+              });
+              const timeStr = deliveryDate.toLocaleTimeString('ar-EG', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              });
+              return `
+        <div class="section" style="background-color: #fff3cd; padding: 8px; border-radius: 4px; border: 1px solid #ffc107;">
+          <div class="section-title" style="color: #856404;">⚠️ طلب مجدول</div>
+          <div style="color: #856404;">تاريخ الاستلام: ${dateStr}</div>
+          <div style="color: #856404;">وقت الاستلام: ${timeStr}</div>
+        </div>`;
+            }
+          }
+        } catch (error) {
+          console.error('Error formatting future order date:', error);
+        }
+        return '';
+      })()}
       <div class="section">
         <div class="section-title">تفاصيل الطلب</div>
         ${items || '<div>لا توجد منتجات</div>'}
@@ -306,8 +349,49 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     } else if (order.deliveryMethod === 'eat_in') {
       lines.push(`نوع الطلب: أكل بالمطعم`);
       if (order.tableNumber) lines.push(`رقم الطاولة: ${order.tableNumber}`);
+      if (order.numberOfPeople) lines.push(`عدد الأشخاص: ${order.numberOfPeople}`);
     } else {
       lines.push(`نوع الطلب: استلام من المطعم`);
+    }
+    
+    // Future Order Indicator - Show if order is scheduled for future
+    if (order.deliveryDateTime) {
+      try {
+        let deliveryDate;
+        // Handle Firestore Timestamp
+        if (order.deliveryDateTime.toDate && typeof order.deliveryDateTime.toDate === 'function') {
+          deliveryDate = order.deliveryDateTime.toDate();
+        } else if (order.deliveryDateTime instanceof Date) {
+          deliveryDate = order.deliveryDateTime;
+        } else {
+          deliveryDate = new Date(order.deliveryDateTime);
+        }
+        
+        if (!isNaN(deliveryDate.getTime())) {
+          const now = new Date();
+          if (deliveryDate > now) {
+            // Format date and time in Arabic-friendly format
+            const dateStr = deliveryDate.toLocaleDateString('ar-EG', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              weekday: 'short'
+            });
+            const timeStr = deliveryDate.toLocaleTimeString('ar-EG', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            });
+            lines.push('');
+            lines.push('⚠️ طلب مجدول');
+            lines.push(`تاريخ الاستلام: ${dateStr}`);
+            lines.push(`وقت الاستلام: ${timeStr}`);
+            lines.push('- - - - - - - - - - - - - - - -');
+          }
+        }
+      } catch (error) {
+        console.error('Error formatting future order date:', error);
+      }
     }
     
     if (order.paymentMethod) {
@@ -1065,34 +1149,113 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       )}
 
       {/* Action buttons for order status */}
-      {order.status === 'pending' && (
-        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-          {!showPrepTime ? (
-            <button onClick={() => setShowPrepTime(true)} disabled={loading} style={{ fontWeight: 700, padding: '10px 28px', borderRadius: 8, background: '#007aff', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
-              <IoMdCheckmarkCircleOutline style={{ marginLeft: 8 }} />
-              اقبل الطلب
-            </button>
-          ) : (
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'center' }}>
-              <select value={JSON.stringify(selectedTime)} onChange={e => setSelectedTime(JSON.parse(e.target.value))} style={{ fontSize: 16, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', fontWeight: 500 }}>
-                {prepTimeOptions.map((opt, idx) => (
-                  <option key={idx} value={JSON.stringify(opt)}>
-                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
-                  </option>
-                ))}
-              </select>
-              <button onClick={handleSetTimeAndAccept} disabled={loading} style={{ fontWeight: 700, padding: '10px 28px', borderRadius: 8, background: '#34C759', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
-                <IoMdCheckmark style={{ marginLeft: 8 }} />
-                تأكيد
-              </button>
-              <button onClick={() => setShowPrepTime(false)} disabled={loading} style={{ fontWeight: 600, padding: '10px 18px', borderRadius: 8, background: '#ccc', color: '#222', border: 'none', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center' }}>
-                <IoMdClose style={{ marginLeft: 8 }} />
-                إلغاء
-              </button>
+      {order.status === 'pending' && (() => {
+        const isFuture = isFutureOrder(order);
+        const futureMeta = isFuture ? formatFutureOrderMeta(order.deliveryDateTime) : null;
+        
+        // If it's a future order that hasn't arrived yet, show different button
+        if (isFuture && futureMeta && futureMeta.scheduled > new Date()) {
+          // Future order - can confirm reservation or wait until scheduled time
+          return (
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+              <div style={{ 
+                padding: '12px 20px', 
+                background: '#fff3cd', 
+                borderRadius: 8, 
+                border: '1px solid #ffc107',
+                textAlign: 'center',
+                width: '100%',
+                maxWidth: '400px'
+              }}>
+                <div style={{ fontWeight: 600, color: '#856404', marginBottom: 4 }}>
+                  ⏰ طلب مجدول
+                </div>
+                <div style={{ fontSize: 14, color: '#856404' }}>
+                  {futureMeta.relativeLabel}
+                </div>
+                <div style={{ fontSize: 12, color: '#856404', marginTop: 4 }}>
+                  {futureMeta.dateStr} الساعة {futureMeta.timeStr}
+                </div>
+              </div>
+              
+              {/* For eat-in orders, allow confirming reservation + assigning table early */}
+              {order.deliveryMethod === 'eat_in' ? (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button 
+                    onClick={() => {
+                      // Confirm reservation early (doesn't start prep, just confirms)
+                      // Could set a status like 'reserved' or add a field 'reservationConfirmed'
+                      // For now, allow table assignment
+                      setShowTableAssignment(true);
+                    }}
+                    disabled={loading}
+                    style={{ 
+                      fontWeight: 600, 
+                      padding: '10px 20px', 
+                      borderRadius: 8, 
+                      background: '#17a2b8', 
+                      color: '#fff', 
+                      border: 'none', 
+                      cursor: 'pointer', 
+                      fontSize: 16 
+                    }}
+                  >
+                    تأكيد الحجز وتعيين الطاولة
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setShowPrepTime(true)}
+                  disabled={true}
+                  style={{ 
+                    fontWeight: 600, 
+                    padding: '10px 28px', 
+                    borderRadius: 8, 
+                    background: '#ccc', 
+                    color: '#666', 
+                    border: 'none', 
+                    cursor: 'not-allowed', 
+                    fontSize: 16,
+                    opacity: 0.6
+                  }}
+                >
+                  سيتم تفعيل الزر عند وصول الموعد
+                </button>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          );
+        }
+        
+        // Regular order or future order that has arrived - show normal accept button
+        return (
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+            {!showPrepTime ? (
+              <button onClick={() => setShowPrepTime(true)} disabled={loading} style={{ fontWeight: 700, padding: '10px 28px', borderRadius: 8, background: '#007aff', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
+                <IoMdCheckmarkCircleOutline style={{ marginLeft: 8 }} />
+                اقبل الطلب
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'center' }}>
+                <select value={JSON.stringify(selectedTime)} onChange={e => setSelectedTime(JSON.parse(e.target.value))} style={{ fontSize: 16, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', fontWeight: 500 }}>
+                  {prepTimeOptions.map((opt, idx) => (
+                    <option key={idx} value={JSON.stringify(opt)}>
+                      {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={handleSetTimeAndAccept} disabled={loading} style={{ fontWeight: 700, padding: '10px 28px', borderRadius: 8, background: '#34C759', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
+                  <IoMdCheckmark style={{ marginLeft: 8 }} />
+                  تأكيد
+                </button>
+                <button onClick={() => setShowPrepTime(false)} disabled={loading} style={{ fontWeight: 600, padding: '10px 18px', borderRadius: 8, background: '#ccc', color: '#222', border: 'none', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center' }}>
+                  <IoMdClose style={{ marginLeft: 8 }} />
+                  إلغاء
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {order.status === 'preparing' && (
         <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
           <button onClick={handleOrderReady} disabled={loading} style={{ fontWeight: 600, padding: '10px 28px', borderRadius: 8, background: '#34C759', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
