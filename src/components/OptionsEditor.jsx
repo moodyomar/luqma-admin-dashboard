@@ -989,7 +989,7 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                               />
                             )}
                             <input
-                              style={{ maxWidth: 40 }}
+                              style={{ maxWidth: 100, minWidth: 70, width: 100 }}
                               type="number"
                               placeholder="كم زياده؟"
                               value={val.extra || 0}
