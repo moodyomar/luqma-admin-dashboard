@@ -3,7 +3,7 @@ import { FiTrash2, FiEye, FiEyeOff, FiCopy, FiChevronDown, FiChevronUp, FiImage 
 import { useState } from 'react';
 import HideMealModal from './HideMealModal';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, allMealsData, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, allMealsData, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow, onMarkUnavailable }) => {
   const [imagesExpanded, setImagesExpanded] = useState(false);
   const [showHideModal, setShowHideModal] = useState(false);
 
@@ -30,8 +30,8 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
       <div
         className="meal-card-header"
         style={{
-          background: meal.available === false ? '#f5f5f5' : '#fff',
-          opacity: meal.available === false ? 0.5 : 1,
+          background: meal.available === false || meal.unavailable === true ? '#f5f5f5' : '#fff',
+          opacity: meal.available === false || meal.unavailable === true ? 0.5 : 1,
           transition: 'all 0.2s',
         display: 'flex',
           flexDirection: 'row-reverse', // RTL: image right, buttons left
@@ -76,6 +76,18 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
                 ⏰ {meal.preorderHours}h
               </span>
             )}
+            {meal.unavailable === true && (
+              <span style={{ 
+                fontSize: 10, 
+                background: '#9e9e9e', 
+                color: 'white', 
+                padding: '2px 6px', 
+                borderRadius: 4,
+                fontWeight: 600
+              }} title="غير متاح - يظهر لكن لا يمكن طلبه">
+                ⚠️
+              </span>
+            )}
             {meal.hideUntil && meal.available === false && (
               <span style={{ 
                 fontSize: 10, 
@@ -104,12 +116,15 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           <button
             className="icon-square-btn eye"
             onClick={() => {
-              // If unhiding, do it directly
-              if (meal.available === false) {
+              // If unhiding (available is false or unavailable is true), do it directly
+              if (meal.available === false || meal.unavailable === true) {
                 const updated = { ...meal, available: true };
-                // Remove hideUntil if it exists
+                // Remove hideUntil and unavailable if they exist
                 if (updated.hideUntil) {
                   delete updated.hideUntil;
+                }
+                if (updated.unavailable) {
+                  delete updated.unavailable;
                 }
                 if (onChangeInstant) {
                   onChangeInstant(categoryId, index, updated);
@@ -121,9 +136,9 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
                 setShowHideModal(true);
               }
             }}
-            title={meal.available === false ? 'הצג מנה' : 'הסתר מנה'}
+            title={meal.available === false || meal.unavailable === true ? 'הצג מנה' : 'הסתר מנה'}
           >
-            {meal.available === false ? <FiEyeOff /> : <FiEye />}
+            {meal.available === false || meal.unavailable === true ? <FiEyeOff /> : <FiEye />}
           </button>
           <button
             className="icon-square-btn"
@@ -362,11 +377,43 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
         visible={showHideModal}
         onClose={() => setShowHideModal(false)}
         mealName={meal.name?.ar || meal.name?.he || ''}
+        onMarkUnavailable={async () => {
+          setShowHideModal(false); // Close modal first
+          if (onMarkUnavailable) {
+            try {
+              const mealId = meal.id || meal.uid || `temp_${Date.now()}`;
+              console.log('🔄 [MealCard] Calling onMarkUnavailable with:', { categoryId, mealId, mealName: meal.name?.ar });
+              await onMarkUnavailable(categoryId, mealId, meal);
+            } catch (error) {
+              console.error('❌ [MealCard] Error marking meal as unavailable:', error);
+            }
+          } else {
+            console.warn('⚠️ [MealCard] onMarkUnavailable prop not provided');
+            // Fallback if onMarkUnavailable not provided
+            const updated = { ...meal, unavailable: true, available: true };
+            // Remove hideUntil if it exists
+            if (updated.hideUntil) {
+              delete updated.hideUntil;
+            }
+            if (onChangeInstant) {
+              try {
+                await onChangeInstant(categoryId, meal.id, updated);
+              } catch (error) {
+                console.error('Error updating meal:', error);
+              }
+            } else {
+              onChange(updated);
+            }
+          }
+        }}
         onHidePermanent={() => {
           const updated = { ...meal, available: false };
-          // Remove hideUntil if it exists (permanent hide)
+          // Remove hideUntil and unavailable if they exist (permanent hide)
           if (updated.hideUntil) {
             delete updated.hideUntil;
+          }
+          if (updated.unavailable) {
+            delete updated.unavailable;
           }
           if (onChangeInstant) {
             onChangeInstant(categoryId, index, updated);
@@ -380,6 +427,10 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           } else {
             // Fallback if onHideUntilTomorrow not provided
             const updated = { ...meal, available: false };
+            // Remove unavailable flag when hiding
+            if (updated.unavailable) {
+              delete updated.unavailable;
+            }
             if (onChangeInstant) {
               onChangeInstant(categoryId, index, updated);
             } else {

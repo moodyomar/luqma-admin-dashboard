@@ -2,3 +2,4 @@ rootProject.name = 'Luqma POS'
 include ':poswebview'
 
 
+

@@ -184,6 +184,7 @@ const MealsPage = () => {
             const cleanedMeal = {
               ...meal,
               available: typeof meal.available === 'boolean' ? meal.available : true,
+              unavailable: typeof meal.unavailable === 'boolean' ? meal.unavailable : false,
               name: {
                 ar: meal?.name?.ar || '',
                 he: meal?.name?.he || '',
@@ -244,8 +245,17 @@ const MealsPage = () => {
 
   // Add this function for instant hide/unhide
   const updateMealInstant = async (categoryId, mealId, updatedMeal) => {
+    console.log('🔄 [updateMealInstant] Called with:', { categoryId, mealId, mealName: updatedMeal.name?.ar });
+    
     // Update local state immediately by finding the meal by id
-    const updated = (mealsData.items[categoryId] || []).map(m => m.id === mealId ? updatedMeal : m);
+    const categoryMeals = mealsData.items[categoryId] || [];
+    const mealExists = categoryMeals.some(m => m.id === mealId);
+    
+    if (!mealExists) {
+      console.warn('⚠️ [updateMealInstant] Meal not found with ID:', mealId, 'Available IDs:', categoryMeals.map(m => m.id));
+    }
+    
+    const updated = categoryMeals.map(m => m.id === mealId ? updatedMeal : m);
     setMealsData({ ...mealsData, items: { ...mealsData.items, [categoryId]: updated } });
 
     // Update Firestore instantly
@@ -253,7 +263,9 @@ const MealsPage = () => {
       await updateDoc(doc(db, 'menus', activeBusinessId), {
         [`items.${categoryId}`]: updated
       });
+      console.log('✅ [updateMealInstant] Successfully updated Firestore');
     } catch (err) {
+      console.error('❌ [updateMealInstant] Firestore update error:', err);
       alert('שגיאה בעדכון המנה ב-Firestore');
     }
   };
@@ -274,6 +286,31 @@ const MealsPage = () => {
     
     // Update immediately
     updateMealInstant(categoryId, mealId, updatedMeal);
+  };
+
+  // Mark meal as unavailable (shows in menu but can't be ordered)
+  const markMealAsUnavailable = async (categoryId, mealId, meal) => {
+    console.log('🔄 [markMealAsUnavailable] Called with:', { categoryId, mealId, mealName: meal.name?.ar });
+    
+    const updatedMeal = {
+      ...meal,
+      unavailable: true,
+      available: true, // Keep available true so it shows in menu
+    };
+    
+    // Remove hideUntil if it exists
+    if (updatedMeal.hideUntil) {
+      delete updatedMeal.hideUntil;
+    }
+    
+    // Update immediately
+    try {
+      await updateMealInstant(categoryId, mealId, updatedMeal);
+      console.log('✅ [markMealAsUnavailable] Successfully marked meal as unavailable');
+    } catch (error) {
+      console.error('❌ [markMealAsUnavailable] Error:', error);
+      alert('שגיאה בסימון המנה כלא זמינה');
+    }
   };
 
   // Duplicate product function
@@ -523,6 +560,7 @@ const MealsPage = () => {
                       allMealsInCategory={mealsData.items[categoryId]}
                       allMealsData={mealsData.items}
                       onHideUntilTomorrow={hideMealUntilTomorrow}
+                      onMarkUnavailable={markMealAsUnavailable}
                       onReorder={async (reorderedMeals) => {
                         // Save new order to state and Firestore
                         const updated = { ...mealsData.items, [categoryId]: reorderedMeals };

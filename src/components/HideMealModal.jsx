@@ -1,6 +1,6 @@
-import { FiX, FiClock, FiEyeOff } from 'react-icons/fi';
+import { FiX, FiClock, FiEyeOff, FiAlertCircle } from 'react-icons/fi';
 
-const HideMealModal = ({ visible, onClose, onHidePermanent, onHideUntilTomorrow, mealName }) => {
+const HideMealModal = ({ visible, onClose, onMarkUnavailable, onHidePermanent, onHideUntilTomorrow, mealName }) => {
   if (!visible) return null;
 
   return (
@@ -82,6 +82,50 @@ const HideMealModal = ({ visible, onClose, onHidePermanent, onHideUntilTomorrow,
 
         {/* Options */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Mark as unavailable (NEW) */}
+          <button
+            onClick={async () => {
+              if (onMarkUnavailable) {
+                await onMarkUnavailable();
+              }
+              onClose();
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '2px solid #9e9e9e',
+              backgroundColor: '#f5f5f5',
+              color: '#424242',
+              cursor: 'pointer',
+              fontSize: 15,
+              fontWeight: 500,
+              transition: 'all 0.2s',
+              textAlign: 'right',
+              direction: 'rtl',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#eeeeee';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#f5f5f5';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <FiAlertCircle style={{ fontSize: 20, flexShrink: 0 }} />
+            <div style={{ flex: 1, textAlign: 'right' }}>
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                تعطيل المادة (تظهر لكن غير متاحة)
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>
+                סמן פריט כלא זמין (יוצג אבל לא ניתן להזמין)
+              </div>
+            </div>
+          </button>
+
           {/* Hide until tomorrow */}
           <button
             onClick={() => {

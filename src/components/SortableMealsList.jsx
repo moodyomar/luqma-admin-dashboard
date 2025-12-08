@@ -28,6 +28,7 @@ export default function SortableMealsList({
   onChangeMealInstant,
   onDuplicateMeal,
   onHideUntilTomorrow,
+  onMarkUnavailable,
 }) {
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -62,6 +63,7 @@ export default function SortableMealsList({
             categories={categories}
             onDuplicate={(mealToDuplicate, index) => onDuplicateMeal && onDuplicateMeal(mealToDuplicate, index, categoryId)}
             onHideUntilTomorrow={(catId, mealId, meal) => onHideUntilTomorrow && onHideUntilTomorrow(catId, mealId, meal)}
+            onMarkUnavailable={(catId, mealId, meal) => onMarkUnavailable && onMarkUnavailable(catId, mealId, meal)}
           />
         ))}
       </SortableContext>

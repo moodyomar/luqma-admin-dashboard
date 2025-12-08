@@ -311,3 +311,4 @@ The printer will work **silently** - no prompts, no dialogs, just instant printi
 🎯 **Goal achieved:** Silent, seamless receipt printing for your kitchen! 🎉
 
 
+

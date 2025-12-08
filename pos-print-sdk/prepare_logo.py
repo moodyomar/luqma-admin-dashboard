@@ -65,3 +65,4 @@ if __name__ == "__main__":
     
     prepare_logo_for_printing(input_file, output_file, width=200)
 
+

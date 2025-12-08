@@ -60,6 +60,49 @@ function isFutureOrderNotYetDue(orderData: any): boolean {
 }
 
 // ==========================================
+// HELPER: CHECK IF ORDER WAS ORIGINALLY A FUTURE ORDER (now due)
+// Returns true if order has deliveryDateTime that has passed (was scheduled)
+// Returns false if order has no deliveryDateTime or if it's still in the future
+// ==========================================
+function isFutureOrderNowDue(orderData: any): boolean {
+  const deliveryDateTime = orderData.deliveryDateTime;
+  
+  // If no deliveryDateTime, it's not a future order
+  if (!deliveryDateTime) {
+    return false;
+  }
+  
+  try {
+    let deliveryDate: Date;
+    
+    // Handle Firestore Timestamp
+    if (deliveryDateTime.toDate && typeof deliveryDateTime.toDate === 'function') {
+      deliveryDate = deliveryDateTime.toDate();
+    }
+    // Handle Date object
+    else if (deliveryDateTime instanceof Date) {
+      deliveryDate = deliveryDateTime;
+    }
+    // Handle ISO string or timestamp number
+    else {
+      deliveryDate = new Date(deliveryDateTime);
+    }
+    
+    // Check if date is valid
+    if (isNaN(deliveryDate.getTime())) {
+      return false;
+    }
+    
+    // Check if delivery date has passed (was scheduled, now due)
+    const now = new Date();
+    return deliveryDate <= now;
+  } catch (error) {
+    console.error("Error checking if order was future order:", error);
+    return false;
+  }
+}
+
+// ==========================================
 // HELPER: SEND NOTIFICATION TO USER (CUSTOMER)
 // ==========================================
 async function sendNotificationToUser(
@@ -182,23 +225,61 @@ export const onOrderCreated = onDocumentCreated("menus/{brandId}/orders/{orderId
       return null;
     }
 
+    // Check if this was a future order that is now due
+    const wasFutureOrder = isFutureOrderNowDue(order);
+
     // REGULAR ORDER: Send "Order Confirmed" notification immediately (normal behavior)
-    const content = {
-      ar: {
-        title: "تم تأكيد طلبك 🎉",
-        body:
-          deliveryMethod === "pickup"
-            ? "جاهز للاستلام خلال 30 دقيقة"
-            : "يصلك خلال 45 دقيقة",
-      },
-      he: {
-        title: "ההזמנה אושרה 🎉",
-        body:
-          deliveryMethod === "pickup"
-            ? "מוכן לאיסוף תוך 30 דקות"
-            : "מגיע תוך 45 דקות",
-      },
-    };
+    let content: any;
+
+    if (wasFutureOrder) {
+      // Future order that is now due - use special messages
+      content = {
+        ar: {
+          title: "تم تأكيد طلبك المجدول 🎉",
+          body: "رح نبدأ بتحضير طلبك حسب الموعد المحدد",
+        },
+        he: {
+          title: "ההזמנה המתוזמנת אושרה 🎉",
+          body: "נתחיל בהכנת ההזמנה שלך במועד שנקבע",
+        },
+      };
+    } else if (deliveryMethod === "eat_in") {
+      // Eat-in orders - no delivery/pickup time estimates
+      content = {
+        ar: {
+          title: "تم تأكيد طلبك 🎉",
+          body: "سنبدأ بتحضير طلبك قريباً",
+        },
+        he: {
+          title: "ההזמנה אושרה 🎉",
+          body: "נתחיל בהכנת ההזמנה שלך בקרוב",
+        },
+      };
+    } else if (deliveryMethod === "pickup") {
+      // Pickup orders - ready for pickup time
+      content = {
+        ar: {
+          title: "تم تأكيد طلبك 🎉",
+          body: "جاهز للاستلام خلال 30 دقيقة",
+        },
+        he: {
+          title: "ההזמנה אושרה 🎉",
+          body: "מוכן לאיסוף תוך 30 דקות",
+        },
+      };
+    } else {
+      // Delivery orders - delivery time estimate
+      content = {
+        ar: {
+          title: "تم تأكيد طلبك 🎉",
+          body: "يصلك خلال 45 دقيقة",
+        },
+        he: {
+          title: "ההזמנה אושרה 🎉",
+          body: "מגיע תוך 45 דקות",
+        },
+      };
+    }
 
     await sendNotificationToUser(
       phone,
@@ -222,10 +303,34 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
   const before = change.before.data();
   const after = change.after.data();
 
-    // Only trigger if status actually changed
-    if (before.status === after.status) {
-      console.log("Status unchanged, skipping notification");
+    // Check if table was assigned (for future order reservations)
+    const tableWasAssigned = !before.tableNumber && after.tableNumber && after.reservationConfirmed;
+    const isFutureReservation = tableWasAssigned && isFutureOrderNotYetDue(after);
+    
+    // Only trigger if status actually changed OR table was assigned
+    if (before.status === after.status && !tableWasAssigned) {
+      console.log("Status unchanged and no table assigned, skipping notification");
       return;
+    }
+
+    // If table was assigned for a future reservation, send notification
+    if (isFutureReservation) {
+      const { phone, uid: orderId, tableNumber, deliveryMethod } = after;
+      console.log(`Table ${tableNumber} assigned for future reservation ${orderId}`);
+      
+      const content = {
+        ar: {
+          title: "تم تأكيد حجزك 🎉",
+          body: `تم تعيين طاولة رقم ${tableNumber} لك. سنبدأ التحضير حسب الموعد المحدد.`,
+        },
+        he: {
+          title: "ההזמנה אושרה 🎉",
+          body: `שולחן מספר ${tableNumber} הוקצה עבורך. נתחיל בהכנה במועד שנקבע.`,
+        },
+      };
+      
+      await sendNotificationToUser(phone, content, orderId || event.params.orderId, "reservation_confirmed", deliveryMethod);
+      return null;
     }
 
     console.log(
@@ -243,6 +348,9 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
     }
 
     const { status, phone, uid: orderId, deliveryMethod } = after;
+
+    // Check if this was a future order that is now due
+    const wasFutureOrder = isFutureOrderNowDue(after);
 
     // ==========================================
     // SMART NOTIFICATION LOGIC FOR CUSTOMERS
@@ -264,6 +372,15 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
       return null;
     }
 
+    // For EAT_IN: Only send "pending" and "ready"
+    if (
+      deliveryMethod === "eat_in" &&
+      !["pending", "ready"].includes(status)
+    ) {
+      console.log(`Skipping "${status}" for eat-in order (not relevant)`);
+      return null;
+    }
+
     // For DELIVERY: Only send "pending", "out_for_delivery", and optionally "delivered"
     if (
       deliveryMethod === "delivery" &&
@@ -276,22 +393,57 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
     // Notification content (Arabic & Hebrew) for CUSTOMERS
     const notifications: any = {
       // For ALL orders: Confirmation
-      pending: {
-        ar: {
-          title: "تم تأكيد طلبك 🎉",
-          body:
-            deliveryMethod === "pickup"
-              ? "جاهز للاستلام خلال 30 دقيقة"
-              : "يصلك خلال 45 دقيقة",
-        },
-        he: {
-          title: "ההזמנה אושרה 🎉",
-          body:
-            deliveryMethod === "pickup"
-              ? "מוכן לאיסוף תוך 30 דקות"
-              : "מגיע תוך 45 דקות",
-        },
-      },
+      pending: (() => {
+        if (wasFutureOrder) {
+          // Future order that is now due
+          return {
+            ar: {
+              title: "تم تأكيد طلبك المجدول 🎉",
+              body: "رح نبدأ بتحضير طلبك حسب الموعد المحدد",
+            },
+            he: {
+              title: "ההזמנה המתוזמנת אושרה 🎉",
+              body: "נתחיל בהכנת ההזמנה שלך במועד שנקבע",
+            },
+          };
+        } else if (deliveryMethod === "eat_in") {
+          // Eat-in orders - no delivery/pickup time estimates
+          return {
+            ar: {
+              title: "تم تأكيد طلبك 🎉",
+              body: "سنبدأ بتحضير طلبك قريباً",
+            },
+            he: {
+              title: "ההזמנה אושרה 🎉",
+              body: "נתחיל בהכנת ההזמנה שלך בקרוב",
+            },
+          };
+        } else if (deliveryMethod === "pickup") {
+          // Pickup orders - ready for pickup time
+          return {
+            ar: {
+              title: "تم تأكيد طلبك 🎉",
+              body: "جاهز للاستلام خلال 30 دقيقة",
+            },
+            he: {
+              title: "ההזמנה אושרה 🎉",
+              body: "מוכן לאיסוף תוך 30 דקות",
+            },
+          };
+        } else {
+          // Delivery orders - delivery time estimate
+          return {
+            ar: {
+              title: "تم تأكيد طلبك 🎉",
+              body: "يصلك خلال 45 دقيقة",
+            },
+            he: {
+              title: "ההזמנה אושרה 🎉",
+              body: "מגיע תוך 45 דקות",
+            },
+          };
+        }
+      })(),
       // For PICKUP orders: Ready notification
       ready: {
         ar: { title: "طلبك جاهز! 📦", body: "يمكنك استلام طلبك الآن" },

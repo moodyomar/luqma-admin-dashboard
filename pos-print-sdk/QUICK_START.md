@@ -69,3 +69,4 @@ npm run dev
 - POS Styles: `../pages/pos-terminal.css`
 
 
+
