@@ -8,6 +8,7 @@ import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css';
 import './pos-terminal.css';
 import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle, IoMdPrint } from 'react-icons/io';
+import QuickMealsManager from '../src/components/QuickMealsManager';
 
 // Normalize deliveryDateTime into a Date instance
 const getScheduledDate = (dateTime) => {
@@ -1391,6 +1392,7 @@ const OrdersPage = () => {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'delivery', 'pickup', 'eat_in'
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
   const [orderTimers, setOrderTimers] = useState({}); // Track countdown timers for each order
+  const [showQuickMealsManager, setShowQuickMealsManager] = useState(false);
   const { activeBusinessId } = useAuth();
 
   // Function to start a timer for an order
@@ -2264,6 +2266,52 @@ const OrdersPage = () => {
 
       {/* Main Content Spacer for Bottom Tabs */}
       <div style={{ height: '80px' }} />
+      
+      {/* Floating Quick Meals Manager Button */}
+      <button
+        onClick={() => setShowQuickMealsManager(prev => !prev)}
+        style={{
+          position: 'fixed',
+          bottom: window.innerWidth <= 768 ? '100px' : '90px',
+          right: '20px',
+          width: '56px',
+          height: '56px',
+          minWidth: '56px',
+          minHeight: '56px',
+          maxWidth: '56px',
+          maxHeight: '56px',
+          background: showQuickMealsManager ? '#dc3545' : '#007bff',
+          border: 'none',
+          color: 'white',
+          fontSize: '24px',
+          cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          transition: 'all 0.2s ease',
+          borderRadius: '50%',
+          boxSizing: 'border-box',
+        }}
+        title={showQuickMealsManager ? 'إغلاق إدارة المأكولات' : 'إدارة المأكولات السريعة'}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.1)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        }}
+      >
+        {showQuickMealsManager ? '✕' : '🍽️'}
+      </button>
+
+      {/* Quick Meals Manager Modal */}
+      <QuickMealsManager
+        isOpen={showQuickMealsManager}
+        onClose={() => setShowQuickMealsManager(false)}
+      />
       
       <audio id="orderSound" preload="auto">
         <source src={brandConfig.notificationSound} type="audio/mpeg" />

@@ -98,50 +98,126 @@ const handleDragEnd = async (event) => {
     ? sortedCategories
     : sortedCategories.filter((cat) => !cat.hidden);
 
+  const isMobile = window.innerWidth < 768;
+  
   return (
-    <div style={{ padding: 20, border: '1px solid #ccc', borderRadius: 8, marginBottom: 130 }}>
+    <div style={{ 
+      padding: isMobile ? '12px' : '20px', 
+      border: '1px solid #ccc', 
+      borderRadius: 8, 
+      marginBottom: 130,
+      width: '100%',
+      boxSizing: 'border-box',
+      overflowX: 'hidden',
+      maxWidth: '100%'
+    }}>
          <div className="categoryAddWrapper">
       <h4
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+        style={{ 
+          cursor: 'pointer', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 6,
+          fontSize: isMobile ? '15px' : '18px',
+          marginBottom: isMobile ? '10px' : '16px'
+        }}
         onClick={() => setIsOpen(!isOpen)}
       >
         📂 הוספת קטגוריה חדשה
-        <span style={{ fontSize: 18 }}>{isOpen ? '▲' : '▼'}</span>
+        <span style={{ fontSize: isMobile ? '14px' : '18px' }}>{isOpen ? '▲' : '▼'}</span>
       </h4>
 
       {isOpen && (
         <>
-          <div className="row">
+          <div 
+            className="row"
+            style={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? '8px' : '10px',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
             <input
               placeholder="שם קטגוריה בעברית"
               value={form.nameHe}
               onChange={(e) => handleInput('nameHe', e.target.value)}
+              style={{
+                width: isMobile ? '100%' : '50%',
+                boxSizing: 'border-box',
+                fontSize: isMobile ? '14px' : '16px',
+                padding: isMobile ? '8px' : '8px'
+              }}
             />
             <input
               placeholder="اسم القسم بالعربي"
               value={form.nameAr}
               onChange={(e) => handleInput('nameAr', e.target.value)}
+              style={{
+                width: isMobile ? '100%' : '50%',
+                boxSizing: 'border-box',
+                fontSize: isMobile ? '14px' : '16px',
+                padding: isMobile ? '8px' : '8px'
+              }}
             />
           </div>
-          <div className="row">
+          <div 
+            className="row"
+            style={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? '8px' : '10px',
+              width: '100%',
+              boxSizing: 'border-box',
+              marginTop: isMobile ? '8px' : '10px'
+            }}
+          >
             <input
               placeholder="מזהה קטגוריה"
               value={form.id}
               onChange={(e) => handleInput('id', e.target.value)}
               disabled={isEditing}
+              style={{
+                width: isMobile ? '100%' : '50%',
+                boxSizing: 'border-box',
+                fontSize: isMobile ? '14px' : '16px',
+                padding: isMobile ? '8px' : '8px'
+              }}
             />
             <input
               placeholder="كישור תמונה"
               value={form.icon}
               onChange={(e) => handleInput('icon', e.target.value)}
+              style={{
+                width: isMobile ? '100%' : '50%',
+                boxSizing: 'border-box',
+                fontSize: isMobile ? '14px' : '16px',
+                padding: isMobile ? '8px' : '8px'
+              }}
             />
           </div>
-                <div style={{ marginTop: 10 }}>
-        <button onClick={handleAddOrUpdate}>
+                <div style={{ marginTop: 10, display: 'flex', gap: isMobile ? '8px' : '10px', flexWrap: 'wrap' }}>
+        <button 
+          onClick={handleAddOrUpdate}
+          style={{
+            fontSize: isMobile ? '13px' : '16px',
+            padding: isMobile ? '8px 12px' : '8px 14px',
+            minWidth: isMobile ? 'auto' : '120px'
+          }}
+        >
           {isEditing ? 'עדכון' : 'הוספת'} קטגוריה
         </button>
         {isEditing && (
-          <button onClick={resetForm} style={{ marginLeft: 10 }}>
+          <button 
+            onClick={resetForm} 
+            style={{ 
+              marginLeft: 0,
+              fontSize: isMobile ? '13px' : '16px',
+              padding: isMobile ? '8px 12px' : '8px 14px',
+              minWidth: isMobile ? 'auto' : '120px'
+            }}
+          >
             ביטול
           </button>
         )}
@@ -153,13 +229,26 @@ const handleDragEnd = async (event) => {
     </div>
 
 
-      <div style={{ marginTop: 20 }}>
-        <label>
+      <div style={{ 
+        marginTop: isMobile ? '15px' : '20px',
+        marginBottom: isMobile ? '15px' : '20px'
+      }}>
+        <label style={{ 
+          fontSize: isMobile ? '14px' : '16px',
+          display: 'flex',
+          alignItems: 'center',
+          cursor: 'pointer'
+        }}>
           <input
             type="checkbox"
             checked={showHidden}
             onChange={(e) => setShowHidden(e.target.checked)}
-            style={{ marginRight: 6 }}
+            style={{ 
+              marginRight: 6,
+              width: isMobile ? '16px' : '18px',
+              height: isMobile ? '16px' : '18px',
+              cursor: 'pointer'
+            }}
           />
           הצג גם קטגוריות מוסתרות
         </label>

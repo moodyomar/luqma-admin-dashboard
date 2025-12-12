@@ -564,12 +564,19 @@ const AnalyticsPage = () => {
   }
 
   return (
-    <div style={{ 
-      padding: window.innerWidth < 768 ? '8px' : '16px', 
-      paddingBottom: window.innerWidth < 768 ? '100px' : '16px',
-      maxWidth: '1200px', 
-      margin: '0 auto' 
-    }}>
+    <div 
+      className="analytics-page-container"
+      style={{ 
+        padding: window.innerWidth < 768 ? '8px' : '16px', 
+        paddingBottom: window.innerWidth < 768 ? '100px' : '16px',
+        maxWidth: '1200px', 
+        margin: '0 auto',
+        width: '100%',
+        boxSizing: 'border-box',
+        overflowX: 'hidden',
+        position: 'relative'
+      }}
+    >
 
       {/* Real-Time Status Overview */}
       <div style={{
@@ -591,9 +598,13 @@ const AnalyticsPage = () => {
         {/* Status Cards Row */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-          gap: '15px',
-          marginBottom: '20px'
+          gridTemplateColumns: window.innerWidth < 768 
+            ? 'repeat(2, 1fr)' 
+            : 'repeat(auto-fit, minmax(120px, 1fr))',
+          gap: window.innerWidth < 768 ? '10px' : '15px',
+          marginBottom: '20px',
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           <div style={{
             background: 'rgba(255,255,255,0.2)',
@@ -768,22 +779,30 @@ const AnalyticsPage = () => {
       <div style={{
         display: 'flex',
         justifyContent: 'center',
-        gap: '10px',
-        marginBottom: '30px'
+        gap: window.innerWidth < 768 ? '6px' : '10px',
+        marginBottom: '30px',
+        flexWrap: 'wrap',
+        padding: window.innerWidth < 768 ? '0 4px' : '0',
+        width: '100%',
+        boxSizing: 'border-box'
       }}>
         {['1d', '7d', '30d', '90d'].map(range => (
           <button
             key={range}
             onClick={() => setTimeRange(range)}
             style={{
-              padding: '8px 16px',
+              padding: window.innerWidth < 768 ? '6px 12px' : '8px 16px',
               borderRadius: '20px',
               border: timeRange === range ? '2px solid #007bff' : '1px solid #ddd',
               background: timeRange === range ? '#007bff' : 'white',
               color: timeRange === range ? 'white' : '#333',
-              fontSize: '14px',
+              fontSize: window.innerWidth < 768 ? '12px' : '14px',
               fontWeight: 'bold',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              flex: window.innerWidth < 768 ? '1 1 calc(50% - 3px)' : '0 0 auto',
+              minWidth: window.innerWidth < 768 ? '0' : 'auto',
+              maxWidth: window.innerWidth < 768 ? 'calc(50% - 3px)' : 'none',
+              boxSizing: 'border-box'
             }}
           >
             {range === '1d' ? 'اليوم' : 
@@ -801,7 +820,10 @@ const AnalyticsPage = () => {
           : 'repeat(auto-fit, minmax(250px, 1fr))',
         gap: window.innerWidth < 768 ? '12px' : '20px',
         marginBottom: '40px',
-        gridAutoRows: '1fr' // Make all cards same height
+        gridAutoRows: '1fr',
+        width: '100%',
+        boxSizing: 'border-box',
+        maxWidth: '100%'
       }}>
         <div 
           style={{
@@ -1270,7 +1292,10 @@ const AnalyticsPage = () => {
           ? '1fr' 
           : 'repeat(auto-fit, minmax(400px, 1fr))',
         gap: window.innerWidth < 768 ? '20px' : '30px',
-        marginBottom: '40px'
+        marginBottom: '40px',
+        width: '100%',
+        boxSizing: 'border-box',
+        maxWidth: '100%'
       }}>
         {/* Daily Sales Chart */}
         <div style={{
@@ -1279,7 +1304,10 @@ const AnalyticsPage = () => {
           borderRadius: '15px',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
           border: '1px solid #eee',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          width: '100%',
+          boxSizing: 'border-box',
+          maxWidth: '100%'
         }}>
           <h3 style={{ marginBottom: '20px', color: '#333', fontSize: window.innerWidth < 768 ? '16px' : '18px' }}>📅 المبيعات اليومية</h3>
           <div style={{ 
@@ -1289,8 +1317,11 @@ const AnalyticsPage = () => {
             gap: window.innerWidth < 768 ? '4px' : '10px',
             paddingTop: '10px',
             marginTop: '10px',
-            overflowX: 'auto',
-            overflowY: 'hidden'
+            overflowX: window.innerWidth < 768 ? 'auto' : 'visible',
+            overflowY: 'hidden',
+            width: '100%',
+            boxSizing: 'border-box',
+            WebkitOverflowScrolling: 'touch'
           }}>
             {analytics.dailySales.map(([date, data], index) => {
               const maxSales = Math.max(...analytics.dailySales.map(([,d]) => d.sales));
@@ -1324,10 +1355,13 @@ const AnalyticsPage = () => {
         {/* Popular Items */}
         <div style={{
           background: 'white',
-          padding: '25px',
+          padding: window.innerWidth < 768 ? '15px' : '25px',
           borderRadius: '15px',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-          border: '1px solid #eee'
+          border: '1px solid #eee',
+          width: '100%',
+          boxSizing: 'border-box',
+          maxWidth: '100%'
         }}>
           <h3 style={{ marginBottom: '20px', color: '#333' }}>🍕 المنتجات الأكثر طلباً</h3>
           <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -1397,16 +1431,24 @@ const AnalyticsPage = () => {
       {/* Breakdown Charts */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '30px'
+        gridTemplateColumns: window.innerWidth < 768 
+          ? '1fr' 
+          : 'repeat(auto-fit, minmax(300px, 1fr))',
+        gap: window.innerWidth < 768 ? '20px' : '30px',
+        width: '100%',
+        boxSizing: 'border-box',
+        maxWidth: '100%'
       }}>
         {/* Delivery Methods */}
         <div style={{
           background: 'white',
-          padding: '25px',
+          padding: window.innerWidth < 768 ? '15px' : '25px',
           borderRadius: '15px',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-          border: '1px solid #eee'
+          border: '1px solid #eee',
+          width: '100%',
+          boxSizing: 'border-box',
+          maxWidth: '100%'
         }}>
           <h3 style={{ marginBottom: '20px', color: '#333' }}>🚚 طرق التوصيل</h3>
           {Object.entries(analytics.deliveryStats).map(([method, count]) => {
@@ -1448,10 +1490,13 @@ const AnalyticsPage = () => {
         {/* Payment Methods */}
         <div style={{
           background: 'white',
-          padding: '25px',
+          padding: window.innerWidth < 768 ? '15px' : '25px',
           borderRadius: '15px',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-          border: '1px solid #eee'
+          border: '1px solid #eee',
+          width: '100%',
+          boxSizing: 'border-box',
+          maxWidth: '100%'
         }}>
           <h3 style={{ marginBottom: '20px', color: '#333' }}>💳 طرق الدفع</h3>
           {Object.entries(analytics.paymentStats).map(([method, count]) => {
@@ -1739,6 +1784,43 @@ const AnalyticsPage = () => {
           </div>
         )}
       </div>
+
+      {/* Mobile-specific styles to override POS CSS */}
+      <style>
+        {`
+          @media (max-width: 767px) {
+            /* Override POS styles for mobile phones */
+            body {
+              overflow-x: hidden !important;
+              user-select: auto !important;
+              -webkit-user-select: auto !important;
+            }
+            
+            /* Ensure analytics page doesn't have horizontal scroll */
+            .analytics-page-container {
+              max-width: 100vw !important;
+              overflow-x: hidden !important;
+            }
+            
+            /* Fix grid layouts for mobile */
+            .analytics-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 12px !important;
+            }
+            
+            /* Ensure cards don't overflow */
+            .analytics-card {
+              max-width: 100% !important;
+              box-sizing: border-box !important;
+            }
+          }
+          
+          /* Only apply POS styles in landscape orientation on larger screens (POS devices) */
+          @media (orientation: landscape) and (min-width: 1024px) {
+            /* POS styles apply here */
+          }
+        `}
+      </style>
     </div>
   );
 };

@@ -255,7 +255,44 @@ font-size: 13px !important;
 
 .categoriesBtnsControl {
     display: flex;
+}
 
+/* Mobile-specific styles for CategoryManager - only apply to phones, not POS */
+@media (max-width: 767px) {
+    .categoriesControlsWrapper {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .categoriesBtnsControl {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    
+    .categoriesBtnsControl button {
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+        min-width: auto !important;
+        flex: 0 0 auto;
+    }
+    
+    .categoryAddWrapper input {
+        font-size: 14px !important;
+        padding: 6px 8px !important;
+    }
+    
+    .categoryAddWrapper .row {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .categoryAddWrapper .row input {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
 }
 
 .option-add-section {
