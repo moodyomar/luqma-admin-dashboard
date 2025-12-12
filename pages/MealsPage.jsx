@@ -613,22 +613,27 @@ const MealsPage = () => {
         disabled={saving}
         style={{
           position: 'fixed',
+          bottom: '20px',
           left: '20px',
-          top: '82%',
-          transform: 'translateY(-50%)',
-          width: '50px',
-          height: '50px',
+          width: '56px',
+          height: '56px',
+          minWidth: '56px',
+          minHeight: '56px',
+          maxWidth: '56px',
+          maxHeight: '56px',
           background: saving ? '#6c757d' : '#28a745',
           border: 'none',
           color: 'white',
-          fontSize: '20px',
+          fontSize: '24px',
           cursor: saving ? 'not-allowed' : 'pointer',
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
-          transition: 'all 0.2s ease'
+          transition: 'all 0.2s ease',
+          borderRadius: '50%',
+          boxSizing: 'border-box',
         }}
         title={saving ? 'שומר...' : 'שמור שינויים'}
       >

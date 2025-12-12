@@ -386,6 +386,10 @@ font-size: 13px !important;
 .icon-square-btn {
   width: 34px;
   height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  max-width: 34px;
+  max-height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -397,6 +401,25 @@ font-size: 13px !important;
   padding: 0;
   transition: border 0.18s, box-shadow 0.18s, background 0.18s;
   cursor: pointer;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+/* iOS/POS specific fixes - prevent buttons from getting too large */
+@media screen and (max-width: 768px) {
+  .icon-square-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    max-width: 32px !important;
+    max-height: 32px !important;
+  }
+  
+  .icon-square-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
 }
 .icon-square-btn:focus, .icon-square-btn:hover {
   border: 1.5px solid #007bff;
@@ -424,6 +447,24 @@ font-size: 13px !important;
   border-radius: 6px 6px 0 0;
   background: #fff;
   min-height: 44px;
+  overflow: hidden;
+}
+
+/* iOS/POS specific fixes for meal card header */
+@media screen and (max-width: 768px) {
+  .meal-card-header {
+    padding: 6px 8px 4px 8px !important;
+    gap: 6px;
+  }
+  
+  .meal-card-header strong {
+    font-size: 15px !important;
+  }
+  
+  .meal-card img {
+    width: 40px !important;
+    height: 40px !important;
+  }
 }
 
 .meal-expanded-body {

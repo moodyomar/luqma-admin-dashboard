@@ -41,6 +41,8 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           boxShadow: '0 1px 3px #eee',
           padding: '6px 10px',
         minHeight: 56,
+        gap: '8px',
+        overflow: 'hidden',
         }}
       >
         {/* Meal image at the far right (RTL) */}
@@ -60,10 +62,12 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             userSelect: 'none',
             textAlign: 'center',
             minWidth: 0,
+            padding: '0 8px',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-            <strong style={{ fontSize: 17, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{meal.name?.ar || '—'}</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', width: '100%' }}>
+            <strong style={{ fontSize: 17, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', flex: '1 1 auto', minWidth: 0 }}>{meal.name?.ar || '—'}</strong>
             {meal.preorderHours && (
               <span style={{ 
                 fontSize: 11, 
@@ -105,10 +109,10 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           <span style={{ color: '#666', fontSize: 13 }}>₪{meal.price || '0'}</span>
         </div>
         {/* Drag and hide (eye) buttons grouped on the left (RTL) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           {dragHandle ? (
-            <div style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-              <button className="icon-square-btn" tabIndex={-1} style={{ border: 'none', background: 'none', boxShadow: 'none', cursor: 'grab' }}>
+            <div style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10, flexShrink: 0 }}>
+              <button className="icon-square-btn" tabIndex={-1} style={{ border: 'none', background: 'none', boxShadow: 'none', cursor: 'grab', width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', maxWidth: '32px', maxHeight: '32px' }}>
                 {dragHandle()}
               </button>
             </div>
@@ -137,16 +141,17 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               }
             }}
             title={meal.available === false || meal.unavailable === true ? 'הצג מנה' : 'הסתר מנה'}
+            style={{ flexShrink: 0 }}
           >
-            {meal.available === false || meal.unavailable === true ? <FiEyeOff /> : <FiEye />}
+            {meal.available === false || meal.unavailable === true ? <FiEyeOff size={16} /> : <FiEye size={16} />}
           </button>
           <button
             className="icon-square-btn"
             onClick={() => onDuplicate && onDuplicate(meal, index)}
             title="שכפל מנה"
-            style={{ color: '#007bff' }}
+            style={{ color: '#007bff', flexShrink: 0 }}
           >
-            <FiCopy />
+            <FiCopy size={16} />
           </button>
         </div>
       </div>
