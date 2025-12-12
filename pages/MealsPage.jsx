@@ -26,6 +26,7 @@ const MealsPage = () => {
   const formRefs = useRef({});
   const categoryRefs = useRef({});
   const { activeBusinessId } = useAuth();
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   const toggleMeal = (mealId) => {
     setExpandedMeals(prev => ({
@@ -35,6 +36,15 @@ const MealsPage = () => {
   };
 
   const navigate = useNavigate();
+
+  // Detect mobile screen size for save button positioning
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -613,7 +623,7 @@ const MealsPage = () => {
         disabled={saving}
         style={{
           position: 'fixed',
-          bottom: '20px',
+          bottom: isMobile ? '100px' : '20px', // Above bottom nav on mobile (80px nav + 20px padding)
           left: '20px',
           width: '56px',
           height: '56px',
@@ -630,7 +640,7 @@ const MealsPage = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000,
+          zIndex: 10001, // Higher than bottom nav (9999) to ensure visibility
           transition: 'all 0.2s ease',
           borderRadius: '50%',
           boxSizing: 'border-box',
