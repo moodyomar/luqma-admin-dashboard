@@ -192,3 +192,43 @@ justify-content: space-between;
     box-shadow: 0 4px 16px rgba(76, 175, 80, 0.6);
   }
 }
+
+/* Responsive business settings fields */
+.business-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.business-settings-field {
+  flex: 1 1 calc(50% - 6px);
+  min-width: calc(50% - 6px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Mobile - force 2 columns for business settings row */
+@media (max-width: 767px) {
+  .business-settings-field {
+    flex: 1 1 calc(50% - 6px);
+    min-width: calc(50% - 6px);
+    max-width: calc(50% - 6px);
+  }
+}
+
+/* Tablet and larger screens - 2 columns */
+@media (min-width: 768px) {
+  .business-settings-field {
+    min-width: calc(50% - 6px);
+  }
+}
+
+/* Desktop screens - 3 columns */
+@media (min-width: 1024px) {
+  .business-settings-field {
+    flex: 1 1 calc(33.333% - 8px);
+    min-width: calc(33.333% - 8px);
+  }
+}

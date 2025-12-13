@@ -816,7 +816,7 @@ const AnalyticsPage = () => {
             onClick={() => {
               // Generate and download daily PDF report
               const today = new Date();
-              const todayStr = today.toLocaleDateString('ar-SA', { 
+              const todayStr = today.toLocaleDateString('en-US', { 
                 year: 'numeric', 
                 month: '2-digit', 
                 day: '2-digit' 
@@ -847,13 +847,13 @@ const AnalyticsPage = () => {
                 <body>
                   <div class="header">
                     <h1>تقرير يومي - ${todayStr}</h1>
-                    <p>تاريخ التقرير: ${today.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p>تاريخ التقرير: ${today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   </div>
                   
                   <div class="stats-grid">
                     <div class="stat-card">
                       <div class="stat-label">إجمالي المبيعات</div>
-                      <div class="stat-value">${analytics.totalSales.toLocaleString()}₪</div>
+                      <div class="stat-value">${analytics.totalSales.toLocaleString('en-US')}₪</div>
                     </div>
                     <div class="stat-card">
                       <div class="stat-label">عدد الطلبات</div>
@@ -899,7 +899,7 @@ const AnalyticsPage = () => {
                   
                   <div class="footer">
                     <p>تم إنشاء التقرير تلقائياً من نظام إدارة المطعم</p>
-                    <p>${today.toLocaleString('ar-SA')}</p>
+                    <p>${today.toLocaleString('en-US')}</p>
                   </div>
                 </body>
                 </html>

@@ -273,8 +273,7 @@ const handleDragEnd = async (event) => {
               </div>
             )}
           </div>
-          </div>
-                <div style={{ marginTop: 10, display: 'flex', gap: isMobile ? '8px' : '10px', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: 10, display: 'flex', gap: isMobile ? '8px' : '10px', flexWrap: 'wrap' }}>
         <button 
           onClick={handleAddOrUpdate}
           style={{

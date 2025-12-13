@@ -741,56 +741,37 @@ const BusinessManagePage = () => {
           direction: 'rtl',
         }}
       >
-        {/* First row: Delivery fee and store status */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', marginBottom: 2 }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2 }}>דמי משלוח ברירת מחדל (₪)</label>
-            <input
-              type="number"
-              name="deliveryFee"
-              value={form.deliveryFee}
-              onChange={handleChange}
-              min={0}
-              placeholder="0"
-              style={{
-                height: 44,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: '1px solid #e0e0e0',
-                fontSize: 16,
-                background: '#fff',
-                textAlign: 'right',
-                boxSizing: 'border-box',
-              }}
-            />
+        {/* Row 1: Store status and table capacity (2 columns on mobile) */}
+        <div className="business-settings-row" style={{ marginBottom: 12 }}>
+          <div style={{ flex: '1 1 calc(50% - 6px)', minWidth: 'calc(50% - 6px)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {/* Store Status */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>حالة المتجر</label>
+              <select
+                name="storeStatusMode"
+                value={form.storeStatusMode}
+                onChange={handleChange}
+                style={{
+                  height: 44,
+                  borderRadius: 10,
+                  border: '1px solid #e0e0e0',
+                  fontSize: 16,
+                  background: '#fff',
+                  textAlign: 'right',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  padding: '0 12px',
+                }}
+              >
+                <option value="auto">تلقائي (حسب ساعات العمل)</option>
+                <option value="open">مفتوح الآن</option>
+                <option value="busy">مشغول حالياً</option>
+                <option value="closed">مغلق الآن</option>
+              </select>
+            </div>
           </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2 }}>حالة المتجر</label>
-            <select
-              name="storeStatusMode"
-              value={form.storeStatusMode}
-              onChange={handleChange}
-              style={{
-                height: 44,
-                borderRadius: 10,
-                border: '1px solid #e0e0e0',
-                fontSize: 16,
-                background: '#fff',
-                textAlign: 'right',
-                boxSizing: 'border-box',
-                width: '100%',
-                padding: '0 12px',
-                marginBottom: 8,
-              }}
-            >
-              <option value="auto">تلقائي (حسب ساعات العمل)</option>
-              <option value="open">مفتوح الآن</option>
-              <option value="busy">مشغول حالياً</option>
-              <option value="closed">مغلق الآن</option>
-            </select>
-          </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2 }}>عدد طاولات المطعم</label>
+          <div className="business-settings-field" style={{ flex: '1 1 calc(50% - 6px)', minWidth: 'calc(50% - 6px)' }}>
+            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>عدد طاولات المطعم</label>
             <input
               type="number"
               name="tablesCapacity"
@@ -807,10 +788,55 @@ const BusinessManagePage = () => {
                 background: '#fff',
                 textAlign: 'right',
                 boxSizing: 'border-box',
+                width: '100%',
               }}
             />
-            <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4, marginTop: 4 }}>
-              💡 إذا كانت جميع الطاولات مشغولة، سيتم منع طلبات الأكل بالمطعم تلقائياً
+          </div>
+        </div>
+
+        {/* Row 2: Opening Hours (full width, 2 columns side by side) */}
+        <div style={{ marginBottom: 12, width: '100%' }}>
+          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 8, minHeight: '20px', display: 'flex', alignItems: 'center' }}>ساعات العمل</label>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת פתיחה</label>
+              <input
+                type="time"
+                name="open"
+                value={form.workingHours.open}
+                onChange={handleChange}
+                style={{
+                  height: 44,
+                  padding: '0 12px',
+                  borderRadius: 10,
+                  border: '1px solid #e0e0e0',
+                  fontSize: 16,
+                  background: '#fff',
+                  textAlign: 'right',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                }}
+              />
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת סגירה</label>
+              <input
+                type="time"
+                name="close"
+                value={form.workingHours.close}
+                onChange={handleChange}
+                style={{
+                  height: 44,
+                  padding: '0 12px',
+                  borderRadius: 10,
+                  border: '1px solid #e0e0e0',
+                  fontSize: 16,
+                  background: '#fff',
+                  textAlign: 'right',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                }}
+              />
             </div>
           </div>
         </div>
@@ -1416,15 +1442,17 @@ const BusinessManagePage = () => {
           )}
         </div>
         
-        {/* Second row: Opening and closing times */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2 }}>שעת פתיחה</label>
+        {/* Row 2: Delivery fee (alone, full width) */}
+        <div style={{ marginBottom: 2 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>דמי משלוח ברירת מחדל (₪)</label>
             <input
-              type="time"
-              name="open"
-              value={form.workingHours.open}
+              type="number"
+              name="deliveryFee"
+              value={form.deliveryFee}
               onChange={handleChange}
+              min={0}
+              placeholder="0"
               style={{
                 height: 44,
                 padding: '0 12px',
@@ -1434,25 +1462,7 @@ const BusinessManagePage = () => {
                 background: '#fff',
                 textAlign: 'right',
                 boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2 }}>שעת סגירה</label>
-            <input
-              type="time"
-              name="close"
-              value={form.workingHours.close}
-              onChange={handleChange}
-              style={{
-                height: 44,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: '1px solid #e0e0e0',
-                fontSize: 16,
-                background: '#fff',
-                textAlign: 'right',
-                boxSizing: 'border-box',
+                width: '100%',
               }}
             />
           </div>
