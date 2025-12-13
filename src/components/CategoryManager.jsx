@@ -18,7 +18,15 @@ import { db } from '../../firebase/firebaseConfig';
 
 
 const CategoryManager = ({ categories = [], onChange }) => {
-  const [form, setForm] = useState({ id: '', nameAr: '', nameHe: '', icon: '' });
+  const [form, setForm] = useState({ 
+    id: '', 
+    nameAr: '', 
+    nameHe: '', 
+    icon: '',
+    visibilityTimeEnabled: false,
+    visibilityTimeStart: '',
+    visibilityTimeEnd: ''
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [showHidden, setShowHidden] = useState(true);
   const [isOpen,setIsOpen] = useState(false);
@@ -28,7 +36,15 @@ const CategoryManager = ({ categories = [], onChange }) => {
   };
 
   const resetForm = () => {
-    setForm({ id: '', nameAr: '', nameHe: '', icon: '' });
+    setForm({ 
+      id: '', 
+      nameAr: '', 
+      nameHe: '', 
+      icon: '',
+      visibilityTimeEnabled: false,
+      visibilityTimeStart: '',
+      visibilityTimeEnd: ''
+    });
     setIsEditing(false);
   };
 
@@ -40,6 +56,11 @@ const CategoryManager = ({ categories = [], onChange }) => {
       icon: form.icon,
       name: { ar: form.nameAr, he: form.nameHe },
       hidden: false,
+      visibilityTime: form.visibilityTimeEnabled ? {
+        enabled: true,
+        start: form.visibilityTimeStart,
+        end: form.visibilityTimeEnd
+      } : { enabled: false }
     };
 
     if (index >= 0) {
@@ -58,6 +79,9 @@ const CategoryManager = ({ categories = [], onChange }) => {
       nameAr: cat.name.ar,
       nameHe: cat.name.he,
       icon: cat.icon,
+      visibilityTimeEnabled: cat.visibilityTime?.enabled || false,
+      visibilityTimeStart: cat.visibilityTime?.start || '',
+      visibilityTimeEnd: cat.visibilityTime?.end || ''
     });
     setIsEditing(true);
   };
@@ -186,7 +210,7 @@ const handleDragEnd = async (event) => {
               }}
             />
             <input
-              placeholder="كישור תמונה"
+              placeholder="كישور תמונה"
               value={form.icon}
               onChange={(e) => handleInput('icon', e.target.value)}
               style={{
@@ -196,6 +220,59 @@ const handleDragEnd = async (event) => {
                 padding: isMobile ? '8px' : '8px'
               }}
             />
+          </div>
+          
+          {/* Time-based visibility settings */}
+          <div style={{ marginTop: '12px', padding: '12px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
+              <input
+                type="checkbox"
+                checked={form.visibilityTimeEnabled}
+                onChange={(e) => handleInput('visibilityTimeEnabled', e.target.checked)}
+                style={{ width: '18px', height: '18px' }}
+              />
+              <span>إظهار/إخفاء تلقائي حسب الوقت</span>
+            </label>
+            {form.visibilityTimeEnabled && (
+              <div style={{ display: 'flex', gap: '8px', flexDirection: isMobile ? 'column' : 'row', marginTop: '8px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>من الساعة:</label>
+                  <input
+                    type="time"
+                    value={form.visibilityTimeStart}
+                    onChange={(e) => handleInput('visibilityTimeStart', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: '1px solid #ddd',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>إلى الساعة:</label>
+                  <input
+                    type="time"
+                    value={form.visibilityTimeEnd}
+                    onChange={(e) => handleInput('visibilityTimeEnd', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: '1px solid #ddd',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {form.visibilityTimeEnabled && (
+              <div style={{ fontSize: '11px', color: '#888', marginTop: '8px', lineHeight: '1.4' }}>
+                💡 سيتم إخفاء هذه الفئة تلقائياً خارج الوقت المحدد
+              </div>
+            )}
+          </div>
           </div>
                 <div style={{ marginTop: 10, display: 'flex', gap: isMobile ? '8px' : '10px', flexWrap: 'wrap' }}>
         <button 

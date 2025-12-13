@@ -40,8 +40,8 @@ const DEFAULT_LOYALTY = {
 };
 
 const DEFAULT_REFERRAL = {
-  referrerPercentage: 10,
-  refereePercentage: 5
+  referrerAmount: 20, // Fixed amount in ₪
+  refereeAmount: 10   // Fixed amount in ₪
 };
 
 const DEFAULT_HERO_TAGLINE = {
@@ -61,6 +61,7 @@ const BusinessManagePage = () => {
     prepTimeOptions: [], // new field
     deliveryCities: [], // NEW FIELD for delivery cities
     storeStatusMode: 'auto', // NEW FIELD
+    tablesCapacity: 0, // NEW FIELD for restaurant tables capacity
     features: { // NEW FIELD for delivery methods
       enablePickup: false,
       enableDelivery: false,
@@ -141,6 +142,8 @@ const BusinessManagePage = () => {
         const deliveryFee = data.config?.deliveryFee ?? '';
         // Get storeStatusMode from config if available
         const storeStatusMode = data.config?.storeStatusMode || 'auto';
+        // Get tablesCapacity from config if available
+        const tablesCapacity = Number(data.config?.tablesCapacity) || 0;
         
         // Get features from config.features - preserve existing values, default to false if not exists
         const existingFeatures = data.config?.features || {};
@@ -175,12 +178,17 @@ const BusinessManagePage = () => {
         };
         
         const referralConfig = {
-          referrerPercentage: Number(data.config?.referral?.referrerPercentage) > 0
-            ? Number(data.config.referral.referrerPercentage)
-            : DEFAULT_REFERRAL.referrerPercentage,
-          refereePercentage: Number(data.config?.referral?.refereePercentage) > 0
-            ? Number(data.config.referral.refereePercentage)
-            : DEFAULT_REFERRAL.refereePercentage
+          // Support both old percentage format and new fixed amount format
+          referrerAmount: Number(data.config?.referral?.referrerAmount) > 0
+            ? Number(data.config.referral.referrerAmount)
+            : (Number(data.config?.referral?.referrerPercentage) > 0 
+                ? Number(data.config.referral.referrerPercentage) // Legacy: treat percentage as amount
+                : DEFAULT_REFERRAL.referrerAmount),
+          refereeAmount: Number(data.config?.referral?.refereeAmount) > 0
+            ? Number(data.config.referral.refereeAmount)
+            : (Number(data.config?.referral?.refereePercentage) > 0
+                ? Number(data.config.referral.refereePercentage) // Legacy: treat percentage as amount
+                : DEFAULT_REFERRAL.refereeAmount)
         };
         
         const heroTagline = {
@@ -197,6 +205,7 @@ const BusinessManagePage = () => {
           prepTimeOptions,
           deliveryCities,
           storeStatusMode,
+          tablesCapacity,
           features,
           loyalty: loyaltyConfig,
           referral: referralConfig,
@@ -243,6 +252,8 @@ const BusinessManagePage = () => {
       setForm((prev) => ({ ...prev, deliveryFee: value }));
     } else if (name === 'storeStatusMode') {
       setForm((prev) => ({ ...prev, storeStatusMode: value }));
+    } else if (name === 'tablesCapacity') {
+      setForm((prev) => ({ ...prev, tablesCapacity: Number(value) || 0 }));
     } else if (name.startsWith('feature_')) {
       const featureName = name.replace('feature_', '');
       console.log('Feature changed:', featureName, 'to:', checked); // Debug log
@@ -469,6 +480,7 @@ const BusinessManagePage = () => {
         'config.prepTimeOptions': form.prepTimeOptions,
         'config.deliveryCities': form.deliveryCities,
         'config.storeStatusMode': form.storeStatusMode,
+        'config.tablesCapacity': Number(form.tablesCapacity) || 0,
         'config.features': form.features,
         'config.heroTagline': form.heroTagline,
         'config.loyalty': {
@@ -477,8 +489,8 @@ const BusinessManagePage = () => {
           redeemValuePerPoint: Number(form.loyalty.redeemValuePerPoint) || DEFAULT_LOYALTY.redeemValuePerPoint
         },
         'config.referral': {
-          referrerPercentage: Number(form.referral.referrerPercentage) || DEFAULT_REFERRAL.referrerPercentage,
-          refereePercentage: Number(form.referral.refereePercentage) || DEFAULT_REFERRAL.refereePercentage
+          referrerAmount: Number(form.referral.referrerAmount) || DEFAULT_REFERRAL.referrerAmount,
+          refereeAmount: Number(form.referral.refereeAmount) || DEFAULT_REFERRAL.refereeAmount
         }
       };
       
@@ -776,6 +788,30 @@ const BusinessManagePage = () => {
               <option value="busy">مشغول حالياً</option>
               <option value="closed">مغلق الآن</option>
             </select>
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2 }}>عدد طاولات المطعم</label>
+            <input
+              type="number"
+              name="tablesCapacity"
+              value={form.tablesCapacity}
+              onChange={handleChange}
+              min={0}
+              placeholder="0"
+              style={{
+                height: 44,
+                padding: '0 12px',
+                borderRadius: 10,
+                border: '1px solid #e0e0e0',
+                fontSize: 16,
+                background: '#fff',
+                textAlign: 'right',
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4, marginTop: 4 }}>
+              💡 إذا كانت جميع الطاولات مشغولة، سيتم منع طلبات الأكل بالمطعم تلقائياً
+            </div>
           </div>
         </div>
 
@@ -1320,19 +1356,18 @@ const BusinessManagePage = () => {
                   תוכנית שותפים (Referral Program)
                 </label>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
-                  שלוט באחוזי התגמול למשתפים ולמשתמשים החדשים שהם מביאים. התגמול מחושב מהסכום הכולל של ההזמנה הראשונה של המשתמש החדש.
+                  שלוט בסכומי התגמול הקבועים למשתפים ולמשתמשים החדשים שהם מביאים. התגמול הוא סכום קבוע ולא תלוי בגובה ההזמנה.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>אחוז תגמול למשתף (%)</span>
+                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>תגמול למשתף (₪)</span>
                       <input
                         type="number"
                         min={0}
-                        max={100}
-                        step="0.1"
-                        value={form.referral.referrerPercentage}
-                        onChange={(e) => handleReferralChange('referrerPercentage', e.target.value)}
+                        step="1"
+                        value={form.referral.referrerAmount || form.referral.referrerPercentage || DEFAULT_REFERRAL.referrerAmount}
+                        onChange={(e) => handleReferralChange('referrerAmount', e.target.value)}
                         style={{
                           height: 44,
                           padding: '0 12px',
@@ -1345,18 +1380,17 @@ const BusinessManagePage = () => {
                         }}
                       />
                       <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
-                        אחוז מהזמנה שהמשתף יקבל כנקודות
+                        סכום קבוע שהמשתף יקבל כנקודות
                       </div>
                     </div>
                     <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>אחוז תגמול למשתמש חדש (%)</span>
+                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>תגמול למשתמש חדש (₪)</span>
                       <input
                         type="number"
                         min={0}
-                        max={100}
-                        step="0.1"
-                        value={form.referral.refereePercentage}
-                        onChange={(e) => handleReferralChange('refereePercentage', e.target.value)}
+                        step="1"
+                        value={form.referral.refereeAmount || form.referral.refereePercentage || DEFAULT_REFERRAL.refereeAmount}
+                        onChange={(e) => handleReferralChange('refereeAmount', e.target.value)}
                         style={{
                           height: 44,
                           padding: '0 12px',
@@ -1369,12 +1403,12 @@ const BusinessManagePage = () => {
                         }}
                       />
                       <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
-                        אחוז מהזמנה שהמשתמש החדש יקבל כנקודות
+                        סכום קבוע שהמשתמש החדש יקבל כנקודות
                       </div>
                     </div>
                   </div>
                   <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4, padding: 8, background: '#f8f9fa', borderRadius: 6 }}>
-                    💡 <strong>דוגמה:</strong> אם הזמנה של משתמש חדש היא 100 ₪, וההגדרות הן 10% למשתף ו-5% למשתמש חדש, אז המשתף יקבל 10 ₪ נקודות והמשתמש החדש יקבל 5 ₪ נקודות.
+                    💡 <strong>דוגמה:</strong> אם ההגדרות הן 20 ₪ למשתף ו-10 ₪ למשתמש חדש, אז המשתף יקבל 20 ₪ נקודות והמשתמש החדש יקבל 10 ₪ נקודות, ללא תלות בגובה ההזמנה.
                   </div>
                 </div>
               </div>

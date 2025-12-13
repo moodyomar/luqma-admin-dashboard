@@ -234,9 +234,23 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         }
         return '';
       })()}
-      <div class="section">
-        <div>الإجمالي: ₪${order.total || order.price}</div>
-      </div>
+      ${(() => {
+        // Calculate total excluding delivery fee for receipt
+        const orderTotal = parseFloat(order.total || order.price || 0);
+        let cartSubtotal = 0;
+        if (order.cart && Array.isArray(order.cart)) {
+          cartSubtotal = order.cart.reduce((sum, item) => {
+            const itemPrice = parseFloat(item.totalPrice || item.price || 0);
+            const quantity = parseInt(item.quantity || 1);
+            return sum + (itemPrice * quantity);
+          }, 0);
+        }
+        // Receipt total = cart subtotal only (excludes delivery fee)
+        const receiptTotal = cartSubtotal;
+        return `<div class="section">
+          <div>الإجمالي: ₪${receiptTotal.toFixed(2)}</div>
+        </div>`;
+      })()}
       <div class="section">
         <div class="section-title">تفاصيل الطلب</div>
         ${items || '<div>لا توجد منتجات</div>'}
@@ -458,9 +472,23 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       }
     }
 
+    // Calculate total excluding delivery fee
+    // Delivery fee should not appear on printed receipt
+    const orderTotal = parseFloat(order.total || order.price || 0);
+    let cartSubtotal = 0;
+    if (order.cart && Array.isArray(order.cart)) {
+      cartSubtotal = order.cart.reduce((sum, item) => {
+        const itemPrice = parseFloat(item.totalPrice || item.price || 0);
+        const quantity = parseInt(item.quantity || 1);
+        return sum + (itemPrice * quantity);
+      }, 0);
+    }
+    // Receipt total = cart subtotal only (excludes delivery fee)
+    const receiptTotal = cartSubtotal;
+
     // Total with border
     lines.push('================================');
-    lines.push(`المبلغ الإجمالي: ${money(order.total || order.price || 0)}`);
+    lines.push(`المبلغ الإجمالي: ${money(receiptTotal)}`);
     lines.push('================================');
     
     // Footer will be added by Java/Android from strings.xml
@@ -1471,6 +1499,42 @@ const OrdersPage = () => {
               audio.volume = 1.0;
               audio.play().catch(err => {
                 console.warn('Failed to play audio:', err);
+              });
+              
+              // Track unaccepted orders for retry after 1 minute
+              newOrders.forEach(order => {
+                if (order && (order.status === 'pending' || order.status === 'confirmed')) {
+                  // Set timeout to retry sound after 1 minute if order is still unaccepted
+                  setTimeout(() => {
+                    // Re-check order status from current orders state
+                    // Note: We need to check the actual current state, not the closure
+                    const checkOrder = async () => {
+                      try {
+                        const orderRef = doc(db, 'menus', activeBusinessId, 'orders', order.id);
+                        const orderSnap = await getDoc(orderRef);
+                        if (orderSnap.exists()) {
+                          const currentOrder = orderSnap.data();
+                          if (currentOrder.status === 'pending' || currentOrder.status === 'confirmed') {
+                            // Order still unaccepted, play sound again (one retry only)
+                            try {
+                              const retryAudio = new Audio(brandConfig.notificationSound);
+                              retryAudio.volume = 1.0;
+                              retryAudio.play().catch(err => {
+                                console.warn('Failed to play retry audio:', err);
+                              });
+                              console.log('🔔 Retry alert sound for unaccepted order:', order.id);
+                            } catch (err) {
+                              console.warn('Retry audio error:', err);
+                            }
+                          }
+                        }
+                      } catch (err) {
+                        console.warn('Error checking order status for retry:', err);
+                      }
+                    };
+                    checkOrder();
+                  }, 60000); // 1 minute = 60000ms
+                }
               });
             } catch (err) {
               console.warn('Audio error:', err);

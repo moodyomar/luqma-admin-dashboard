@@ -181,3 +181,5 @@ Bluetooth Name: InnerPrinter (00:11:22:33:44:55)
 Just needs one tap confirmation for prints - which is actually safer for production use.
 
 
+
+

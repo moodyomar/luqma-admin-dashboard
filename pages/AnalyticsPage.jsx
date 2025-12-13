@@ -810,6 +810,139 @@ const AnalyticsPage = () => {
              range === '30d' ? '30 يوم' : '90 يوم'}
           </button>
         ))}
+        {/* Daily PDF Export Button */}
+        {timeRange === '1d' && (
+          <button
+            onClick={() => {
+              // Generate and download daily PDF report
+              const today = new Date();
+              const todayStr = today.toLocaleDateString('ar-SA', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit' 
+              });
+              
+              // Create PDF content
+              const pdfContent = `
+                <!DOCTYPE html>
+                <html dir="rtl" lang="ar">
+                <head>
+                  <meta charset="UTF-8">
+                  <title>تقرير يومي - ${todayStr}</title>
+                  <style>
+                    @page { size: A4; margin: 20mm; }
+                    body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; text-align: right; }
+                    h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
+                    .header { margin-bottom: 30px; }
+                    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0; }
+                    .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border-right: 4px solid #007bff; }
+                    .stat-label { font-size: 14px; color: #666; margin-bottom: 5px; }
+                    .stat-value { font-size: 24px; font-weight: bold; color: #333; }
+                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    th, td { padding: 12px; text-align: right; border-bottom: 1px solid #ddd; }
+                    th { background: #007bff; color: white; font-weight: bold; }
+                    .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd; text-align: center; color: #666; }
+                  </style>
+                </head>
+                <body>
+                  <div class="header">
+                    <h1>تقرير يومي - ${todayStr}</h1>
+                    <p>تاريخ التقرير: ${today.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                  
+                  <div class="stats-grid">
+                    <div class="stat-card">
+                      <div class="stat-label">إجمالي المبيعات</div>
+                      <div class="stat-value">${analytics.totalSales.toLocaleString()}₪</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">عدد الطلبات</div>
+                      <div class="stat-value">${analytics.orderCount}</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">الطلبات المكتملة</div>
+                      <div class="stat-value">${analytics.completedOrders}</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">متوسط قيمة الطلب</div>
+                      <div class="stat-value">${analytics.avgOrderValue.toFixed(2)}₪</div>
+                    </div>
+                  </div>
+                  
+                  <h2>تفاصيل الطلبات</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>طريقة التوصيل</th>
+                        <th>عدد الطلبات</th>
+                        <th>النسبة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${Object.entries(analytics.deliveryStats).map(([method, count]) => {
+                        const total = Object.values(analytics.deliveryStats).reduce((a, b) => a + b, 0);
+                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                        const methodNames = {
+                          'delivery': 'توصيل',
+                          'pickup': 'استلام',
+                          'eat_in': 'اكل بالمطعم',
+                          'unknown': 'غير محدد'
+                        };
+                        return `<tr>
+                          <td>${methodNames[method] || method}</td>
+                          <td>${count}</td>
+                          <td>${percentage}%</td>
+                        </tr>`;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                  
+                  <div class="footer">
+                    <p>تم إنشاء التقرير تلقائياً من نظام إدارة المطعم</p>
+                    <p>${today.toLocaleString('ar-SA')}</p>
+                  </div>
+                </body>
+                </html>
+              `;
+              
+              // Create blob and download
+              const blob = new Blob([pdfContent], { type: 'text/html' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `تقرير_يومي_${todayStr.replace(/\//g, '-')}.html`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+              
+              // Also try to print if possible
+              const printWindow = window.open('', '_blank');
+              printWindow.document.write(pdfContent);
+              printWindow.document.close();
+              setTimeout(() => {
+                printWindow.print();
+              }, 250);
+            }}
+            style={{
+              padding: window.innerWidth < 768 ? '6px 12px' : '8px 16px',
+              borderRadius: '20px',
+              border: '1px solid #28a745',
+              background: '#28a745',
+              color: 'white',
+              fontSize: window.innerWidth < 768 ? '12px' : '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxSizing: 'border-box'
+            }}
+          >
+            <span>📄</span>
+            <span>تصدير PDF يومي</span>
+          </button>
+        )}
       </div>
 
       {/* Key Metrics Cards */}
