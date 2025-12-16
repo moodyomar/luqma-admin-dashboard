@@ -1,6 +1,7 @@
 import OptionsEditor from './OptionsEditor';
 import { FiTrash2, FiEye, FiEyeOff, FiCopy, FiChevronDown, FiChevronUp, FiImage } from 'react-icons/fi';
 import { useState } from 'react';
+import { Timestamp } from 'firebase/firestore';
 import HideMealModal from './HideMealModal';
 
 const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, allMealsData, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow, onMarkUnavailable }) => {
@@ -426,21 +427,48 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             onChange(updated);
           }
         }}
-        onHideUntilTomorrow={() => {
+        onHideUntilTomorrow={async () => {
+          setShowHideModal(false);
           if (onHideUntilTomorrow) {
-            onHideUntilTomorrow(categoryId, index, meal);
+            await onHideUntilTomorrow(categoryId, index, meal);
           } else {
             // Fallback if onHideUntilTomorrow not provided
-            const updated = { ...meal, available: false };
+            const now = new Date();
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(7, 0, 0, 0); // 7 AM
+            
+            const updated = { ...meal, available: false, hideUntil: Timestamp.fromDate(tomorrow) };
             // Remove unavailable flag when hiding
             if (updated.unavailable) {
               delete updated.unavailable;
             }
             if (onChangeInstant) {
-              onChangeInstant(categoryId, index, updated);
+              await onChangeInstant(categoryId, meal.id || index, updated);
             } else {
               onChange(updated);
             }
+          }
+        }}
+        onMarkUnavailableUntilTomorrow={async () => {
+          setShowHideModal(false);
+          // Calculate next day at 7 AM
+          const now = new Date();
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          tomorrow.setHours(7, 0, 0, 0); // 7 AM
+          
+          const updatedMeal = {
+            ...meal,
+            unavailable: true,
+            available: true, // Keep available true so it shows in menu
+            hideUntil: Timestamp.fromDate(tomorrow)
+          };
+          
+          if (onChangeInstant) {
+            await onChangeInstant(categoryId, meal.id || index, updatedMeal);
+          } else {
+            onChange(updatedMeal);
           }
         }}
       />

@@ -195,21 +195,6 @@ const SimpleMealCard = ({
         visible={showHideModal}
         onClose={() => setShowHideModal(false)}
         mealName={meal.name?.ar || meal.name?.he || ''}
-        onMarkUnavailable={async () => {
-          setShowHideModal(false);
-          const updatedMeal = {
-            ...meal,
-            unavailable: true,
-            available: true, // Keep available true so it shows in menu
-          };
-          // Remove hideUntil if it exists
-          if (updatedMeal.hideUntil) {
-            delete updatedMeal.hideUntil;
-          }
-          if (onChangeInstant) {
-            await onChangeInstant(categoryId, meal.id, updatedMeal);
-          }
-        }}
         onHidePermanent={async () => {
           setShowHideModal(false);
           const updatedMeal = {
@@ -244,6 +229,39 @@ const SimpleMealCard = ({
           if (updatedMeal.unavailable) {
             delete updatedMeal.unavailable;
           }
+          if (onChangeInstant) {
+            await onChangeInstant(categoryId, meal.id, updatedMeal);
+          }
+        }}
+        onMarkUnavailable={async () => {
+          setShowHideModal(false);
+          const updatedMeal = {
+            ...meal,
+            unavailable: true,
+            available: true, // Keep available true so it shows in menu
+          };
+          // Remove hideUntil if it exists
+          if (updatedMeal.hideUntil) {
+            delete updatedMeal.hideUntil;
+          }
+          if (onChangeInstant) {
+            await onChangeInstant(categoryId, meal.id, updatedMeal);
+          }
+        }}
+        onMarkUnavailableUntilTomorrow={async () => {
+          setShowHideModal(false);
+          // Calculate next day at 7 AM
+          const now = new Date();
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          tomorrow.setHours(7, 0, 0, 0); // 7 AM
+          
+          const updatedMeal = {
+            ...meal,
+            unavailable: true,
+            available: true, // Keep available true so it shows in menu
+            hideUntil: Timestamp.fromDate(tomorrow)
+          };
           if (onChangeInstant) {
             await onChangeInstant(categoryId, meal.id, updatedMeal);
           }

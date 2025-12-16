@@ -1,6 +1,6 @@
 import { FiX, FiClock, FiEyeOff, FiAlertCircle } from 'react-icons/fi';
 
-const HideMealModal = ({ visible, onClose, onMarkUnavailable, onHidePermanent, onHideUntilTomorrow, mealName }) => {
+const HideMealModal = ({ visible, onClose, onMarkUnavailable, onHidePermanent, onHideUntilTomorrow, onMarkUnavailableUntilTomorrow, mealName }) => {
   if (!visible) return null;
 
   return (
@@ -82,93 +82,7 @@ const HideMealModal = ({ visible, onClose, onMarkUnavailable, onHidePermanent, o
 
         {/* Options */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Mark as unavailable (NEW) */}
-          <button
-            onClick={async () => {
-              if (onMarkUnavailable) {
-                await onMarkUnavailable();
-              }
-              onClose();
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '14px 16px',
-              borderRadius: 12,
-              border: '2px solid #9e9e9e',
-              backgroundColor: '#f5f5f5',
-              color: '#424242',
-              cursor: 'pointer',
-              fontSize: 15,
-              fontWeight: 500,
-              transition: 'all 0.2s',
-              textAlign: 'right',
-              direction: 'rtl',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#eeeeee';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#f5f5f5';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            <FiAlertCircle style={{ fontSize: 20, flexShrink: 0 }} />
-            <div style={{ flex: 1, textAlign: 'right' }}>
-              <div style={{ fontWeight: 600, marginBottom: 2 }}>
-                تعطيل المادة (تظهر لكن غير متاحة)
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>
-                סמן פריט כלא זמין (יוצג אבל לא ניתן להזמין)
-              </div>
-            </div>
-          </button>
-
-          {/* Hide until tomorrow */}
-          <button
-            onClick={() => {
-              onHideUntilTomorrow();
-              onClose();
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '14px 16px',
-              borderRadius: 12,
-              border: '2px solid #4CAF50',
-              backgroundColor: '#f1f8f4',
-              color: '#2e7d32',
-              cursor: 'pointer',
-              fontSize: 15,
-              fontWeight: 500,
-              transition: 'all 0.2s',
-              textAlign: 'right',
-              direction: 'rtl',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#e8f5e9';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#f1f8f4';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            <FiClock style={{ fontSize: 20, flexShrink: 0 }} />
-            <div style={{ flex: 1, textAlign: 'right' }}>
-              <div style={{ fontWeight: 600, marginBottom: 2 }}>
-                إخفاء حتى الغد الساعة 7 صباحاً
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>
-                הסתר עד מחר בשעה 7
-              </div>
-            </div>
-          </button>
-
-          {/* Hide permanently */}
+          {/* 1. Hide permanently */}
           <button
             onClick={() => {
               onHidePermanent();
@@ -206,6 +120,136 @@ const HideMealModal = ({ visible, onClose, onMarkUnavailable, onHidePermanent, o
               </div>
               <div style={{ fontSize: 12, opacity: 0.8 }}>
                 הסתר לצמיתות
+              </div>
+            </div>
+          </button>
+
+          {/* 2. Hide until tomorrow morning */}
+          <button
+            onClick={() => {
+              onHideUntilTomorrow();
+              onClose();
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '2px solid #4CAF50',
+              backgroundColor: '#f1f8f4',
+              color: '#2e7d32',
+              cursor: 'pointer',
+              fontSize: 15,
+              fontWeight: 500,
+              transition: 'all 0.2s',
+              textAlign: 'right',
+              direction: 'rtl',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#e8f5e9';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#f1f8f4';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <FiClock style={{ fontSize: 20, flexShrink: 0 }} />
+            <div style={{ flex: 1, textAlign: 'right' }}>
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                إخفاء حتى حتى غداً 7 صباحاً
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>
+                הסתר עד מחר בשעה 7
+              </div>
+            </div>
+          </button>
+
+          {/* 3. Mark as unavailable */}
+          <button
+            onClick={async () => {
+              if (onMarkUnavailable) {
+                await onMarkUnavailable();
+              }
+              onClose();
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '2px solid #9e9e9e',
+              backgroundColor: '#f5f5f5',
+              color: '#424242',
+              cursor: 'pointer',
+              fontSize: 15,
+              fontWeight: 500,
+              transition: 'all 0.2s',
+              textAlign: 'right',
+              direction: 'rtl',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#eeeeee';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#f5f5f5';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <FiAlertCircle style={{ fontSize: 20, flexShrink: 0 }} />
+            <div style={{ flex: 1, textAlign: 'right' }}>
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                اظهر الوجبه غير متاحه دائماً
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>
+                סמן פריט כלא זמין (יוצג אבל לא ניתן להזמין)
+              </div>
+            </div>
+          </button>
+
+          {/* 4. Mark as unavailable until tomorrow morning */}
+          <button
+            onClick={async () => {
+              if (onMarkUnavailableUntilTomorrow) {
+                await onMarkUnavailableUntilTomorrow();
+              }
+              onClose();
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '2px solid #ff6f00',
+              backgroundColor: '#fff8e1',
+              color: '#e65100',
+              cursor: 'pointer',
+              fontSize: 15,
+              fontWeight: 500,
+              transition: 'all 0.2s',
+              textAlign: 'right',
+              direction: 'rtl',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffecb3';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#fff8e1';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <FiAlertCircle style={{ fontSize: 20, flexShrink: 0 }} />
+            <div style={{ flex: 1, textAlign: 'right' }}>
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+              اظهر الوجبه غير متاحه حتى غداً 7 صباحاً
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>
+                סמן פריט כלא זמין עד מחר בשעה 7
               </div>
             </div>
           </button>
