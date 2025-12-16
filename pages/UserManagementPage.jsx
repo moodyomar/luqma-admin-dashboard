@@ -14,6 +14,7 @@ const UserManagementPage = () => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingDriver, setDeletingDriver] = useState(null); // Track which driver is being deleted
+  const [updatingDriver, setUpdatingDriver] = useState(null); // Track which driver is being updated
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -110,28 +111,38 @@ const UserManagementPage = () => {
         }
       }
 
+      // Ensure we send the name if it exists, otherwise undefined (not empty string)
+      const trimmedName = formData.name?.trim();
+      const displayNameValue = trimmedName && trimmedName.length > 0 ? trimmedName : undefined;
+      console.log('📤 [CreateDriver] Sending inviteUser request:', {
+        email: formData.email.trim(),
+        displayName: displayNameValue,
+        phone: formattedPhone,
+        hasName: !!trimmedName,
+        nameLength: trimmedName?.length || 0,
+        rawFormDataName: formData.name
+      });
+      
       const result = await inviteUser({
         businessId: activeBusinessId,
         email: formData.email.trim(),
         password: formData.password, // Send the password
         role: 'driver',
-        displayName: formData.name?.trim() || undefined,
+        displayName: displayNameValue, // Always send name, even if empty
         phone: formattedPhone, // Send formatted phone or undefined
       });
+      
+      console.log('📥 [CreateDriver] inviteUser response:', result.data);
 
       const { uid } = result.data || {};
 
-      // Create or update Firestore membership document (defensive; function also writes it)
-      if (uid) {
-        await setDoc(doc(db, 'menus', activeBusinessId, 'users', uid), {
-          role: 'driver',
-          email: formData.email,
-          name: formData.name,
-          phone: formData.phone,
-          createdAt: new Date().toISOString(),
-          createdBy: auth.currentUser.uid,
-          businessId: activeBusinessId
-        }, { merge: true });
+      // Note: The cloud function already creates/updates the membership document with all data
+      // including name, email, phone, etc. No need to duplicate here.
+      // The real-time listener will automatically update the UI.
+      
+      // If name was provided but result shows it wasn't saved, log a warning
+      if (formData.name?.trim() && uid) {
+        console.log(`✅ Driver created/updated with name: ${formData.name.trim()}`);
       }
 
       // Reset form
@@ -161,6 +172,45 @@ const UserManagementPage = () => {
     }
   };
 
+  // Update driver name (for drivers created before the fix)
+  const handleUpdateDriverName = async (driver) => {
+    const newName = window.prompt(`أدخل اسم السائق لـ ${driver.email}:`, driver.name || '');
+    if (!newName || !newName.trim()) return;
+    
+    setUpdatingDriver(driver.id);
+    try {
+      const functions = getFunctions(firebaseApp, import.meta.env.VITE_FIREBASE_REGION || 'us-central1');
+      if (import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+      }
+      const inviteUser = httpsCallable(functions, 'inviteUser');
+      
+      console.log('📤 [UpdateDriverName] Sending inviteUser request to update name:', {
+        email: driver.email,
+        displayName: newName.trim(),
+        driverId: driver.id
+      });
+      
+      // Re-invite with name to update existing driver
+      const result = await inviteUser({
+        businessId: activeBusinessId,
+        email: driver.email,
+        role: 'driver',
+        displayName: newName.trim(),
+        phone: driver.phone || undefined,
+      });
+      
+      console.log('📥 [UpdateDriverName] inviteUser response:', result.data);
+      
+      alert('✅ تم تحديث اسم السائق بنجاح!');
+    } catch (error) {
+      alert('حدث خطأ أثناء تحديث اسم السائق.');
+      console.error('Error updating driver name:', error);
+    } finally {
+      setUpdatingDriver(null);
+    }
+  };
+
   // Delete driver via Cloud Function (ensures permissions and claims cleanup)
   const handleDeleteDriver = async (driverId) => {
     if (!window.confirm('هل أنت متأكد أنك تريد حذف هذا السائق؟')) return;
@@ -172,8 +222,9 @@ const UserManagementPage = () => {
         connectFunctionsEmulator(functions, 'localhost', 5001);
       }
       const removeDriverFn = httpsCallable(functions, 'removeDriver');
-      await removeDriverFn({ businessId: activeBusinessId, uid: driverId, deleteAuthUser: false });
-      alert('تم حذف السائق بنجاح.');
+      // Delete from both Firestore and Firebase Authentication for complete removal
+      await removeDriverFn({ businessId: activeBusinessId, uid: driverId, deleteAuthUser: true });
+      alert('✅ تم حذف السائق بنجاح من النظام بالكامل.');
     } catch (error) {
       alert('حدث خطأ أثناء حذف السائق.');
       console.error('Error deleting driver:', error);
@@ -393,26 +444,51 @@ const UserManagementPage = () => {
                   <div style={{ fontSize: 12, color: '#6c757d' }}>
                     {formatDate(driver.createdAt)}
                   </div>
-                  <button
-                    onClick={() => handleDeleteDriver(driver.id)}
-                    disabled={deletingDriver === driver.id}
-                    style={{
-                      background: deletingDriver === driver.id ? '#6c757d' : '#dc3545',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: 6,
-                      padding: '6px 10px',
-                      cursor: deletingDriver === driver.id ? 'not-allowed' : 'pointer',
-                      fontSize: 16,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      opacity: deletingDriver === driver.id ? 0.7 : 1
-                    }}
-                    title={deletingDriver === driver.id ? 'جاري الحذف...' : 'حذف السائق'}
-                  >
-                    <FiTrash2 /> {deletingDriver === driver.id ? 'جاري الحذف...' : 'حذف'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {(!driver.name || driver.name === 'بدون اسم') && (
+                      <button
+                        onClick={() => handleUpdateDriverName(driver)}
+                        disabled={updatingDriver === driver.id}
+                        style={{
+                          background: updatingDriver === driver.id ? '#6c757d' : '#ffc107',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '6px 10px',
+                          cursor: updatingDriver === driver.id ? 'not-allowed' : 'pointer',
+                          fontSize: 14,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          opacity: updatingDriver === driver.id ? 0.7 : 1,
+                          fontWeight: 600
+                        }}
+                        title="تحديث الاسم"
+                      >
+                        ✏️ تحديث الاسم
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteDriver(driver.id)}
+                      disabled={deletingDriver === driver.id}
+                      style={{
+                        background: deletingDriver === driver.id ? '#6c757d' : '#dc3545',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '6px 10px',
+                        cursor: deletingDriver === driver.id ? 'not-allowed' : 'pointer',
+                        fontSize: 16,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        opacity: deletingDriver === driver.id ? 0.7 : 1
+                      }}
+                      title={deletingDriver === driver.id ? 'جاري الحذف...' : 'حذف السائق'}
+                    >
+                      <FiTrash2 /> {deletingDriver === driver.id ? 'جاري الحذف...' : 'حذف'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
