@@ -1906,7 +1906,7 @@ const BusinessManagePage = () => {
                             style={{ width: 16, height: 16, cursor: 'pointer' }}
                           />
                           <span style={{ fontSize: 14, color: '#333', flex: 1 }}>
-                            {user.phone || user.email || user.displayName || user.id}
+                            {user.name || user.phone || user.email || user.displayName || user.id}
                           </span>
                         </label>
                       ))
