@@ -55,10 +55,20 @@ const MobileBottomNav = () => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  // Filter menu items based on user role
-  const visibleMenuItems = menuItems.filter(item => 
-    !item.adminOnly || userRole === 'admin'
-  );
+  // Check selected role from sessionStorage (for employee/admin distinction)
+  const selectedRole = sessionStorage.getItem('selectedRole');
+  const isEmployee = selectedRole === 'employee';
+  
+  // Filter menu items based on user role and selected role
+  // Employees can only see /orders, admins see all items
+  const visibleMenuItems = menuItems.filter(item => {
+    if (isEmployee) {
+      // Employees can only see orders
+      return item.path === '/orders';
+    }
+    // Admins see all items based on their role
+    return !item.adminOnly || userRole === 'admin';
+  });
 
   return (
     <>
