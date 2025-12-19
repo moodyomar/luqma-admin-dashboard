@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import { 
-  FiHome, 
   FiPackage, 
   FiShoppingBag, 
   FiUsers, 
@@ -36,13 +35,6 @@ const AdminSidebar = ({ onSwitchRole }) => {
   }, [setIsCollapsed]);
 
   const menuItems = [
-    {
-      id: 'dashboard',
-      label: 'لوحة التحكم',
-      icon: FiHome,
-      path: '/dashboard',
-      adminOnly: false
-    },
     {
       id: 'orders',
       label: 'الطلبات',

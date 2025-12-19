@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
+import { useNavigate, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { useSidebar } from './contexts/SidebarContext';
 import BusinessSwitcher from './components/BusinessSwitcher';
@@ -18,7 +18,6 @@ import DriverProfilePage from '../pages/DriverProfilePage';
 import SettingsPage from '../pages/SettingsPage';
 import AnalyticsPage from '../pages/AnalyticsPage';
 import CouponManagementPage from '../pages/CouponManagementPage';
-import DashboardPage from '../pages/DashboardPage';
 import { FiLogOut, FiRefreshCw } from 'react-icons/fi';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
@@ -66,7 +65,7 @@ function App() {
         
         // Only redirect if not already on a valid page
         const currentPath = location.pathname;
-        const validAdminPaths = ['/dashboard', '/orders', '/meals', '/settings', '/analytics', '/coupons'];
+        const validAdminPaths = ['/orders', '/meals', '/settings', '/analytics', '/coupons'];
         const validDriverPaths = ['/driver/orders', '/driver/profile'];
         
         // Handle role-based routing
@@ -80,9 +79,9 @@ function App() {
           if (userRole === 'driver' && !validDriverPaths.includes(currentPath)) {
             navigate('/driver/orders');
           } else if (userRole === 'admin' && !validAdminPaths.includes(currentPath)) {
-            navigate('/dashboard');
+            navigate('/analytics');
           } else if (!userRole && !validAdminPaths.includes(currentPath)) {
-            navigate('/dashboard');
+            navigate('/analytics');
           }
         }
       } else {
@@ -209,7 +208,6 @@ function App() {
                 color: '#1d1d1f',
                 fontFamily: 'system-ui'
               }}>
-                {location.pathname === '/dashboard' && 'لوحة التحكم'}
                 {location.pathname === '/orders' && 'إدارة الطلبات'}
                 {location.pathname === '/meals' && 'إدارة القائمة'}
                 {location.pathname === '/settings' && 'الإعدادات'}
@@ -314,7 +312,6 @@ function App() {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
               }}>
-                {location.pathname === '/dashboard' && 'لوحة التحكم'}
                 {location.pathname === '/orders' && 'الطلبات'}
                 {location.pathname === '/meals' && 'إدارة القائمة'}
                 {location.pathname === '/settings' && 'الإعدادات'}
@@ -342,10 +339,11 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             
+            {/* Redirect /dashboard to /analytics */}
             <Route path="/dashboard" element={
               <AuthGuard>
                 <ProtectedRoute>
-                  <DashboardPage />
+                  <Navigate to="/analytics" replace />
                 </ProtectedRoute>
               </AuthGuard>
             } />

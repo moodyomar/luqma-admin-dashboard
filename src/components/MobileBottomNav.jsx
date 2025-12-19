@@ -17,12 +17,6 @@ const MobileBottomNav = () => {
 
   const menuItems = [
     {
-      id: 'dashboard',
-      label: 'الرئيسية',
-      icon: FiHome,
-      path: '/dashboard'
-    },
-    {
       id: 'orders',
       label: 'الطلبات',
       icon: FiShoppingBag,

@@ -14,7 +14,7 @@ const ProtectedRoute = ({
   const selectedRole = sessionStorage.getItem('selectedRole');
   
   // Admin-only routes that employees cannot access
-  const adminOnlyRoutes = ['/dashboard', '/meals', '/settings', '/analytics', '/coupons'];
+  const adminOnlyRoutes = ['/meals', '/settings', '/analytics', '/coupons'];
   const isAdminOnlyRoute = adminOnlyRoutes.includes(location.pathname);
 
   if (loading) {
@@ -120,7 +120,7 @@ const ProtectedRoute = ({
     if (userRole === 'driver') {
       return <Navigate to="/driver/orders" replace />;
     } else if (userRole === 'admin') {
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to="/analytics" replace />;
     } else {
       return <Navigate to={redirectTo} replace />;
     }

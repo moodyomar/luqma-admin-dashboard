@@ -11,6 +11,7 @@ const AnalyticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('7d'); // '1d', '7d', '30d', '90d'
   const [showUserAnalytics, setShowUserAnalytics] = useState(false); // Collapsed by default
+  const [showLiveStatus, setShowLiveStatus] = useState(false); // Collapsed by default
   const navigate = useNavigate();
   const { activeBusinessId } = useAuth();
 
@@ -578,24 +579,65 @@ const AnalyticsPage = () => {
       }}
     >
 
-      {/* Real-Time Status Overview */}
-      <div style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        borderRadius: '15px',
-        padding: '20px',
+      {/* Real-Time Status Overview - Collapsible */}
+      <div style={{ 
         marginBottom: '30px',
-        color: 'white'
+        background: 'white',
+        borderRadius: '15px',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        border: '1px solid #eee',
+        overflow: 'hidden'
       }}>
-        <h2 style={{ 
-          textAlign: 'center', 
-          marginBottom: '20px',
-          fontSize: '20px',
-          fontWeight: 'bold'
-        }}>
-          ⚡ الحالة المباشرة
-        </h2>
-        
-        {/* Status Cards Row */}
+        <div
+          onClick={() => setShowLiveStatus(!showLiveStatus)}
+          style={{
+            padding: '20px 25px',
+            cursor: 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: showLiveStatus ? '1px solid #eee' : 'none',
+            background: showLiveStatus ? '#f8f9fa' : 'transparent',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = '#f8f9fa';
+          }}
+          onMouseOut={(e) => {
+            if (!showLiveStatus) {
+              e.currentTarget.style.background = 'transparent';
+            }
+          }}
+        >
+          <h2 style={{ 
+            margin: 0,
+            color: '#333', 
+            fontSize: '20px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span>⚡</span>
+            <span>الحالة المباشرة</span>
+          </h2>
+          <span style={{ 
+            fontSize: '20px', 
+            color: '#666',
+            transition: 'transform 0.2s ease',
+            transform: showLiveStatus ? 'rotate(180deg)' : 'rotate(0deg)'
+          }}>
+            ▼
+          </span>
+        </div>
+
+        {showLiveStatus && (
+          <div style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            padding: '20px',
+            color: 'white'
+          }}>
+            {/* Status Cards Row */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: window.innerWidth < 768 
@@ -740,37 +782,39 @@ const AnalyticsPage = () => {
           </div>
         )}
 
-        {/* Quick Action Button */}
-        {(realTimeStatus.urgentOrders.length > 0 || realTimeStatus.newOrders.length > 0) && (
-          <div style={{ textAlign: 'center', marginTop: '15px' }}>
-            <button
-              onClick={() => navigate('/orders')}
-              style={{
-                background: 'rgba(255,255,255,0.2)',
-                border: '2px solid rgba(255,255,255,0.5)',
-                color: 'white',
-                padding: '12px 24px',
-                borderRadius: '25px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-              onMouseOver={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.3)';
-                e.target.style.transform = 'translateY(-2px)';
-              }}
-              onMouseOut={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.2)';
-                e.target.style.transform = 'translateY(0)';
-              }}
-            >
-              <span>⚡</span>
-              <span>إدارة الطلبات العاجلة</span>
-            </button>
+            {/* Quick Action Button */}
+            {(realTimeStatus.urgentOrders.length > 0 || realTimeStatus.newOrders.length > 0) && (
+              <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                <button
+                  onClick={() => navigate('/orders')}
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    border: '2px solid rgba(255,255,255,0.5)',
+                    color: 'white',
+                    padding: '12px 24px',
+                    borderRadius: '25px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.3)';
+                    e.target.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <span>⚡</span>
+                  <span>إدارة الطلبات العاجلة</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -877,10 +921,6 @@ const AnalyticsPage = () => {
                       <div class="stat-value">${analytics.orderCount}</div>
                     </div>
                     <div class="stat-card">
-                      <div class="stat-label">الطلبات المكتملة</div>
-                      <div class="stat-value">${analytics.completedOrders}</div>
-                    </div>
-                    <div class="stat-card">
                       <div class="stat-label">متوسط قيمة الطلب</div>
                       <div class="stat-value">${analytics.avgOrderValue.toFixed(2)}₪</div>
                     </div>
@@ -920,32 +960,47 @@ const AnalyticsPage = () => {
                       <tr>
                         <th>طريقة الدفع</th>
                         <th>عدد الطلبات</th>
-                        <th>النسبة</th>
+                        <th>المبلغ والنسبة</th>
                       </tr>
                     </thead>
                     <tbody>
-                      ${Object.entries(analytics.paymentStats).map(([method, count]) => {
+                      ${(() => {
+                        // Calculate payment amounts from filtered orders (daily)
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        const filteredOrdersForCalc = orders.filter(order => {
+                          const orderDate = new Date(order.createdAt);
+                          return orderDate >= today && orderDate < tomorrow;
+                        });
+                        
+                        const paymentAmounts = {};
+                        filteredOrdersForCalc.forEach(order => {
+                          const method = order.paymentMethod || 'unknown';
+                          paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
+                        });
+                        
                         const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
-                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
                         const methodNames = {
                           'cash': 'كاش',
                           'visa': 'فيزا',
                           'apple_pay': 'Apple Pay',
                           'unknown': 'غير محدد'
                         };
-                        return `<tr>
-                          <td>${methodNames[method] || method}</td>
-                          <td>${count}</td>
-                          <td>${percentage}%</td>
-                        </tr>`;
-                      }).join('')}
+                        
+                        return Object.entries(analytics.paymentStats).map(([method, count]) => {
+                          const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                          const amount = paymentAmounts[method] || 0;
+                          return `<tr>
+                            <td>${methodNames[method] || method}</td>
+                            <td>${count}</td>
+                            <td>${amount.toLocaleString('en-US')}₪ - ${percentage}%</td>
+                          </tr>`;
+                        }).join('');
+                      })()}
                     </tbody>
                   </table>
-                  
-                  <div class="footer">
-                    <p>تم إنشاء التقرير تلقائياً من نظام إدارة المطعم</p>
-                    <p>${today.toLocaleString('en-US')}</p>
-                  </div>
                 </body>
                 </html>
               `;
@@ -989,7 +1044,6 @@ const AnalyticsPage = () => {
                 lines.push(`${formatNumber(analytics.totalSales)}₪`);
                 lines.push('');
                 lines.push(`عدد الطلبات: ${analytics.orderCount}`);
-                lines.push(`الطلبات المكتملة: ${analytics.completedOrders}`);
                 lines.push(`متوسط قيمة الطلب: ${analytics.avgOrderValue.toFixed(2)}₪`);
                 lines.push('');
                 lines.push('- - - - - - - - - - - - - - - -');
@@ -1017,7 +1071,7 @@ const AnalyticsPage = () => {
                 lines.push('- - - - - - - - - - - - - - - -');
                 lines.push('');
                 
-                // Payment Methods
+                // Payment Methods (with amounts)
                 lines.push('--- طرق الدفع ---');
                 lines.push('');
                 const paymentMethodNames = {
@@ -1027,18 +1081,33 @@ const AnalyticsPage = () => {
                   'unknown': 'غير محدد'
                 };
                 const paymentTotal = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
+                
+                // Calculate payment amounts from filtered orders (daily)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const filteredOrdersForCalc = orders.filter(order => {
+                  const orderDate = new Date(order.createdAt);
+                  return orderDate >= today && orderDate < tomorrow;
+                });
+                
+                const paymentAmounts = {};
+                filteredOrdersForCalc.forEach(order => {
+                  const method = order.paymentMethod || 'unknown';
+                  paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
+                });
+                
                 Object.entries(analytics.paymentStats)
                   .sort(([,a], [,b]) => b - a) // Sort by count descending
                   .forEach(([method, count]) => {
                     const percentage = paymentTotal > 0 ? ((count / paymentTotal) * 100).toFixed(1) : 0;
+                    const amount = paymentAmounts[method] || 0;
                     const methodName = paymentMethodNames[method] || method;
                     lines.push(`${methodName}:`);
-                    lines.push(`  ${count} طلب (${percentage}%)`);
+                    lines.push(`  ${formatNumber(amount)}₪ - ${percentage}%`);
                   });
                 lines.push('');
-                lines.push('================================');
-                lines.push(centerText('تم إنشاء التقرير تلقائياً'));
-                lines.push(centerText(today.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })));
                 lines.push('================================');
                 lines.push(''); // Extra blank line at end
                 
@@ -1152,6 +1221,14 @@ const AnalyticsPage = () => {
                 return `${day}.${month}.${year}`;
               };
               
+              // Format dates as DD/MM/YYYY (English format)
+              const formatDateEnglish = (date) => {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+              };
+              
               const startDateStr = formatDateShort(startDate);
               const endDateStr = formatDateShort(endDate);
               const dateRangeStr = `${startDateStr}-${endDateStr}`;
@@ -1188,7 +1265,7 @@ const AnalyticsPage = () => {
                 <body>
                   <div class="header">
                     <h1>تقرير أسبوعي - ${dateRangeStr}</h1>
-                    <p>الفترة: من ${startDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${endDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p>الفترة: من ${formatDateEnglish(startDate)} إلى ${formatDateEnglish(endDate)}</p>
                   </div>
                   
                   <div class="stats-grid">
@@ -1199,10 +1276,6 @@ const AnalyticsPage = () => {
                     <div class="stat-card">
                       <div class="stat-label">عدد الطلبات</div>
                       <div class="stat-value">${analytics.orderCount}</div>
-                    </div>
-                    <div class="stat-card">
-                      <div class="stat-label">الطلبات المكتملة</div>
-                      <div class="stat-value">${analytics.completedOrders}</div>
                     </div>
                     <div class="stat-card">
                       <div class="stat-label">متوسط قيمة الطلب</div>
@@ -1244,32 +1317,43 @@ const AnalyticsPage = () => {
                       <tr>
                         <th>طريقة الدفع</th>
                         <th>عدد الطلبات</th>
-                        <th>النسبة</th>
+                        <th>المبلغ والنسبة</th>
                       </tr>
                     </thead>
                     <tbody>
-                      ${Object.entries(analytics.paymentStats).map(([method, count]) => {
+                      ${(() => {
+                        // Calculate payment amounts from filtered orders (weekly)
+                        const filteredOrdersForCalc = orders.filter(order => {
+                          const orderDate = new Date(order.createdAt);
+                          return orderDate >= startDate && orderDate <= endDate;
+                        });
+                        
+                        const paymentAmounts = {};
+                        filteredOrdersForCalc.forEach(order => {
+                          const method = order.paymentMethod || 'unknown';
+                          paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
+                        });
+                        
                         const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
-                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
                         const methodNames = {
                           'cash': 'كاش',
                           'visa': 'فيزا',
                           'apple_pay': 'Apple Pay',
                           'unknown': 'غير محدد'
                         };
-                        return `<tr>
-                          <td>${methodNames[method] || method}</td>
-                          <td>${count}</td>
-                          <td>${percentage}%</td>
-                        </tr>`;
-                      }).join('')}
+                        
+                        return Object.entries(analytics.paymentStats).map(([method, count]) => {
+                          const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                          const amount = paymentAmounts[method] || 0;
+                          return `<tr>
+                            <td>${methodNames[method] || method}</td>
+                            <td>${count}</td>
+                            <td>${amount.toLocaleString('en-US')}₪ - ${percentage}%</td>
+                          </tr>`;
+                        }).join('');
+                      })()}
                     </tbody>
                   </table>
-                  
-                  <div class="footer">
-                    <p>تم إنشاء التقرير تلقائياً من نظام إدارة المطعم</p>
-                    <p>${now.toLocaleString('en-US')}</p>
-                  </div>
                 </body>
                 </html>
               `;
@@ -1295,19 +1379,17 @@ const AnalyticsPage = () => {
                 lines.push('================================');
                 lines.push('');
                 
-                // Date range info
-                const startDateAr = startDate.toLocaleDateString('ar-SA', { 
-                  day: 'numeric', 
-                  month: 'long', 
-                  year: 'numeric' 
-                });
-                const endDateAr = endDate.toLocaleDateString('ar-SA', { 
-                  day: 'numeric', 
-                  month: 'long', 
-                  year: 'numeric' 
-                });
-                lines.push(`من: ${startDateAr}`);
-                lines.push(`إلى: ${endDateAr}`);
+                // Date range info (English format DD/MM/YYYY)
+                const formatDateEnglish = (date) => {
+                  const day = String(date.getDate()).padStart(2, '0');
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const year = date.getFullYear();
+                  return `${day}/${month}/${year}`;
+                };
+                const startDateEn = formatDateEnglish(startDate);
+                const endDateEn = formatDateEnglish(endDate);
+                lines.push(`من: ${startDateEn}`);
+                lines.push(`إلى: ${endDateEn}`);
                 lines.push('- - - - - - - - - - - - - - - -');
                 lines.push('');
                 
@@ -1318,7 +1400,6 @@ const AnalyticsPage = () => {
                 lines.push(`${formatNumber(analytics.totalSales)}₪`);
                 lines.push('');
                 lines.push(`عدد الطلبات: ${analytics.orderCount}`);
-                lines.push(`الطلبات المكتملة: ${analytics.completedOrders}`);
                 lines.push(`متوسط قيمة الطلب: ${analytics.avgOrderValue.toFixed(2)}₪`);
                 lines.push('');
                 lines.push('- - - - - - - - - - - - - - - -');
@@ -1346,7 +1427,7 @@ const AnalyticsPage = () => {
                 lines.push('- - - - - - - - - - - - - - - -');
                 lines.push('');
                 
-                // Payment Methods
+                // Payment Methods (with amounts)
                 lines.push('--- طرق الدفع ---');
                 lines.push('');
                 const paymentMethodNames = {
@@ -1356,18 +1437,29 @@ const AnalyticsPage = () => {
                   'unknown': 'غير محدد'
                 };
                 const paymentTotal = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
+                
+                // Calculate payment amounts from filtered orders (weekly)
+                const filteredOrdersForCalc = orders.filter(order => {
+                  const orderDate = new Date(order.createdAt);
+                  return orderDate >= startDate && orderDate <= endDate;
+                });
+                
+                const paymentAmounts = {};
+                filteredOrdersForCalc.forEach(order => {
+                  const method = order.paymentMethod || 'unknown';
+                  paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
+                });
+                
                 Object.entries(analytics.paymentStats)
                   .sort(([,a], [,b]) => b - a) // Sort by count descending
                   .forEach(([method, count]) => {
                     const percentage = paymentTotal > 0 ? ((count / paymentTotal) * 100).toFixed(1) : 0;
+                    const amount = paymentAmounts[method] || 0;
                     const methodName = paymentMethodNames[method] || method;
                     lines.push(`${methodName}:`);
-                    lines.push(`  ${count} طلب (${percentage}%)`);
+                    lines.push(`  ${formatNumber(amount)}₪ - ${percentage}%`);
                   });
                 lines.push('');
-                lines.push('================================');
-                lines.push(centerText('تم إنشاء التقرير تلقائياً'));
-                lines.push(centerText(now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })));
                 lines.push('================================');
                 lines.push(''); // Extra blank line at end
                 
