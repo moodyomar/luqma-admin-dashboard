@@ -217,6 +217,37 @@ function App() {
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {/* Switch Role Button for Admin */}
+              <button
+                onClick={handleSwitchRole}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '8px 12px',
+                  border: '1px solid #e5e5e7',
+                  background: 'transparent',
+                  color: '#007AFF',
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  transition: 'all 0.2s ease',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  gap: '6px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 122, 255, 0.1)';
+                  e.currentTarget.style.borderColor = '#007AFF';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderColor = '#e5e5e7';
+                }}
+                title="تغيير الدور | Switch Role"
+              >
+                <FiRefreshCw size={16} />
+                <span>تغيير الدور</span>
+              </button>
               {hasMultipleBusinesses && <BusinessSwitcher />}
               <NotificationSystem />
             </div>
@@ -241,8 +272,8 @@ function App() {
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
           }}>
-            {/* Switch Role Button (for employees) or Logout Button - Left Side */}
-            {selectedRole === 'employee' ? (
+            {/* Switch Role Button (for employees and admins) or Logout Button - Left Side */}
+            {(selectedRole === 'employee' || selectedRole === 'admin') ? (
               <button
                 onClick={handleSwitchRole}
                 style={{
