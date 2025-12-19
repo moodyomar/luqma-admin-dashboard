@@ -11,10 +11,11 @@ import {
   FiBarChart2,
   FiLogOut,
   FiMenu,
-  FiX
+  FiX,
+  FiRefreshCw
 } from 'react-icons/fi';
 
-const AdminSidebar = () => {
+const AdminSidebar = ({ onSwitchRole }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user, userRole } = useAuth();
@@ -72,10 +73,20 @@ const AdminSidebar = () => {
     }
   ];
 
-  // Filter menu items based on user role
-  const visibleMenuItems = menuItems.filter(item => 
-    !item.adminOnly || userRole === 'admin'
-  );
+  // Check selected role from sessionStorage (for employee/admin distinction)
+  const selectedRole = sessionStorage.getItem('selectedRole');
+  const isEmployee = selectedRole === 'employee';
+  
+  // Filter menu items based on user role and selected role
+  // Employees can only see /orders, admins see all items
+  const visibleMenuItems = menuItems.filter(item => {
+    if (isEmployee) {
+      // Employees can only see orders
+      return item.path === '/orders';
+    }
+    // Admins see all items based on their role
+    return !item.adminOnly || userRole === 'admin';
+  });
 
   const isActive = (path) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
@@ -121,7 +132,10 @@ const AdminSidebar = () => {
         flexDirection: 'column',
         boxShadow: '4px 0 20px rgba(0, 0, 0, 0.1)',
         borderRight: '1px solid #333',
-        pointerEvents: 'auto'
+        pointerEvents: 'auto',
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        boxSizing: 'border-box'
       }}>
         
         {/* Header */}
@@ -131,7 +145,10 @@ const AdminSidebar = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: isCollapsed ? 'center' : 'space-between',
-          minHeight: isCollapsed ? '64px' : '80px'
+          minHeight: isCollapsed ? '64px' : '80px',
+          flexShrink: 0,
+          overflow: 'hidden',
+          boxSizing: 'border-box'
         }}>
           {!isCollapsed && (
             <div>
@@ -186,7 +203,10 @@ const AdminSidebar = () => {
         <nav style={{
           flex: 1,
           padding: '16px 0',
-          overflowY: 'auto'
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          minWidth: 0,
+          boxSizing: 'border-box'
         }}>
           {visibleMenuItems.map((item) => {
             const Icon = item.icon;
@@ -218,7 +238,10 @@ const AdminSidebar = () => {
                   position: 'relative',
                   pointerEvents: 'auto',
                   zIndex: 1001,
-                  justifyContent: isCollapsed ? 'center' : 'flex-start'
+                  justifyContent: isCollapsed ? 'center' : 'flex-start',
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                  overflow: 'hidden'
                 }}
               >
                 <Icon 
@@ -227,13 +250,22 @@ const AdminSidebar = () => {
                     marginLeft: isCollapsed ? '0' : '12px',
                     marginRight: isCollapsed ? '0' : 'auto',
                     minWidth: '20px',
+                    maxWidth: '20px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    flexShrink: 0
                   }} 
                 />
                 {!isCollapsed && (
-                  <span style={{ flex: 1, textAlign: 'right' }}>
+                  <span style={{ 
+                    flex: 1, 
+                    textAlign: 'right',
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
                     {item.label}
                   </span>
                 )}
@@ -259,8 +291,80 @@ const AdminSidebar = () => {
         {/* Footer */}
         <div style={{
           padding: isCollapsed ? '16px 8px' : '16px 24px',
-          borderTop: '1px solid #333'
+          borderTop: '1px solid #333',
+          flexShrink: 0,
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
         }}>
+          {/* Switch Role Button */}
+          {onSwitchRole && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onSwitchRole) {
+                  onSwitchRole();
+                }
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                padding: isCollapsed ? '12px 8px' : '12px 16px',
+                border: 'none',
+                background: 'transparent',
+                color: '#007AFF',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                transition: 'all 0.2s ease',
+                fontFamily: 'system-ui',
+                fontSize: '14px',
+                fontWeight: '500',
+                pointerEvents: 'auto',
+                zIndex: 1001,
+                justifyContent: isCollapsed ? 'center' : 'flex-start',
+                minWidth: 0,
+                boxSizing: 'border-box',
+                overflow: 'hidden'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(0, 122, 255, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <FiRefreshCw 
+                size={18} 
+                style={{ 
+                  marginLeft: isCollapsed ? '0' : '12px',
+                  marginRight: isCollapsed ? '0' : 'auto',
+                  minWidth: '18px',
+                  maxWidth: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }} 
+              />
+              {!isCollapsed && (
+                <span style={{ 
+                  flex: 1, 
+                  textAlign: 'right',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  تغيير الدور | Switch Role
+                </span>
+              )}
+            </button>
+          )}
+          
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -284,7 +388,10 @@ const AdminSidebar = () => {
               fontWeight: '500',
               pointerEvents: 'auto',
               zIndex: 1001,
-              justifyContent: isCollapsed ? 'center' : 'flex-start'
+              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              minWidth: 0,
+              boxSizing: 'border-box',
+              overflow: 'hidden'
             }}
           >
             <FiLogOut 
@@ -293,13 +400,22 @@ const AdminSidebar = () => {
                 marginLeft: isCollapsed ? '0' : '12px',
                 marginRight: isCollapsed ? '0' : 'auto',
                 minWidth: '18px',
+                maxWidth: '18px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                flexShrink: 0
               }} 
             />
             {!isCollapsed && (
-              <span style={{ flex: 1, textAlign: 'right' }}>
+              <span style={{ 
+                flex: 1, 
+                textAlign: 'right',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
                 تسجيل الخروج
               </span>
             )}

@@ -813,7 +813,7 @@ const AnalyticsPage = () => {
         {/* Daily PDF Export Button */}
         {timeRange === '1d' && (
           <button
-            onClick={() => {
+            onClick={async () => {
               // Generate and download daily PDF report
               const today = new Date();
               const todayStr = today.toLocaleDateString('en-US', { 
@@ -822,7 +822,23 @@ const AnalyticsPage = () => {
                 day: '2-digit' 
               });
               
-              // Create PDF content
+              // Format date as DD.MM.YY for print
+              const formatDateShort = (date) => {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = String(date.getFullYear()).slice(-2);
+                return `${day}.${month}.${year}`;
+              };
+              
+              const todayDateStr = formatDateShort(today);
+              
+              // Helper function to check if native printer is available
+              const canUseNativePrinter = () =>
+                typeof window !== 'undefined' &&
+                window.PosPrinter &&
+                typeof window.PosPrinter.printText === 'function';
+              
+              // Create PDF content (HTML version)
               const pdfContent = `
                 <!DOCTYPE html>
                 <html dir="rtl" lang="ar">
@@ -833,6 +849,7 @@ const AnalyticsPage = () => {
                     @page { size: A4; margin: 20mm; }
                     body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; text-align: right; }
                     h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
+                    h2 { color: #333; margin-top: 30px; margin-bottom: 15px; }
                     .header { margin-bottom: 30px; }
                     .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0; }
                     .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border-right: 4px solid #007bff; }
@@ -897,6 +914,34 @@ const AnalyticsPage = () => {
                     </tbody>
                   </table>
                   
+                  <h2>طرق الدفع</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>طريقة الدفع</th>
+                        <th>عدد الطلبات</th>
+                        <th>النسبة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${Object.entries(analytics.paymentStats).map(([method, count]) => {
+                        const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
+                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                        const methodNames = {
+                          'cash': 'كاش',
+                          'visa': 'فيزا',
+                          'apple_pay': 'Apple Pay',
+                          'unknown': 'غير محدد'
+                        };
+                        return `<tr>
+                          <td>${methodNames[method] || method}</td>
+                          <td>${count}</td>
+                          <td>${percentage}%</td>
+                        </tr>`;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                  
                   <div class="footer">
                     <p>تم إنشاء التقرير تلقائياً من نظام إدارة المطعم</p>
                     <p>${today.toLocaleString('en-US')}</p>
@@ -904,6 +949,134 @@ const AnalyticsPage = () => {
                 </body>
                 </html>
               `;
+              
+              // Create text version for silent printing (optimized for thermal printer)
+              const buildReportText = () => {
+                const lines = [];
+                const maxWidth = 32; // Thermal printer width (conservative for Arabic)
+                
+                // Helper to center text
+                const centerText = (text, width = maxWidth) => {
+                  const padding = Math.max(0, Math.floor((width - text.length) / 2));
+                  return ' '.repeat(padding) + text;
+                };
+                
+                // Helper to format numbers with proper spacing
+                const formatNumber = (num) => num.toLocaleString('en-US');
+                
+                // Header
+                lines.push('================================');
+                lines.push(centerText('تقرير يومي'));
+                lines.push(centerText(todayDateStr));
+                lines.push('================================');
+                lines.push('');
+                
+                // Date info
+                const dateInfo = today.toLocaleDateString('ar-SA', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                });
+                lines.push(`التاريخ: ${dateInfo}`);
+                lines.push('- - - - - - - - - - - - - - - -');
+                lines.push('');
+                
+                // Main Statistics
+                lines.push('--- الإحصائيات الرئيسية ---');
+                lines.push('');
+                lines.push(`إجمالي المبيعات:`);
+                lines.push(`${formatNumber(analytics.totalSales)}₪`);
+                lines.push('');
+                lines.push(`عدد الطلبات: ${analytics.orderCount}`);
+                lines.push(`الطلبات المكتملة: ${analytics.completedOrders}`);
+                lines.push(`متوسط قيمة الطلب: ${analytics.avgOrderValue.toFixed(2)}₪`);
+                lines.push('');
+                lines.push('- - - - - - - - - - - - - - - -');
+                lines.push('');
+                
+                // Delivery Methods
+                lines.push('--- طرق التوصيل ---');
+                lines.push('');
+                const deliveryMethodNames = {
+                  'delivery': 'توصيل',
+                  'pickup': 'استلام',
+                  'eat_in': 'اكل بالمطعم',
+                  'unknown': 'غير محدد'
+                };
+                const deliveryTotal = Object.values(analytics.deliveryStats).reduce((a, b) => a + b, 0);
+                Object.entries(analytics.deliveryStats)
+                  .sort(([,a], [,b]) => b - a) // Sort by count descending
+                  .forEach(([method, count]) => {
+                    const percentage = deliveryTotal > 0 ? ((count / deliveryTotal) * 100).toFixed(1) : 0;
+                    const methodName = deliveryMethodNames[method] || method;
+                    lines.push(`${methodName}:`);
+                    lines.push(`  ${count} طلب (${percentage}%)`);
+                  });
+                lines.push('');
+                lines.push('- - - - - - - - - - - - - - - -');
+                lines.push('');
+                
+                // Payment Methods
+                lines.push('--- طرق الدفع ---');
+                lines.push('');
+                const paymentMethodNames = {
+                  'cash': 'كاش',
+                  'visa': 'فيزا',
+                  'apple_pay': 'Apple Pay',
+                  'unknown': 'غير محدد'
+                };
+                const paymentTotal = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
+                Object.entries(analytics.paymentStats)
+                  .sort(([,a], [,b]) => b - a) // Sort by count descending
+                  .forEach(([method, count]) => {
+                    const percentage = paymentTotal > 0 ? ((count / paymentTotal) * 100).toFixed(1) : 0;
+                    const methodName = paymentMethodNames[method] || method;
+                    lines.push(`${methodName}:`);
+                    lines.push(`  ${count} طلب (${percentage}%)`);
+                  });
+                lines.push('');
+                lines.push('================================');
+                lines.push(centerText('تم إنشاء التقرير تلقائياً'));
+                lines.push(centerText(today.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })));
+                lines.push('================================');
+                lines.push(''); // Extra blank line at end
+                
+                return lines.join('\n');
+              };
+              
+              // Try silent printing first (native POS printer)
+              if (canUseNativePrinter()) {
+                try {
+                  console.log('✅ Using native POS printer (H10) for daily report');
+                  const reportText = buildReportText();
+                  const result = await window.PosPrinter.printText(reportText);
+                  
+                  if (result && result.includes('success')) {
+                    console.log('✅ Daily report printed successfully');
+                    // Still download the HTML file
+                    const blob = new Blob([pdfContent], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `تقرير_يومي_${todayStr.replace(/\//g, '-')}.html`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    return;
+                  } else if (result && result.includes('error')) {
+                    console.error('Native print error:', result);
+                    // Fall through to browser print
+                  }
+                } catch (err) {
+                  console.error('Native POS print failed:', err);
+                  // Fall through to browser print
+                }
+              }
+              
+              // Fallback to browser print dialog
+              console.log('⚠️ Using fallback browser print for daily report');
               
               // Create blob and download
               const blob = new Blob([pdfContent], { type: 'text/html' });
@@ -917,12 +1090,28 @@ const AnalyticsPage = () => {
               URL.revokeObjectURL(url);
               
               // Also try to print if possible
-              const printWindow = window.open('', '_blank');
-              printWindow.document.write(pdfContent);
-              printWindow.document.close();
-              setTimeout(() => {
-                printWindow.print();
-              }, 250);
+              const printWindow = window.open('', '_blank', 'width=800,height=1000');
+              if (printWindow) {
+                printWindow.document.open();
+                printWindow.document.write(pdfContent);
+                printWindow.document.close();
+                printWindow.focus();
+                const triggerPrint = () => {
+                  try {
+                    printWindow.print();
+                  } catch (err) {
+                    console.error('Print error', err);
+                  }
+                };
+                if (printWindow.document.readyState === 'complete') {
+                  setTimeout(triggerPrint, 250);
+                } else {
+                  printWindow.onload = () => setTimeout(triggerPrint, 250);
+                }
+                printWindow.onafterprint = () => {
+                  printWindow.close();
+                };
+              }
             }}
             style={{
               padding: window.innerWidth < 768 ? '6px 12px' : '8px 16px',
@@ -941,6 +1130,335 @@ const AnalyticsPage = () => {
           >
             <span>📄</span>
             <span>تصدير PDF يومي</span>
+          </button>
+        )}
+        {/* Weekly PDF Export Button */}
+        {timeRange === '7d' && (
+          <button
+            onClick={async () => {
+              // Calculate week date range
+              const now = new Date();
+              const endDate = new Date(now);
+              endDate.setHours(23, 59, 59, 999);
+              const startDate = new Date(now);
+              startDate.setDate(startDate.getDate() - 6);
+              startDate.setHours(0, 0, 0, 0);
+              
+              // Format dates as DD.MM.YY
+              const formatDateShort = (date) => {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = String(date.getFullYear()).slice(-2);
+                return `${day}.${month}.${year}`;
+              };
+              
+              const startDateStr = formatDateShort(startDate);
+              const endDateStr = formatDateShort(endDate);
+              const dateRangeStr = `${startDateStr}-${endDateStr}`;
+              
+              // Helper function to check if native printer is available
+              const canUseNativePrinter = () =>
+                typeof window !== 'undefined' &&
+                window.PosPrinter &&
+                typeof window.PosPrinter.printText === 'function';
+              
+              // Create PDF content (HTML version)
+              const pdfContent = `
+                <!DOCTYPE html>
+                <html dir="rtl" lang="ar">
+                <head>
+                  <meta charset="UTF-8">
+                  <title>تقرير أسبوعي - ${dateRangeStr}</title>
+                  <style>
+                    @page { size: A4; margin: 20mm; }
+                    body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; text-align: right; }
+                    h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
+                    h2 { color: #333; margin-top: 30px; margin-bottom: 15px; }
+                    .header { margin-bottom: 30px; }
+                    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0; }
+                    .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border-right: 4px solid #007bff; }
+                    .stat-label { font-size: 14px; color: #666; margin-bottom: 5px; }
+                    .stat-value { font-size: 24px; font-weight: bold; color: #333; }
+                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    th, td { padding: 12px; text-align: right; border-bottom: 1px solid #ddd; }
+                    th { background: #007bff; color: white; font-weight: bold; }
+                    .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd; text-align: center; color: #666; }
+                  </style>
+                </head>
+                <body>
+                  <div class="header">
+                    <h1>تقرير أسبوعي - ${dateRangeStr}</h1>
+                    <p>الفترة: من ${startDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${endDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  
+                  <div class="stats-grid">
+                    <div class="stat-card">
+                      <div class="stat-label">إجمالي المبيعات</div>
+                      <div class="stat-value">${analytics.totalSales.toLocaleString('en-US')}₪</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">عدد الطلبات</div>
+                      <div class="stat-value">${analytics.orderCount}</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">الطلبات المكتملة</div>
+                      <div class="stat-value">${analytics.completedOrders}</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">متوسط قيمة الطلب</div>
+                      <div class="stat-value">${analytics.avgOrderValue.toFixed(2)}₪</div>
+                    </div>
+                  </div>
+                  
+                  <h2>تفاصيل الطلبات</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>طريقة التوصيل</th>
+                        <th>عدد الطلبات</th>
+                        <th>النسبة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${Object.entries(analytics.deliveryStats).map(([method, count]) => {
+                        const total = Object.values(analytics.deliveryStats).reduce((a, b) => a + b, 0);
+                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                        const methodNames = {
+                          'delivery': 'توصيل',
+                          'pickup': 'استلام',
+                          'eat_in': 'اكل بالمطعم',
+                          'unknown': 'غير محدد'
+                        };
+                        return `<tr>
+                          <td>${methodNames[method] || method}</td>
+                          <td>${count}</td>
+                          <td>${percentage}%</td>
+                        </tr>`;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                  
+                  <h2>طرق الدفع</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>طريقة الدفع</th>
+                        <th>عدد الطلبات</th>
+                        <th>النسبة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${Object.entries(analytics.paymentStats).map(([method, count]) => {
+                        const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
+                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                        const methodNames = {
+                          'cash': 'كاش',
+                          'visa': 'فيزا',
+                          'apple_pay': 'Apple Pay',
+                          'unknown': 'غير محدد'
+                        };
+                        return `<tr>
+                          <td>${methodNames[method] || method}</td>
+                          <td>${count}</td>
+                          <td>${percentage}%</td>
+                        </tr>`;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                  
+                  <div class="footer">
+                    <p>تم إنشاء التقرير تلقائياً من نظام إدارة المطعم</p>
+                    <p>${now.toLocaleString('en-US')}</p>
+                  </div>
+                </body>
+                </html>
+              `;
+              
+              // Create text version for silent printing (optimized for thermal printer)
+              const buildReportText = () => {
+                const lines = [];
+                const maxWidth = 32; // Thermal printer width (conservative for Arabic)
+                
+                // Helper to center text
+                const centerText = (text, width = maxWidth) => {
+                  const padding = Math.max(0, Math.floor((width - text.length) / 2));
+                  return ' '.repeat(padding) + text;
+                };
+                
+                // Helper to format numbers with proper spacing
+                const formatNumber = (num) => num.toLocaleString('en-US');
+                
+                // Header
+                lines.push('================================');
+                lines.push(centerText('تقرير أسبوعي'));
+                lines.push(centerText(dateRangeStr));
+                lines.push('================================');
+                lines.push('');
+                
+                // Date range info
+                const startDateAr = startDate.toLocaleDateString('ar-SA', { 
+                  day: 'numeric', 
+                  month: 'long', 
+                  year: 'numeric' 
+                });
+                const endDateAr = endDate.toLocaleDateString('ar-SA', { 
+                  day: 'numeric', 
+                  month: 'long', 
+                  year: 'numeric' 
+                });
+                lines.push(`من: ${startDateAr}`);
+                lines.push(`إلى: ${endDateAr}`);
+                lines.push('- - - - - - - - - - - - - - - -');
+                lines.push('');
+                
+                // Main Statistics
+                lines.push('--- الإحصائيات الرئيسية ---');
+                lines.push('');
+                lines.push(`إجمالي المبيعات:`);
+                lines.push(`${formatNumber(analytics.totalSales)}₪`);
+                lines.push('');
+                lines.push(`عدد الطلبات: ${analytics.orderCount}`);
+                lines.push(`الطلبات المكتملة: ${analytics.completedOrders}`);
+                lines.push(`متوسط قيمة الطلب: ${analytics.avgOrderValue.toFixed(2)}₪`);
+                lines.push('');
+                lines.push('- - - - - - - - - - - - - - - -');
+                lines.push('');
+                
+                // Delivery Methods
+                lines.push('--- طرق التوصيل ---');
+                lines.push('');
+                const deliveryMethodNames = {
+                  'delivery': 'توصيل',
+                  'pickup': 'استلام',
+                  'eat_in': 'اكل بالمطعم',
+                  'unknown': 'غير محدد'
+                };
+                const deliveryTotal = Object.values(analytics.deliveryStats).reduce((a, b) => a + b, 0);
+                Object.entries(analytics.deliveryStats)
+                  .sort(([,a], [,b]) => b - a) // Sort by count descending
+                  .forEach(([method, count]) => {
+                    const percentage = deliveryTotal > 0 ? ((count / deliveryTotal) * 100).toFixed(1) : 0;
+                    const methodName = deliveryMethodNames[method] || method;
+                    lines.push(`${methodName}:`);
+                    lines.push(`  ${count} طلب (${percentage}%)`);
+                  });
+                lines.push('');
+                lines.push('- - - - - - - - - - - - - - - -');
+                lines.push('');
+                
+                // Payment Methods
+                lines.push('--- طرق الدفع ---');
+                lines.push('');
+                const paymentMethodNames = {
+                  'cash': 'كاش',
+                  'visa': 'فيزا',
+                  'apple_pay': 'Apple Pay',
+                  'unknown': 'غير محدد'
+                };
+                const paymentTotal = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
+                Object.entries(analytics.paymentStats)
+                  .sort(([,a], [,b]) => b - a) // Sort by count descending
+                  .forEach(([method, count]) => {
+                    const percentage = paymentTotal > 0 ? ((count / paymentTotal) * 100).toFixed(1) : 0;
+                    const methodName = paymentMethodNames[method] || method;
+                    lines.push(`${methodName}:`);
+                    lines.push(`  ${count} طلب (${percentage}%)`);
+                  });
+                lines.push('');
+                lines.push('================================');
+                lines.push(centerText('تم إنشاء التقرير تلقائياً'));
+                lines.push(centerText(now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })));
+                lines.push('================================');
+                lines.push(''); // Extra blank line at end
+                
+                return lines.join('\n');
+              };
+              
+              // Try silent printing first (native POS printer)
+              if (canUseNativePrinter()) {
+                try {
+                  console.log('✅ Using native POS printer (H10) for weekly report');
+                  const reportText = buildReportText();
+                  const result = await window.PosPrinter.printText(reportText);
+                  
+                  if (result && result.includes('success')) {
+                    console.log('✅ Weekly report printed successfully');
+                    // Still download the HTML file
+                    const blob = new Blob([pdfContent], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `تقرير_أسبوعي_${dateRangeStr.replace(/\./g, '-')}.html`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    return;
+                  } else if (result && result.includes('error')) {
+                    console.error('Native print error:', result);
+                    // Fall through to browser print
+                  }
+                } catch (err) {
+                  console.error('Native POS print failed:', err);
+                  // Fall through to browser print
+                }
+              }
+              
+              // Fallback to browser print dialog
+              console.log('⚠️ Using fallback browser print for weekly report');
+              
+              // Create blob and download
+              const blob = new Blob([pdfContent], { type: 'text/html' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `تقرير_أسبوعي_${dateRangeStr.replace(/\./g, '-')}.html`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+              
+              // Also try to print if possible
+              const printWindow = window.open('', '_blank', 'width=800,height=1000');
+              if (printWindow) {
+                printWindow.document.open();
+                printWindow.document.write(pdfContent);
+                printWindow.document.close();
+                printWindow.focus();
+                const triggerPrint = () => {
+                  try {
+                    printWindow.print();
+                  } catch (err) {
+                    console.error('Print error', err);
+                  }
+                };
+                if (printWindow.document.readyState === 'complete') {
+                  setTimeout(triggerPrint, 250);
+                } else {
+                  printWindow.onload = () => setTimeout(triggerPrint, 250);
+                }
+                printWindow.onafterprint = () => {
+                  printWindow.close();
+                };
+              }
+            }}
+            style={{
+              padding: window.innerWidth < 768 ? '6px 12px' : '8px 16px',
+              borderRadius: '20px',
+              border: '1px solid #28a745',
+              background: '#28a745',
+              color: 'white',
+              fontSize: window.innerWidth < 768 ? '12px' : '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxSizing: 'border-box'
+            }}
+          >
+            <span>📄</span>
+            <span>تصدير PDF أسبوعي</span>
           </button>
         )}
       </div>
@@ -1636,9 +2154,9 @@ const AnalyticsPage = () => {
             const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
             const percentage = (count / total * 100).toFixed(1);
             const methodNames = {
-              'cash': 'نقدي',
-              'card': 'بطاقة ائتمان',
-              'online': 'دفع الكتروني',
+              'cash': 'كاش',
+              'visa': 'فيزا',
+              'apple_pay': 'Apple Pay',
               'unknown': 'غير محدد'
             };
             return (
@@ -1658,8 +2176,8 @@ const AnalyticsPage = () => {
                     width: `${percentage}%`,
                     height: '100%',
                     background: method === 'cash' ? '#28a745' : 
-                              method === 'card' ? '#007bff' : 
-                              method === 'online' ? '#6f42c1' : '#6c757d',
+                              method === 'visa' ? '#007bff' : 
+                              method === 'apple_pay' ? '#6f42c1' : '#6c757d',
                     transition: 'width 0.3s ease'
                   }} />
                 </div>
