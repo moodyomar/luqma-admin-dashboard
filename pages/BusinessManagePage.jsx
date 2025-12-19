@@ -1012,32 +1012,57 @@ const BusinessManagePage = () => {
                       }} 
                       style={{ 
                         position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        background: 'rgba(255,255,255,0.2)', 
+                        top: 2,
+                        right: 2,
+                        background: 'rgba(255,255,255,0.25)', 
                         border: 'none', 
                         color: '#fff', 
                         fontWeight: 700, 
                         cursor: 'pointer', 
-                        fontSize: 14, 
+                        fontSize: 10, 
                         lineHeight: 1,
-                        width: 16,
-                        height: 16,
+                        width: 14,
+                        height: 14,
+                        minWidth: 14,
+                        minHeight: 14,
+                        maxWidth: 14,
+                        maxHeight: 14,
                         borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         transition: 'all 0.2s ease',
-                        padding: 0
+                        padding: 0,
+                        zIndex: 10,
+                        boxSizing: 'border-box',
+                        touchAction: 'manipulation',
+                        WebkitTapHighlightColor: 'transparent'
                       }}
-                      onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
-                      onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = 'rgba(255,255,255,0.4)';
+                        e.target.style.transform = 'scale(1.1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = 'rgba(255,255,255,0.25)';
+                        e.target.style.transform = 'scale(1)';
+                      }}
                     >×</button>
                     
                     {/* City names centered */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', marginTop: cityDeliveryFee ? 8 : 0 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, direction: 'rtl', textAlign: 'center' }}>{cityHe}</span>
-                      {cityAr && <span style={{ fontSize: 11, opacity: 0.9, direction: 'rtl', textAlign: 'center' }}>{cityAr}</span>}
+                    <div style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: 2, 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      paddingTop: cityDeliveryFee ? 8 : 4,
+                      paddingRight: 4,
+                      paddingLeft: 4,
+                      paddingBottom: 2,
+                      minHeight: 40
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, direction: 'rtl', textAlign: 'center', lineHeight: 1.2 }}>{cityHe}</span>
+                      {cityAr && <span style={{ fontSize: 11, opacity: 0.9, direction: 'rtl', textAlign: 'center', lineHeight: 1.2 }}>{cityAr}</span>}
                     </div>
                   </span>
                 );

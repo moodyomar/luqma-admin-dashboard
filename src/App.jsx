@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { useSidebar } from './contexts/SidebarContext';
@@ -9,6 +9,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import NotificationSystem from './components/NotificationSystem';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthGuard from './components/AuthGuard';
+import RoleSelectionModal from './components/RoleSelectionModal';
 import LoginPage from '../pages/LoginPage';
 import MealsPage from '../pages/MealsPage';
 import OrdersPage from '../pages/OrdersPage';
@@ -18,7 +19,7 @@ import SettingsPage from '../pages/SettingsPage';
 import AnalyticsPage from '../pages/AnalyticsPage';
 import CouponManagementPage from '../pages/CouponManagementPage';
 import DashboardPage from '../pages/DashboardPage';
-import { FiLogOut } from 'react-icons/fi';
+import { FiLogOut, FiRefreshCw } from 'react-icons/fi';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
 import '../src/styles/admin.css'
@@ -29,6 +30,11 @@ function App() {
   const { user, userRole, loading, hasMultipleBusinesses } = useAuth();
   const { isCollapsed } = useSidebar();
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [selectedRole, setSelectedRole] = useState(() => {
+    // Check sessionStorage for selected role
+    return sessionStorage.getItem('selectedRole');
+  });
+  const [showRoleModal, setShowRoleModal] = useState(false);
 
   // Handle window resize for responsive design
   React.useEffect(() => {
@@ -48,23 +54,59 @@ function App() {
   useEffect(() => {
     if (!loading) {
       if (user) {
+        // Check if role selection is needed
+        const storedRole = sessionStorage.getItem('selectedRole');
+        const isLoginPage = location.pathname === '/login';
+        
+        // Show role selection modal if user is authenticated but no role is selected
+        if (!storedRole && !isLoginPage) {
+          setShowRoleModal(true);
+          return;
+        }
+        
         // Only redirect if not already on a valid page
         const currentPath = location.pathname;
         const validAdminPaths = ['/dashboard', '/orders', '/meals', '/settings', '/analytics', '/coupons'];
         const validDriverPaths = ['/driver/orders', '/driver/profile'];
         
-        if (userRole === 'driver' && !validDriverPaths.includes(currentPath)) {
-          navigate('/driver/orders');
-        } else if (userRole === 'admin' && !validAdminPaths.includes(currentPath)) {
-          navigate('/dashboard');
-        } else if (!userRole && !validAdminPaths.includes(currentPath)) {
-          navigate('/dashboard');
+        // Handle role-based routing
+        if (storedRole === 'employee') {
+          // Employee: Only allow /orders
+          if (currentPath !== '/orders' && !currentPath.startsWith('/driver')) {
+            navigate('/orders');
+          }
+        } else if (storedRole === 'admin') {
+          // Admin: Full access
+          if (userRole === 'driver' && !validDriverPaths.includes(currentPath)) {
+            navigate('/driver/orders');
+          } else if (userRole === 'admin' && !validAdminPaths.includes(currentPath)) {
+            navigate('/dashboard');
+          } else if (!userRole && !validAdminPaths.includes(currentPath)) {
+            navigate('/dashboard');
+          }
         }
       } else {
+        // Clear role selection on logout
+        sessionStorage.removeItem('selectedRole');
+        sessionStorage.removeItem('adminAuthenticated');
+        setSelectedRole(null);
         navigate('/login');
       }
     }
   }, [user, userRole, loading, navigate, location.pathname]);
+
+  const handleRoleSelected = (role) => {
+    setSelectedRole(role);
+    setShowRoleModal(false);
+  };
+
+  const handleSwitchRole = () => {
+    // Clear role selection and show modal again
+    sessionStorage.removeItem('selectedRole');
+    sessionStorage.removeItem('adminAuthenticated');
+    setSelectedRole(null);
+    setShowRoleModal(true);
+  };
 
   if (loading) {
     return (
@@ -115,13 +157,18 @@ function App() {
       backgroundColor: isLoginPage ? '#f8f9fa' : '#ffffff',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
+      {/* Role Selection Modal */}
+      {showRoleModal && user && !loading && (
+        <RoleSelectionModal onRoleSelected={handleRoleSelected} />
+      )}
       {/* Navigation based on role and screen size */}
       {user && !isLoginPage && (
         <>
-          {userRole === 'admin' && (
+          {/* Show sidebar for admin role OR if selectedRole is admin/employee (for employees accessing /orders) */}
+          {(userRole === 'admin' || selectedRole === 'admin' || selectedRole === 'employee') && (
             <>
               {/* Desktop Sidebar */}
-              {!isMobile && <AdminSidebar />}
+              {!isMobile && <AdminSidebar onSwitchRole={handleSwitchRole} />}
               {/* Mobile Bottom Navigation - Hidden on Orders page */}
               {isMobile && location.pathname !== '/orders' && <MobileBottomNav />}
             </>
@@ -178,8 +225,8 @@ function App() {
           </div>
         )}
 
-        {/* Mobile Header */}
-        {user && userRole === 'admin' && !isLoginPage && isMobile && (
+        {/* Mobile Header - Admin or Employee */}
+        {user && (userRole === 'admin' || selectedRole === 'employee') && !isLoginPage && isMobile && (
           <div style={{
             position: 'fixed',
             top: 0,
@@ -196,38 +243,64 @@ function App() {
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
           }}>
-            {/* Logout Button - Left Side */}
-            <button
-              onClick={async () => {
-                if (window.confirm('هل تريد تسجيل الخروج؟')) {
-                  try {
-                    await signOut(auth);
-                    navigate('/login');
-                  } catch (error) {
-                    console.error('Logout error:', error);
+            {/* Switch Role Button (for employees) or Logout Button - Left Side */}
+            {selectedRole === 'employee' ? (
+              <button
+                onClick={handleSwitchRole}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '8px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#007AFF',
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  transition: 'all 0.2s ease',
+                  minWidth: '40px',
+                  height: '40px'
+                }}
+                onMouseDown={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 122, 255, 0.1)'}
+                onMouseUp={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                title="تغيير الدور | Switch Role"
+              >
+                <FiRefreshCw size={20} />
+              </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  if (window.confirm('هل تريد تسجيل الخروج؟')) {
+                    try {
+                      await signOut(auth);
+                      navigate('/login');
+                    } catch (error) {
+                      console.error('Logout error:', error);
+                    }
                   }
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '8px',
-                border: 'none',
-                background: 'transparent',
-                color: '#FF3B30',
-                cursor: 'pointer',
-                borderRadius: '8px',
-                transition: 'all 0.2s ease',
-                minWidth: '40px',
-                height: '40px'
-              }}
-              onMouseDown={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 59, 48, 0.1)'}
-              onMouseUp={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <FiLogOut size={20} />
-            </button>
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '8px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#FF3B30',
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  transition: 'all 0.2s ease',
+                  minWidth: '40px',
+                  height: '40px'
+                }}
+                onMouseDown={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 59, 48, 0.1)'}
+                onMouseUp={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <FiLogOut size={20} />
+              </button>
+            )}
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{

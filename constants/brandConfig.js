@@ -5,6 +5,9 @@ const brandConfig = {
   themeColor: import.meta.env.VITE_BRAND_COLOR || '#007aff',
   // Audio notification file path (relative to public folder)
   notificationSound: import.meta.env.VITE_NOTIFICATION_SOUND || '/luqma.mp3',
+  // Admin password for role selection (set via VITE_ADMIN_PASSWORD env variable)
+  // Default: 'admin123' - Change this or set VITE_ADMIN_PASSWORD in .env file
+  adminPassword: import.meta.env.VITE_ADMIN_PASSWORD || 'admin123',
   // Add more as needed (e.g., supportEmail, phone, etc.)
 };
 
