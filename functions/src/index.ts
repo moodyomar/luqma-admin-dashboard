@@ -21,6 +21,9 @@ export { onReferralCodeApplied, resetReferralData } from "./referralFunctions";
 // Driver password management
 export { resetDriverPassword } from "./resetDriverPassword";
 
+// Driver profile management
+export { updateDriverProfile } from "./updateDriverProfile";
+
 
 
 

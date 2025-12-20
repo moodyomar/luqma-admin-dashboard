@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -32,196 +32,6 @@ import {
 } from '../utils/couponUtils';
 import brandConfig from '../constants/brandConfig';
 import './styles.css';
-
-// City Multi-Select Dropdown Component
-const CityMultiSelectDropdown = ({ cities, selectedCities = [], onSelectionChange, label }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const toggleCity = (cityObj) => {
-    const cityHe = typeof cityObj === 'string' ? cityObj : cityObj.he;
-    const cityAr = typeof cityObj === 'string' ? '' : cityObj.ar;
-    
-    const isSelected = selectedCities.some(c => {
-      if (typeof c === 'string') {
-        return c.toLowerCase() === cityHe.toLowerCase() || (cityAr && c.toLowerCase() === cityAr.toLowerCase());
-      }
-      return (
-        (c.he && cityHe && c.he.toLowerCase() === cityHe.toLowerCase()) ||
-        (c.ar && cityAr && c.ar.toLowerCase() === cityAr.toLowerCase())
-      );
-    });
-
-    let newSelectedCities;
-    if (isSelected) {
-      // Remove city
-      newSelectedCities = selectedCities.filter(c => {
-        const cHe = typeof c === 'string' ? c : c.he;
-        const cAr = typeof c === 'string' ? '' : c.ar;
-        return !(
-          (cHe && cityHe && cHe.toLowerCase() === cityHe.toLowerCase()) ||
-          (cAr && cityAr && cAr.toLowerCase() === cityAr.toLowerCase())
-        );
-      });
-    } else {
-      // Add city
-      const cityToAdd = typeof cityObj === 'string' ? { he: cityObj, ar: '' } : cityObj;
-      newSelectedCities = [...selectedCities, cityToAdd];
-    }
-
-    onSelectionChange(newSelectedCities);
-  };
-
-  const getDisplayText = () => {
-    if (selectedCities.length === 0) {
-      return 'לא נבחרו ערים';
-    }
-    if (selectedCities.length === 1) {
-      const city = selectedCities[0];
-      const cityHe = typeof city === 'string' ? city : city.he;
-      return cityHe;
-    }
-    return `${selectedCities.length} ערים נבחרו`;
-  };
-
-  return (
-    <div style={{ position: 'relative' }} ref={dropdownRef}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#555', marginBottom: 8 }}>
-        {label}
-      </div>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        style={{
-          width: '100%',
-          padding: '12px 16px',
-          background: '#fff',
-          border: '1px solid #e0e0e0',
-          borderRadius: 8,
-          fontSize: 14,
-          color: '#333',
-          cursor: 'pointer',
-          textAlign: 'right',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          transition: 'all 0.2s',
-          boxSizing: 'border-box'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = '#007aff';
-        }}
-        onMouseLeave={(e) => {
-          if (!isOpen) {
-            e.currentTarget.style.borderColor = '#e0e0e0';
-          }
-        }}
-      >
-        <span style={{ flex: 1, textAlign: 'right' }}>{getDisplayText()}</span>
-        <span style={{ 
-          marginLeft: '8px', 
-          fontSize: '12px',
-          transition: 'transform 0.2s',
-          transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
-        }}>
-          ▼
-        </span>
-      </button>
-
-      {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            right: 0,
-            left: 0,
-            marginTop: '4px',
-            background: '#fff',
-            border: '1px solid #e0e0e0',
-            borderRadius: 8,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            zIndex: 1000,
-            maxHeight: '300px',
-            overflowY: 'auto',
-            direction: 'rtl'
-          }}
-        >
-          {cities.map((cityObj, idx) => {
-            const cityHe = typeof cityObj === 'string' ? cityObj : cityObj.he;
-            const cityAr = typeof cityObj === 'string' ? '' : cityObj.ar;
-            
-            const isSelected = selectedCities.some(c => {
-              if (typeof c === 'string') {
-                return c.toLowerCase() === cityHe.toLowerCase() || (cityAr && c.toLowerCase() === cityAr.toLowerCase());
-              }
-              return (
-                (c.he && cityHe && c.he.toLowerCase() === cityHe.toLowerCase()) ||
-                (c.ar && cityAr && c.ar.toLowerCase() === cityAr.toLowerCase())
-              );
-            });
-
-            return (
-              <label
-                key={idx}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '12px 16px',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                  borderBottom: idx < cities.length - 1 ? '1px solid #f0f0f0' : 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#f8f9fa';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#fff';
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleCity(cityObj)}
-                  style={{
-                    marginLeft: '12px',
-                    width: '18px',
-                    height: '18px',
-                    cursor: 'pointer',
-                    accentColor: '#007aff'
-                  }}
-                />
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
-                    {cityHe}
-                  </span>
-                  {cityAr && (
-                    <span style={{ fontSize: 12, color: '#666' }}>
-                      {cityAr}
-                    </span>
-                  )}
-                </div>
-              </label>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const DEFAULT_LOYALTY = {
   enabled: true,
@@ -1776,143 +1586,31 @@ const BusinessManagePage = () => {
           </div>
         </div>
         {/* Prep time options row - moved to last row, styled */}
-        <div style={{ marginTop: 18, width: '100%', direction: 'rtl' }}>
-          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>אפשרויות זמן הכנה</label>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 12, lineHeight: 1.5 }}>
+        <div style={{ marginTop: 18, width: '100%' }}>
+          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
             הוסף כל אפשרות שתרצה לקביעת זמן הכנת הזמנה, אחת בכל פעם. נתן דקות, שעות, וימים. תוכל להסיר אפשרות בלחיצה על ×.
           </div>
-          
-          {/* Selected options grid */}
-          {(form.prepTimeOptions || []).length > 0 && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: 10,
-              marginBottom: 16,
-              width: '100%',
-              boxSizing: 'border-box'
-            }}>
-              {(form.prepTimeOptions || []).map((opt, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => removePrepTimeOption(idx)}
-                  type="button"
-                  style={{
-                    background: '#e0e0e0',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: '#333',
-                    minHeight: '48px',
-                    boxSizing: 'border-box',
-                    width: '100%',
-                    border: '2px solid transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    textAlign: 'right',
-                    direction: 'rtl'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#ffebee';
-                    e.currentTarget.style.borderColor = '#e00';
-                    e.currentTarget.style.transform = 'scale(1.02)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#e0e0e0';
-                    e.currentTarget.style.borderColor = 'transparent';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                  onTouchStart={(e) => {
-                    e.currentTarget.style.background = '#ffebee';
-                    e.currentTarget.style.borderColor = '#e00';
-                  }}
-                  onTouchEnd={(e) => {
-                    setTimeout(() => {
-                      e.currentTarget.style.background = '#e0e0e0';
-                      e.currentTarget.style.borderColor = 'transparent';
-                    }, 150);
-                  }}
-                  title="לחץ להסרה"
-                >
-                  <span style={{ flex: 1, textAlign: 'right', userSelect: 'none' }}>
-                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעות' : 'ימים'}
-                  </span>
-                  <span
-                    style={{
-                      marginLeft: 12,
-                      color: '#e00',
-                      fontWeight: 700,
-                      fontSize: 22,
-                      lineHeight: 1,
-                      minWidth: '28px',
-                      minHeight: '28px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 4,
-                      userSelect: 'none',
-                      flexShrink: 0
-                    }}
-                  >
-                    ×
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          
-          {/* Add new option section */}
           <div style={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: 10,
-            alignItems: 'stretch',
-            width: '100%',
-            boxSizing: 'border-box',
-            flexWrap: 'wrap'
+            display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0', width: '100%', justifyContent: 'center', alignItems: 'center', rowGap: 10
           }}>
+            {(form.prepTimeOptions || []).map((opt, idx) => (
+              <span key={idx} style={{ background: '#e0e0e0', borderRadius: 8, padding: '2px 8px', display: 'flex', alignItems: 'center', fontSize: 14, justifyContent: 'center', minWidth: 60, margin: '0 2px' }}>
+                {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
+                <button onClick={() => removePrepTimeOption(idx)} style={{ marginRight: 6, background: 'none', border: 'none', color: '#e00', fontWeight: 700, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
             <input
               type="number"
               min={1}
               value={newPrepValue}
               onChange={e => setNewPrepValue(e.target.value)}
               placeholder="מספר"
-              style={{
-                flex: '1 1 80px',
-                minWidth: '80px',
-                height: 44,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: '1px solid #e0e0e0',
-                fontSize: 16,
-                background: '#fff',
-                textAlign: 'right',
-                boxSizing: 'border-box',
-                direction: 'rtl'
-              }}
+              style={{ width: '90px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}
             />
-            <select
-              value={newPrepUnit}
-              onChange={e => setNewPrepUnit(e.target.value)}
-              style={{
-                flex: '1 1 120px',
-                minWidth: '120px',
-                height: 44,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: '1px solid #e0e0e0',
-                fontSize: 16,
-                background: '#fff',
-                textAlign: 'right',
-                boxSizing: 'border-box',
-                direction: 'rtl',
-                cursor: 'pointer'
-              }}
-            >
+            <select value={newPrepUnit} onChange={e => setNewPrepUnit(e.target.value)} style={{ width: '100px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}>
               <option value="minutes">דקות</option>
               <option value="hours">שעות</option>
               <option value="days">ימים</option>
@@ -1926,43 +1624,11 @@ const BusinessManagePage = () => {
                 (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) ||
                 (form.prepTimeOptions || []).length >= 6
               }
-              style={{
-                flex: '1 1 100px',
-                minWidth: '100px',
-                height: 44,
-                borderRadius: 10,
-                background: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? '#ccc' : '#007aff',
-                color: '#fff',
-                border: 'none',
-                fontWeight: 600,
-                fontSize: 16,
-                cursor: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-                boxSizing: 'border-box',
-                minHeight: '44px'
-              }}
-              onMouseEnter={(e) => {
-                if (!e.currentTarget.disabled) {
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 122, 255, 0.3)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              הוסף
-            </button>
+              style={{ width: '90px', height: 44, borderRadius: 10, background: '#007aff', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 0.5 : 1 }}
+            >הוסף</button>
           </div>
-          
           {(form.prepTimeOptions || []).length >= 6 && (
-            <div style={{ color: '#e00', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
-              מקסימום 6 אפשרויות
-            </div>
+            <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 6 אפשרויות</div>
           )}
         </div>
       </div>
@@ -2503,14 +2169,62 @@ const BusinessManagePage = () => {
                       </div>
 
                       {form.deliveryCities && form.deliveryCities.length > 0 ? (
-                        <CityMultiSelectDropdown
-                          cities={form.deliveryCities}
-                          selectedCities={driverAllowedCities}
-                          onSelectionChange={(selectedCities) => {
-                            updateDriverZones(driver.id, selectedCities);
-                          }}
-                          label="בחר ערים מורשות:"
-                        />
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#555', marginBottom: 8 }}>
+                            בחר ערים מורשות:
+                          </div>
+                          <div style={{ 
+                            display: 'flex', 
+                            flexWrap: 'wrap', 
+                            gap: 8,
+                            maxHeight: 200,
+                            overflowY: 'auto',
+                            padding: 8,
+                            background: '#f8f9fa',
+                            borderRadius: 6
+                          }}>
+                            {form.deliveryCities.map((cityObj, idx) => {
+                              const cityHe = typeof cityObj === 'string' ? cityObj : cityObj.he;
+                              const cityAr = typeof cityObj === 'string' ? '' : cityObj.ar;
+                              
+                              const isAllowed = driverAllowedCities.some(c => {
+                                if (typeof c === 'string') {
+                                  return c.toLowerCase() === cityHe.toLowerCase() || c.toLowerCase() === cityAr.toLowerCase();
+                                }
+                                return (
+                                  (c.he && cityHe && c.he.toLowerCase() === cityHe.toLowerCase()) ||
+                                  (c.ar && cityAr && c.ar.toLowerCase() === cityAr.toLowerCase())
+                                );
+                              });
+
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => toggleDriverCity(driver.id, typeof cityObj === 'string' ? { he: cityObj, ar: '' } : cityObj)}
+                                  style={{
+                                    background: isAllowed ? '#34C759' : '#e0e0e0',
+                                    color: isAllowed ? '#fff' : '#333',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    padding: '6px 12px',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: 2,
+                                    transition: 'all 0.2s',
+                                    minWidth: 80
+                                  }}
+                                >
+                                  <span>{cityHe}</span>
+                                  {cityAr && <span style={{ fontSize: 10, opacity: 0.9 }}>{cityAr}</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       ) : (
                         <div style={{ 
                           padding: 12, 

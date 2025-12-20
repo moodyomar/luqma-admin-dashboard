@@ -753,15 +753,24 @@ const UserManagementPage = () => {
           <div style={{
             background: '#fff',
             borderRadius: 12,
-            padding: isMobile ? '16px' : '24px',
             width: '100%',
             maxWidth: isMobile ? '95%' : 600,
             maxHeight: isMobile ? '85vh' : '90vh',
             display: 'flex',
             flexDirection: 'column',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.3)'
+            boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? 16 : 20, flexShrink: 0 }}>
+            {/* Header - Fixed */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              padding: isMobile ? '16px' : '24px',
+              paddingBottom: isMobile ? 12 : 16,
+              borderBottom: '1px solid #dee2e6',
+              flexShrink: 0
+            }}>
               <h2 style={{ margin: 0, fontSize: isMobile ? 18 : 20, fontWeight: 700, color: '#495057' }}>
                 تعديل بيانات السائق
               </h2>
@@ -785,14 +794,18 @@ const UserManagementPage = () => {
               </button>
             </div>
 
+            {/* Scrollable Content */}
             <div style={{ 
               display: 'flex', 
               flexDirection: 'column', 
               gap: 16,
               overflowY: 'auto',
-              flex: 1,
-              paddingRight: 4,
-              marginRight: -4
+              overflowX: 'hidden',
+              flex: '1 1 0',
+              padding: isMobile ? '16px' : '24px',
+              paddingTop: isMobile ? 16 : 20,
+              minHeight: 0,
+              WebkitOverflowScrolling: 'touch'
             }}>
               {/* Email (read-only) */}
               <div>
@@ -963,10 +976,11 @@ const UserManagementPage = () => {
             <div style={{ 
               display: 'flex', 
               gap: 10, 
-              marginTop: 16,
-              paddingTop: 16,
+              padding: isMobile ? '12px 16px' : '16px 24px',
               borderTop: '1px solid #dee2e6',
-              flexShrink: 0
+              background: '#fff',
+              flexShrink: 0,
+              marginTop: 'auto'
             }}>
               <button
                 onClick={handleSaveDriverEdit}

@@ -136,8 +136,8 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       
       let targetDriverIds: string[] = [];
       
-      // Get order city for filtering
-      const orderCity = afterData.city || '';
+      // Get order city for filtering (check both city and deliveryCity fields)
+      const orderCity = afterData.city || afterData.deliveryCity || '';
       
       if (assignedDriverId) {
         // Order is assigned - notify only the assigned driver (skip city filtering for assigned orders)
@@ -145,6 +145,11 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
         targetDriverIds = [assignedDriverId];
       } else {
         // Order is unassigned - notify only drivers with matching delivery zones
+        // If order has no city, skip notifications (shouldn't happen for delivery orders)
+        if (!orderCity || orderCity.trim() === '') {
+          logger.warn(`Order ${orderId} has no city specified, skipping driver notifications for unassigned order`);
+          return null;
+        }
         logger.info(`Order ${orderId} is unassigned, filtering drivers by delivery zone: ${orderCity}`);
         const driversSnapshot = await db
           .collection("menus")
@@ -158,17 +163,16 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
           return null;
         }
         
-        // Filter drivers by allowed delivery cities
+        // Filter drivers by allowed delivery cities (STRICT FILTERING)
         const eligibleDrivers: string[] = [];
         
         driversSnapshot.docs.forEach((driverDoc) => {
           const driverData = driverDoc.data();
           const allowedCities = driverData.allowedDeliveryCities || [];
           
-          // If driver has no allowed cities set, include them (backward compatibility)
+          // STRICT: If driver has no allowed cities set, exclude them (no backward compatibility)
           if (allowedCities.length === 0) {
-            logger.info(`Driver ${driverDoc.id} has no delivery zones set, including for backward compatibility`);
-            eligibleDrivers.push(driverDoc.id);
+            logger.info(`Driver ${driverDoc.id} has no delivery zones set, excluding from notifications`);
             return;
           }
           
@@ -327,8 +331,8 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
       
       let targetDriverIds: string[] = [];
       
-      // Get order city for filtering
-      const orderCity = orderData.city || '';
+      // Get order city for filtering (check both city and deliveryCity fields)
+      const orderCity = orderData.city || orderData.deliveryCity || '';
       
       if (assignedDriverId) {
         // Order is assigned - notify only the assigned driver (skip city filtering for assigned orders)
@@ -336,6 +340,11 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
         targetDriverIds = [assignedDriverId];
       } else {
         // Order is unassigned - notify only drivers with matching delivery zones
+        // If order has no city, skip notifications (shouldn't happen for delivery orders)
+        if (!orderCity || orderCity.trim() === '') {
+          logger.warn(`New order ${orderId} has no city specified, skipping driver notifications for unassigned order`);
+          return null;
+        }
         logger.info(`New order ${orderId} is unassigned, filtering drivers by delivery zone: ${orderCity}`);
         const driversSnapshot = await db
           .collection("menus")
@@ -349,17 +358,16 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
           return null;
         }
         
-        // Filter drivers by allowed delivery cities
+        // Filter drivers by allowed delivery cities (STRICT FILTERING)
         const eligibleDrivers: string[] = [];
         
         driversSnapshot.docs.forEach((driverDoc) => {
           const driverData = driverDoc.data();
           const allowedCities = driverData.allowedDeliveryCities || [];
           
-          // If driver has no allowed cities set, include them (backward compatibility)
+          // STRICT: If driver has no allowed cities set, exclude them (no backward compatibility)
           if (allowedCities.length === 0) {
-            logger.info(`Driver ${driverDoc.id} has no delivery zones set, including for backward compatibility`);
-            eligibleDrivers.push(driverDoc.id);
+            logger.info(`Driver ${driverDoc.id} has no delivery zones set, excluding from notifications`);
             return;
           }
           

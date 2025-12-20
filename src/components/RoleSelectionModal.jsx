@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import brandConfig from '../../constants/brandConfig';
 
-const RoleSelectionModal = ({ onRoleSelected }) => {
+const RoleSelectionModal = ({ onRoleSelected, onClose }) => {
   const [selectedRole, setSelectedRole] = useState(null);
   const [adminPassword, setAdminPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -54,9 +54,13 @@ const RoleSelectionModal = ({ onRoleSelected }) => {
     setSelectedRole(null);
     setAdminPassword('');
     setPasswordError('');
-    // Clear any admin authentication when going back
-    sessionStorage.removeItem('selectedRole');
-    sessionStorage.removeItem('adminAuthenticated');
+  };
+
+  const handleOverlayClick = () => {
+    // Only allow closing on initial role selection screen, not during password entry
+    if (!selectedRole && onClose) {
+      onClose();
+    }
   };
 
   return (
@@ -74,6 +78,7 @@ const RoleSelectionModal = ({ onRoleSelected }) => {
         zIndex: 10000,
         backdropFilter: 'blur(4px)'
       }}
+      onClick={handleOverlayClick}
     >
       <div 
         style={{
