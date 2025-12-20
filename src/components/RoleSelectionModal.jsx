@@ -54,31 +54,40 @@ const RoleSelectionModal = ({ onRoleSelected }) => {
     setSelectedRole(null);
     setAdminPassword('');
     setPasswordError('');
+    // Clear any admin authentication when going back
+    sessionStorage.removeItem('selectedRole');
+    sessionStorage.removeItem('adminAuthenticated');
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 10000,
-      backdropFilter: 'blur(4px)'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '32px',
-        maxWidth: '400px',
-        width: '90%',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-        animation: 'fadeIn 0.3s ease-out'
-      }}>
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000,
+        backdropFilter: 'blur(4px)'
+      }}
+    >
+      <div 
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '16px',
+          padding: '32px',
+          maxWidth: '400px',
+          width: '90%',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          animation: 'fadeIn 0.3s ease-out',
+          position: 'relative'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <style>{`
           @keyframes fadeIn {
             from {
@@ -181,25 +190,38 @@ const RoleSelectionModal = ({ onRoleSelected }) => {
           <>
             <div style={{
               textAlign: 'center',
-              marginBottom: '24px'
+              marginBottom: '24px',
+              position: 'relative'
             }}>
               <button
                 onClick={handleBack}
                 style={{
                   position: 'absolute',
-                  top: '16px',
-                  right: '16px',
+                  top: '0',
+                  right: '0',
                   background: 'transparent',
                   border: 'none',
-                  fontSize: '24px',
+                  fontSize: '20px',
                   cursor: 'pointer',
                   color: '#666',
-                  padding: '4px 8px',
+                  padding: '8px',
                   borderRadius: '8px',
-                  transition: 'background 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '36px',
+                  height: '36px'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f7'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f7';
+                  e.currentTarget.style.color = '#333';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#666';
+                }}
+                title="رجوع | Back"
               >
                 ←
               </button>

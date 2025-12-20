@@ -10,6 +10,8 @@ interface InviteUserRequest {
   displayName?: string;
   // Optional password for email users; if omitted, a strong random password is generated
   password?: string;
+  // Optional: Allowed delivery cities for drivers
+  allowedDeliveryCities?: Array<{ he: string; ar: string } | string>;
 }
 
 interface InviteUserResponse {
@@ -26,6 +28,17 @@ interface InviteUserResponse {
  */
 export const inviteUser = functions.https.onCall(
   async (data: InviteUserRequest, context): Promise<InviteUserResponse> => {
+    // Log incoming data for debugging
+    console.log(`📥 [inviteUser] Received request:`, {
+      businessId: data.businessId,
+      email: data.email,
+      role: data.role,
+      hasAllowedDeliveryCities: data.allowedDeliveryCities !== undefined,
+      allowedDeliveryCities: data.allowedDeliveryCities,
+      allowedDeliveryCitiesType: typeof data.allowedDeliveryCities,
+      isArray: Array.isArray(data.allowedDeliveryCities)
+    });
+
     // ========================================
     // 1. AUTHENTICATION & AUTHORIZATION
     // ========================================
@@ -148,12 +161,26 @@ export const inviteUser = functions.https.onCall(
         userPhone = existingUser.phoneNumber || data.phone;
         console.log(`✅ Found existing user: ${uid}`);
         
-        // Update displayName in Firebase Auth if provided
+        // Update displayName and/or password in Firebase Auth if provided
+        const updateData: any = {};
+        
         if (data.displayName && data.displayName.trim()) {
-          await admin.auth().updateUser(uid, {
-            displayName: data.displayName.trim()
-          });
-          console.log(`✅ Updated displayName for existing user: ${uid}`);
+          updateData.displayName = data.displayName.trim();
+        }
+        
+        // Update password if provided (for existing users)
+        if (data.password && data.password.length >= 6) {
+          updateData.password = data.password;
+        }
+        
+        if (Object.keys(updateData).length > 0) {
+          await admin.auth().updateUser(uid, updateData);
+          if (updateData.displayName) {
+            console.log(`✅ Updated displayName for existing user: ${uid}`);
+          }
+          if (updateData.password) {
+            console.log(`✅ Updated password for existing user: ${uid}`);
+          }
         }
       } else {
         // Create new user - use existing membership UID if available to avoid duplicate documents
@@ -251,6 +278,24 @@ export const inviteUser = functions.https.onCall(
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
+      // Add allowedDeliveryCities if provided (for drivers)
+      // Always save allowedDeliveryCities for drivers, even if it's an empty array (to clear cities)
+      if (data.role === 'driver') {
+        if (data.allowedDeliveryCities !== undefined && data.allowedDeliveryCities !== null) {
+          // Explicitly set the field - even if it's an empty array, we want to save it
+          membershipData.allowedDeliveryCities = data.allowedDeliveryCities;
+          console.log(`✅ Setting allowedDeliveryCities for driver ${uid}:`, {
+            citiesCount: Array.isArray(data.allowedDeliveryCities) ? data.allowedDeliveryCities.length : 0,
+            cities: data.allowedDeliveryCities,
+            type: typeof data.allowedDeliveryCities,
+            isArray: Array.isArray(data.allowedDeliveryCities)
+          });
+        } else {
+          // If not provided, preserve existing (don't set the field)
+          console.log(`ℹ️ allowedDeliveryCities not provided (value: ${data.allowedDeliveryCities}), preserving existing value for driver ${uid}`);
+        }
+      }
+
       // Set name fields:
       // CRITICAL: Always explicitly set name when displayName is provided, even for existing docs with null
       if (data.displayName?.trim()) {
@@ -281,13 +326,25 @@ export const inviteUser = functions.https.onCall(
         membershipData.createdAt = admin.firestore.FieldValue.serverTimestamp();
       }
 
+      // Log what we're about to save - show full membershipData object
+      console.log(`💾 [inviteUser] About to save membership data for ${uid}:`, {
+        role: data.role,
+        isExistingDoc: existingDoc.exists,
+        membershipDataKeys: Object.keys(membershipData),
+        hasAllowedDeliveryCities: membershipData.allowedDeliveryCities !== undefined,
+        allowedDeliveryCities: membershipData.allowedDeliveryCities,
+        fullMembershipData: JSON.stringify(membershipData, null, 2)
+      });
+
       // Use update() for existing docs to ensure all fields are updated, set() for new docs
       if (existingDoc.exists) {
         // For existing documents, use update() to ensure fields are overwritten (including null -> value)
+        console.log(`🔄 [inviteUser] Updating existing document with data:`, JSON.stringify(membershipData, null, 2));
         await membershipRef.update(membershipData);
         console.log(`✅ Updated existing membership document for ${uid} in ${data.businessId}`);
       } else {
         // For new documents, use set() with merge (though merge isn't needed for new docs)
+        console.log(`🆕 [inviteUser] Creating new document with data:`, JSON.stringify(membershipData, null, 2));
         await membershipRef.set(membershipData);
         console.log(`✅ Created new membership document for ${uid} in ${data.businessId}`);
       }
@@ -296,6 +353,14 @@ export const inviteUser = functions.https.onCall(
       const verifyDoc = await membershipRef.get();
       const verifyData = verifyDoc.data();
       console.log(`📋 Document data after save - name: "${verifyData?.name || 'null'}", displayName: "${verifyData?.displayName || 'null'}"`);
+      if (data.role === 'driver') {
+        console.log(`📋 allowedDeliveryCities after save:`, {
+          exists: verifyData?.allowedDeliveryCities !== undefined,
+          value: verifyData?.allowedDeliveryCities,
+          count: Array.isArray(verifyData?.allowedDeliveryCities) ? verifyData.allowedDeliveryCities.length : 0,
+          wasInMembershipData: membershipData.allowedDeliveryCities !== undefined
+        });
+      }
     } catch (error: any) {
       console.error("❌ Error creating membership doc:", error);
       throw new functions.https.HttpsError(

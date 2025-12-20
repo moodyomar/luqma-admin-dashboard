@@ -136,27 +136,72 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       
       let targetDriverIds: string[] = [];
       
+      // Get order city for filtering
+      const orderCity = afterData.city || '';
+      
       if (assignedDriverId) {
-        // Order is assigned - notify only the assigned driver
+        // Order is assigned - notify only the assigned driver (skip city filtering for assigned orders)
         logger.info(`Order ${orderId} is assigned to driver ${assignedDriverId}, sending notification to assigned driver only`);
         targetDriverIds = [assignedDriverId];
       } else {
-        // Order is unassigned - notify all drivers (backward compatibility)
-        logger.info(`Order ${orderId} is unassigned, sending notification to all drivers`);
-      const driversSnapshot = await db
-        .collection("menus")
-        .doc(businessId)
-        .collection("users")
-        .where("role", "==", "driver")
-        .get();
-      
-      if (driversSnapshot.empty) {
-        logger.warn(`No drivers found for business ${businessId}`);
-        return null;
-      }
-      
-        targetDriverIds = driversSnapshot.docs.map(doc => doc.id);
-        logger.info(`Found ${targetDriverIds.length} drivers for business ${businessId}`);
+        // Order is unassigned - notify only drivers with matching delivery zones
+        logger.info(`Order ${orderId} is unassigned, filtering drivers by delivery zone: ${orderCity}`);
+        const driversSnapshot = await db
+          .collection("menus")
+          .doc(businessId)
+          .collection("users")
+          .where("role", "==", "driver")
+          .get();
+        
+        if (driversSnapshot.empty) {
+          logger.warn(`No drivers found for business ${businessId}`);
+          return null;
+        }
+        
+        // Filter drivers by allowed delivery cities
+        const eligibleDrivers: string[] = [];
+        
+        driversSnapshot.docs.forEach((driverDoc) => {
+          const driverData = driverDoc.data();
+          const allowedCities = driverData.allowedDeliveryCities || [];
+          
+          // If driver has no allowed cities set, include them (backward compatibility)
+          if (allowedCities.length === 0) {
+            logger.info(`Driver ${driverDoc.id} has no delivery zones set, including for backward compatibility`);
+            eligibleDrivers.push(driverDoc.id);
+            return;
+          }
+          
+          // Check if order city matches any of driver's allowed cities
+          const cityMatches = allowedCities.some((allowedCity: any) => {
+            // Handle both string and object formats
+            if (typeof allowedCity === 'string') {
+              return allowedCity.toLowerCase() === orderCity.toLowerCase();
+            }
+            // Handle object format with he/ar properties
+            const cityHe = allowedCity.he || '';
+            const cityAr = allowedCity.ar || '';
+            return (
+              (cityHe && cityHe.toLowerCase() === orderCity.toLowerCase()) ||
+              (cityAr && cityAr.toLowerCase() === orderCity.toLowerCase())
+            );
+          });
+          
+          if (cityMatches) {
+            eligibleDrivers.push(driverDoc.id);
+            logger.info(`Driver ${driverDoc.id} is eligible for order in city: ${orderCity}`);
+          } else {
+            logger.info(`Driver ${driverDoc.id} is NOT eligible - city ${orderCity} not in allowed zones`);
+          }
+        });
+        
+        targetDriverIds = eligibleDrivers;
+        logger.info(`Found ${targetDriverIds.length} eligible drivers (out of ${driversSnapshot.docs.length} total) for order in city: ${orderCity}`);
+        
+        if (targetDriverIds.length === 0) {
+          logger.warn(`No drivers found with delivery zone matching city: ${orderCity}`);
+          return null;
+        }
       }
       
       // Fetch push tokens for target driver(s)
@@ -282,27 +327,72 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
       
       let targetDriverIds: string[] = [];
       
+      // Get order city for filtering
+      const orderCity = orderData.city || '';
+      
       if (assignedDriverId) {
-        // Order is assigned - notify only the assigned driver
+        // Order is assigned - notify only the assigned driver (skip city filtering for assigned orders)
         logger.info(`New order ${orderId} is assigned to driver ${assignedDriverId}, sending notification to assigned driver only`);
         targetDriverIds = [assignedDriverId];
       } else {
-        // Order is unassigned - notify all drivers (backward compatibility)
-        logger.info(`New order ${orderId} is unassigned, sending notification to all drivers`);
-      const driversSnapshot = await db
-        .collection("menus")
-        .doc(businessId)
-        .collection("users")
-        .where("role", "==", "driver")
-        .get();
-      
-      if (driversSnapshot.empty) {
-        logger.warn(`No drivers found for business ${businessId}`);
-        return null;
-      }
-      
-        targetDriverIds = driversSnapshot.docs.map(doc => doc.id);
-        logger.info(`Found ${targetDriverIds.length} drivers for business ${businessId}`);
+        // Order is unassigned - notify only drivers with matching delivery zones
+        logger.info(`New order ${orderId} is unassigned, filtering drivers by delivery zone: ${orderCity}`);
+        const driversSnapshot = await db
+          .collection("menus")
+          .doc(businessId)
+          .collection("users")
+          .where("role", "==", "driver")
+          .get();
+        
+        if (driversSnapshot.empty) {
+          logger.warn(`No drivers found for business ${businessId}`);
+          return null;
+        }
+        
+        // Filter drivers by allowed delivery cities
+        const eligibleDrivers: string[] = [];
+        
+        driversSnapshot.docs.forEach((driverDoc) => {
+          const driverData = driverDoc.data();
+          const allowedCities = driverData.allowedDeliveryCities || [];
+          
+          // If driver has no allowed cities set, include them (backward compatibility)
+          if (allowedCities.length === 0) {
+            logger.info(`Driver ${driverDoc.id} has no delivery zones set, including for backward compatibility`);
+            eligibleDrivers.push(driverDoc.id);
+            return;
+          }
+          
+          // Check if order city matches any of driver's allowed cities
+          const cityMatches = allowedCities.some((allowedCity: any) => {
+            // Handle both string and object formats
+            if (typeof allowedCity === 'string') {
+              return allowedCity.toLowerCase() === orderCity.toLowerCase();
+            }
+            // Handle object format with he/ar properties
+            const cityHe = allowedCity.he || '';
+            const cityAr = allowedCity.ar || '';
+            return (
+              (cityHe && cityHe.toLowerCase() === orderCity.toLowerCase()) ||
+              (cityAr && cityAr.toLowerCase() === orderCity.toLowerCase())
+            );
+          });
+          
+          if (cityMatches) {
+            eligibleDrivers.push(driverDoc.id);
+            logger.info(`Driver ${driverDoc.id} is eligible for order in city: ${orderCity}`);
+          } else {
+            logger.info(`Driver ${driverDoc.id} is NOT eligible - city ${orderCity} not in allowed zones`);
+          }
+        });
+        
+        targetDriverIds = eligibleDrivers;
+        logger.info(`Found ${targetDriverIds.length} eligible drivers (out of ${driversSnapshot.docs.length} total) for order in city: ${orderCity}`);
+        
+        if (targetDriverIds.length === 0) {
+          logger.warn(`No drivers found with delivery zone matching city: ${orderCity}`);
+          return null;
+        }
       }
       
       // Fetch push tokens for target driver(s)

@@ -18,6 +18,7 @@ import DriverProfilePage from '../pages/DriverProfilePage';
 import SettingsPage from '../pages/SettingsPage';
 import AnalyticsPage from '../pages/AnalyticsPage';
 import CouponManagementPage from '../pages/CouponManagementPage';
+import DebugToolsPage from '../pages/DebugToolsPage';
 import { FiLogOut, FiRefreshCw } from 'react-icons/fi';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
@@ -65,23 +66,33 @@ function App() {
         
         // Only redirect if not already on a valid page
         const currentPath = location.pathname;
-        const validAdminPaths = ['/orders', '/meals', '/settings', '/analytics', '/coupons'];
+        const validAdminPaths = ['/orders', '/meals', '/settings', '/analytics', '/coupons', ...(import.meta.env.DEV ? ['/debug'] : [])];
         const validDriverPaths = ['/driver/orders', '/driver/profile'];
         
         // Handle role-based routing
+        const adminAuthenticated = sessionStorage.getItem('adminAuthenticated');
+        
         if (storedRole === 'employee') {
           // Employee: Only allow /orders
           if (currentPath !== '/orders' && !currentPath.startsWith('/driver')) {
             navigate('/orders');
           }
-        } else if (storedRole === 'admin') {
-          // Admin: Full access
+        } else if (storedRole === 'admin' && adminAuthenticated === 'true') {
+          // Admin: Full access - ONLY if properly authenticated with password
           if (userRole === 'driver' && !validDriverPaths.includes(currentPath)) {
             navigate('/driver/orders');
           } else if (userRole === 'admin' && !validAdminPaths.includes(currentPath)) {
             navigate('/analytics');
           } else if (!userRole && !validAdminPaths.includes(currentPath)) {
             navigate('/analytics');
+          }
+        } else if (storedRole === 'admin' && adminAuthenticated !== 'true') {
+          // Admin role set but not authenticated - clear it and show modal
+          sessionStorage.removeItem('selectedRole');
+          sessionStorage.removeItem('adminAuthenticated');
+          setSelectedRole(null);
+          if (!isLoginPage) {
+            setShowRoleModal(true);
           }
         }
       } else {
@@ -95,7 +106,12 @@ function App() {
   }, [user, userRole, loading, navigate, location.pathname]);
 
   const handleRoleSelected = (role) => {
-    setSelectedRole(role);
+    // Only set role if it was properly selected (employee directly, or admin after password verification)
+    // This is handled inside RoleSelectionModal, so we just close the modal here
+    const storedRole = sessionStorage.getItem('selectedRole');
+    if (storedRole) {
+      setSelectedRole(storedRole);
+    }
     setShowRoleModal(false);
   };
 
@@ -158,7 +174,9 @@ function App() {
     }}>
       {/* Role Selection Modal */}
       {showRoleModal && user && !loading && (
-        <RoleSelectionModal onRoleSelected={handleRoleSelected} />
+        <RoleSelectionModal 
+          onRoleSelected={handleRoleSelected}
+        />
       )}
       {/* Navigation based on role and screen size */}
       {user && !isLoginPage && (
@@ -213,6 +231,7 @@ function App() {
                 {location.pathname === '/settings' && 'الإعدادات'}
                 {location.pathname === '/analytics' && 'التقارير والإحصائيات'}
                 {location.pathname === '/coupons' && 'إدارة الكوبونات'}
+                {location.pathname === '/debug' && 'أدوات التطوير'}
               </h1>
             </div>
             
@@ -348,6 +367,7 @@ function App() {
                 {location.pathname === '/settings' && 'الإعدادات'}
                 {location.pathname === '/analytics' && 'التقارير والإحصائيات'}
                 {location.pathname === '/coupons' && 'إدارة الكوبونات'}
+                {location.pathname === '/debug' && 'أدوات التطوير'}
               </h1>
             </div>
             
@@ -418,6 +438,17 @@ function App() {
                 </ProtectedRoute>
               </AuthGuard>
             } />
+            
+            {/* Debug Tools - Only available in development mode */}
+            {import.meta.env.DEV && (
+              <Route path="/debug" element={
+                <AuthGuard>
+                  <ProtectedRoute>
+                    <DebugToolsPage />
+                  </ProtectedRoute>
+                </AuthGuard>
+              } />
+            )}
             
             <Route path="/driver/orders" element={
               <AuthGuard>

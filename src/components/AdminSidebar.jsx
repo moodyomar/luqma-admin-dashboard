@@ -11,7 +11,8 @@ import {
   FiLogOut,
   FiMenu,
   FiX,
-  FiRefreshCw
+  FiRefreshCw,
+  FiAlertTriangle
 } from 'react-icons/fi';
 
 const AdminSidebar = ({ onSwitchRole }) => {
@@ -62,7 +63,15 @@ const AdminSidebar = ({ onSwitchRole }) => {
       icon: FiSettings,
       path: '/settings',
       adminOnly: true
-    }
+    },
+    // Debug tools - only in development mode
+    ...(import.meta.env.DEV ? [{
+      id: 'debug',
+      label: 'أدوات التطوير',
+      icon: FiAlertTriangle,
+      path: '/debug',
+      adminOnly: true
+    }] : [])
   ];
 
   // Check selected role from sessionStorage (for employee/admin distinction)

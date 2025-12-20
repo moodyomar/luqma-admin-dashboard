@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -32,6 +32,196 @@ import {
 } from '../utils/couponUtils';
 import brandConfig from '../constants/brandConfig';
 import './styles.css';
+
+// City Multi-Select Dropdown Component
+const CityMultiSelectDropdown = ({ cities, selectedCities = [], onSelectionChange, label }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const toggleCity = (cityObj) => {
+    const cityHe = typeof cityObj === 'string' ? cityObj : cityObj.he;
+    const cityAr = typeof cityObj === 'string' ? '' : cityObj.ar;
+    
+    const isSelected = selectedCities.some(c => {
+      if (typeof c === 'string') {
+        return c.toLowerCase() === cityHe.toLowerCase() || (cityAr && c.toLowerCase() === cityAr.toLowerCase());
+      }
+      return (
+        (c.he && cityHe && c.he.toLowerCase() === cityHe.toLowerCase()) ||
+        (c.ar && cityAr && c.ar.toLowerCase() === cityAr.toLowerCase())
+      );
+    });
+
+    let newSelectedCities;
+    if (isSelected) {
+      // Remove city
+      newSelectedCities = selectedCities.filter(c => {
+        const cHe = typeof c === 'string' ? c : c.he;
+        const cAr = typeof c === 'string' ? '' : c.ar;
+        return !(
+          (cHe && cityHe && cHe.toLowerCase() === cityHe.toLowerCase()) ||
+          (cAr && cityAr && cAr.toLowerCase() === cityAr.toLowerCase())
+        );
+      });
+    } else {
+      // Add city
+      const cityToAdd = typeof cityObj === 'string' ? { he: cityObj, ar: '' } : cityObj;
+      newSelectedCities = [...selectedCities, cityToAdd];
+    }
+
+    onSelectionChange(newSelectedCities);
+  };
+
+  const getDisplayText = () => {
+    if (selectedCities.length === 0) {
+      return 'לא נבחרו ערים';
+    }
+    if (selectedCities.length === 1) {
+      const city = selectedCities[0];
+      const cityHe = typeof city === 'string' ? city : city.he;
+      return cityHe;
+    }
+    return `${selectedCities.length} ערים נבחרו`;
+  };
+
+  return (
+    <div style={{ position: 'relative' }} ref={dropdownRef}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#555', marginBottom: 8 }}>
+        {label}
+      </div>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: '100%',
+          padding: '12px 16px',
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: 8,
+          fontSize: 14,
+          color: '#333',
+          cursor: 'pointer',
+          textAlign: 'right',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          transition: 'all 0.2s',
+          boxSizing: 'border-box'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = '#007aff';
+        }}
+        onMouseLeave={(e) => {
+          if (!isOpen) {
+            e.currentTarget.style.borderColor = '#e0e0e0';
+          }
+        }}
+      >
+        <span style={{ flex: 1, textAlign: 'right' }}>{getDisplayText()}</span>
+        <span style={{ 
+          marginLeft: '8px', 
+          fontSize: '12px',
+          transition: 'transform 0.2s',
+          transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+        }}>
+          ▼
+        </span>
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            left: 0,
+            marginTop: '4px',
+            background: '#fff',
+            border: '1px solid #e0e0e0',
+            borderRadius: 8,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 1000,
+            maxHeight: '300px',
+            overflowY: 'auto',
+            direction: 'rtl'
+          }}
+        >
+          {cities.map((cityObj, idx) => {
+            const cityHe = typeof cityObj === 'string' ? cityObj : cityObj.he;
+            const cityAr = typeof cityObj === 'string' ? '' : cityObj.ar;
+            
+            const isSelected = selectedCities.some(c => {
+              if (typeof c === 'string') {
+                return c.toLowerCase() === cityHe.toLowerCase() || (cityAr && c.toLowerCase() === cityAr.toLowerCase());
+              }
+              return (
+                (c.he && cityHe && c.he.toLowerCase() === cityHe.toLowerCase()) ||
+                (c.ar && cityAr && c.ar.toLowerCase() === cityAr.toLowerCase())
+              );
+            });
+
+            return (
+              <label
+                key={idx}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  borderBottom: idx < cities.length - 1 ? '1px solid #f0f0f0' : 'none'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f8f9fa';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#fff';
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleCity(cityObj)}
+                  style={{
+                    marginLeft: '12px',
+                    width: '18px',
+                    height: '18px',
+                    cursor: 'pointer',
+                    accentColor: '#007aff'
+                  }}
+                />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                    {cityHe}
+                  </span>
+                  {cityAr && (
+                    <span style={{ fontSize: 12, color: '#666' }}>
+                      {cityAr}
+                    </span>
+                  )}
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DEFAULT_LOYALTY = {
   enabled: true,
@@ -86,6 +276,9 @@ const BusinessManagePage = () => {
   const [showLoyaltyReferral, setShowLoyaltyReferral] = useState(false);
   const [showHeroTagline, setShowHeroTagline] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
+  const [showDriverZones, setShowDriverZones] = useState(false);
+  const [drivers, setDrivers] = useState([]);
+  const [driversLoading, setDriversLoading] = useState(false);
   
   // Coupon management state
   const [showCoupons, setShowCoupons] = useState(false);
@@ -722,6 +915,96 @@ const BusinessManagePage = () => {
       loadUsers();
     }
   }, [showNotifications]);
+
+  // Load drivers when driver zones section is opened
+  const loadDrivers = async () => {
+    if (!activeBusinessId) return;
+    setDriversLoading(true);
+    try {
+      const driversRef = collection(db, 'menus', activeBusinessId, 'users');
+      const driversSnapshot = await getDocs(query(driversRef, where('role', '==', 'driver')));
+      
+      const driversData = driversSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        allowedDeliveryCities: doc.data().allowedDeliveryCities || []
+      }));
+      
+      setDrivers(driversData);
+    } catch (error) {
+      console.error('Error loading drivers:', error);
+      toast.error('שגיאה בטעינת הנהגים');
+      setDrivers([]);
+    } finally {
+      setDriversLoading(false);
+    }
+  };
+
+  // Update driver's allowed delivery cities
+  const updateDriverZones = async (driverId, allowedCities) => {
+    if (!activeBusinessId) return;
+    try {
+      const driverRef = doc(db, 'menus', activeBusinessId, 'users', driverId);
+      await updateDoc(driverRef, {
+        allowedDeliveryCities: allowedCities
+      });
+      toast.success('אזורי המשלוח עודכנו בהצלחה!');
+      // Refresh drivers list
+      loadDrivers();
+    } catch (error) {
+      console.error('Error updating driver zones:', error);
+      toast.error('שגיאה בעדכון אזורי המשלוח');
+    }
+  };
+
+  // Toggle city for driver
+  const toggleDriverCity = (driverId, cityObj) => {
+    const driver = drivers.find(d => d.id === driverId);
+    if (!driver) return;
+    
+    const currentCities = driver.allowedDeliveryCities || [];
+    
+    // Check if city is already in allowed list
+    const cityExists = currentCities.some(c => {
+      const cHe = typeof c === 'string' ? c : c.he;
+      const cAr = typeof c === 'string' ? '' : c.ar;
+      const cityHe = cityObj.he;
+      const cityAr = cityObj.ar;
+      
+      return (
+        (cHe && cityHe && cHe.toLowerCase() === cityHe.toLowerCase()) ||
+        (cAr && cityAr && cAr.toLowerCase() === cityAr.toLowerCase())
+      );
+    });
+    
+    let newCities;
+    if (cityExists) {
+      // Remove city
+      newCities = currentCities.filter(c => {
+        const cHe = typeof c === 'string' ? c : c.he;
+        const cAr = typeof c === 'string' ? '' : c.ar;
+        const cityHe = cityObj.he;
+        const cityAr = cityObj.ar;
+        
+        return !(
+          (cHe && cityHe && cHe.toLowerCase() === cityHe.toLowerCase()) ||
+          (cAr && cityAr && cAr.toLowerCase() === cityAr.toLowerCase())
+        );
+      });
+    } else {
+      // Add city
+      newCities = [...currentCities, cityObj];
+    }
+    
+    updateDriverZones(driverId, newCities);
+  };
+
+  // Load drivers when driver zones section is opened
+  useEffect(() => {
+    if (showDriverZones && drivers.length === 0 && !driversLoading) {
+      loadDrivers();
+    }
+  }, [showDriverZones]);
 
   if (loading) return <p>טוען...</p>;
 
@@ -1493,31 +1776,143 @@ const BusinessManagePage = () => {
           </div>
         </div>
         {/* Prep time options row - moved to last row, styled */}
-        <div style={{ marginTop: 18, width: '100%' }}>
-          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
+        <div style={{ marginTop: 18, width: '100%', direction: 'rtl' }}>
+          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>אפשרויות זמן הכנה</label>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 12, lineHeight: 1.5 }}>
             הוסף כל אפשרות שתרצה לקביעת זמן הכנת הזמנה, אחת בכל פעם. נתן דקות, שעות, וימים. תוכל להסיר אפשרות בלחיצה על ×.
           </div>
+          
+          {/* Selected options grid */}
+          {(form.prepTimeOptions || []).length > 0 && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 10,
+              marginBottom: 16,
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              {(form.prepTimeOptions || []).map((opt, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => removePrepTimeOption(idx)}
+                  type="button"
+                  style={{
+                    background: '#e0e0e0',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#333',
+                    minHeight: '48px',
+                    boxSizing: 'border-box',
+                    width: '100%',
+                    border: '2px solid transparent',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'right',
+                    direction: 'rtl'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#ffebee';
+                    e.currentTarget.style.borderColor = '#e00';
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#e0e0e0';
+                    e.currentTarget.style.borderColor = 'transparent';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  onTouchStart={(e) => {
+                    e.currentTarget.style.background = '#ffebee';
+                    e.currentTarget.style.borderColor = '#e00';
+                  }}
+                  onTouchEnd={(e) => {
+                    setTimeout(() => {
+                      e.currentTarget.style.background = '#e0e0e0';
+                      e.currentTarget.style.borderColor = 'transparent';
+                    }, 150);
+                  }}
+                  title="לחץ להסרה"
+                >
+                  <span style={{ flex: 1, textAlign: 'right', userSelect: 'none' }}>
+                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעות' : 'ימים'}
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: 12,
+                      color: '#e00',
+                      fontWeight: 700,
+                      fontSize: 22,
+                      lineHeight: 1,
+                      minWidth: '28px',
+                      minHeight: '28px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 4,
+                      userSelect: 'none',
+                      flexShrink: 0
+                    }}
+                  >
+                    ×
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          
+          {/* Add new option section */}
           <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0', width: '100%', justifyContent: 'center', alignItems: 'center', rowGap: 10
+            display: 'flex',
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'stretch',
+            width: '100%',
+            boxSizing: 'border-box',
+            flexWrap: 'wrap'
           }}>
-            {(form.prepTimeOptions || []).map((opt, idx) => (
-              <span key={idx} style={{ background: '#e0e0e0', borderRadius: 8, padding: '2px 8px', display: 'flex', alignItems: 'center', fontSize: 14, justifyContent: 'center', minWidth: 60, margin: '0 2px' }}>
-                {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
-                <button onClick={() => removePrepTimeOption(idx)} style={{ marginRight: 6, background: 'none', border: 'none', color: '#e00', fontWeight: 700, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
-              </span>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
             <input
               type="number"
               min={1}
               value={newPrepValue}
               onChange={e => setNewPrepValue(e.target.value)}
               placeholder="מספר"
-              style={{ width: '90px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}
+              style={{
+                flex: '1 1 80px',
+                minWidth: '80px',
+                height: 44,
+                padding: '0 12px',
+                borderRadius: 10,
+                border: '1px solid #e0e0e0',
+                fontSize: 16,
+                background: '#fff',
+                textAlign: 'right',
+                boxSizing: 'border-box',
+                direction: 'rtl'
+              }}
             />
-            <select value={newPrepUnit} onChange={e => setNewPrepUnit(e.target.value)} style={{ width: '100px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}>
+            <select
+              value={newPrepUnit}
+              onChange={e => setNewPrepUnit(e.target.value)}
+              style={{
+                flex: '1 1 120px',
+                minWidth: '120px',
+                height: 44,
+                padding: '0 12px',
+                borderRadius: 10,
+                border: '1px solid #e0e0e0',
+                fontSize: 16,
+                background: '#fff',
+                textAlign: 'right',
+                boxSizing: 'border-box',
+                direction: 'rtl',
+                cursor: 'pointer'
+              }}
+            >
               <option value="minutes">דקות</option>
               <option value="hours">שעות</option>
               <option value="days">ימים</option>
@@ -1531,11 +1926,43 @@ const BusinessManagePage = () => {
                 (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) ||
                 (form.prepTimeOptions || []).length >= 6
               }
-              style={{ width: '90px', height: 44, borderRadius: 10, background: '#007aff', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 0.5 : 1 }}
-            >הוסף</button>
+              style={{
+                flex: '1 1 100px',
+                minWidth: '100px',
+                height: 44,
+                borderRadius: 10,
+                background: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? '#ccc' : '#007aff',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: 16,
+                cursor: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                boxSizing: 'border-box',
+                minHeight: '44px'
+              }}
+              onMouseEnter={(e) => {
+                if (!e.currentTarget.disabled) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 122, 255, 0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              הוסף
+            </button>
           </div>
+          
           {(form.prepTimeOptions || []).length >= 6 && (
-            <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 6 אפשרויות</div>
+            <div style={{ color: '#e00', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+              מקסימום 6 אפשרויות
+            </div>
           )}
         </div>
       </div>
@@ -2002,6 +2429,106 @@ const BusinessManagePage = () => {
                 💡 הודעות יישלחו רק למשתמשים עם הודעות Push מופעלות
               </div>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Driver Delivery Zones Section */}
+      <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => setShowDriverZones(v => !v)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#007bff',
+            fontWeight: 600,
+            fontSize: 18,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: 8,
+            gap: 6,
+          }}
+        >
+          <IoMdPeople size={20} />
+          {showDriverZones ? 'הסתר ניהול אזורי משלוח לנהגים' : 'ניהול אזורי משלוח לנהגים 🚚'}
+          <span style={{ fontSize: 18 }}>{showDriverZones ? '▲' : '▼'}</span>
+        </button>
+        
+        {showDriverZones && (
+          <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 12 }}>
+            <div style={{ fontSize: 13, color: '#666', marginBottom: 16, textAlign: 'right', lineHeight: 1.6 }}>
+              הגדר אילו ערים כל נהג יכול לקבל הזמנות אליהן. נהגים יקבלו התראות רק על הזמנות לערים שבהן הם מורשים לספק שירות.
+            </div>
+
+            {driversLoading ? (
+              <div style={{ textAlign: 'center', padding: 20 }}>
+                <div style={{ fontSize: 14, color: '#666' }}>טוען נהגים...</div>
+              </div>
+            ) : drivers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 20 }}>
+                <div style={{ fontSize: 14, color: '#666' }}>אין נהגים רשומים</div>
+                <div style={{ fontSize: 12, color: '#999', marginTop: 8 }}>
+                  הוסף נהגים בדף ניהול משתמשים
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {drivers.map((driver) => {
+                  const driverAllowedCities = driver.allowedDeliveryCities || [];
+                  
+                  return (
+                    <div
+                      key={driver.id}
+                      style={{
+                        background: '#fff',
+                        borderRadius: 8,
+                        padding: 16,
+                        border: '1px solid #e0e0e0',
+                      }}
+                    >
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#333', marginBottom: 4 }}>
+                          {driver.name || driver.displayName || driver.email || 'נהג ללא שם'}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#666' }}>
+                          {driver.email}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
+                          {driverAllowedCities.length > 0 
+                            ? `${driverAllowedCities.length} ערים מורשות` 
+                            : 'אין ערים מורשות - הנהג לא יקבל הזמנות'}
+                        </div>
+                      </div>
+
+                      {form.deliveryCities && form.deliveryCities.length > 0 ? (
+                        <CityMultiSelectDropdown
+                          cities={form.deliveryCities}
+                          selectedCities={driverAllowedCities}
+                          onSelectionChange={(selectedCities) => {
+                            updateDriverZones(driver.id, selectedCities);
+                          }}
+                          label="בחר ערים מורשות:"
+                        />
+                      ) : (
+                        <div style={{ 
+                          padding: 12, 
+                          background: '#fff3cd', 
+                          border: '1px solid #ffc107', 
+                          borderRadius: 6,
+                          fontSize: 12,
+                          color: '#856404',
+                          textAlign: 'center'
+                        }}>
+                          ⚠️ אין ערים מוגדרות. הגדר ערים למשלוח בחלק "ערים למשלוח" למעלה כדי לנהל אזורי משלוח לנהגים.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -3,26 +3,54 @@ import { auth, db } from '../firebase/firebaseConfig';
 import { deleteUser as firebaseDeleteUser } from 'firebase/auth';
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 import { firebaseApp } from '../firebase/firebaseConfig';
-import { doc, setDoc, collection, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, deleteDoc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import './styles.css';
-import { FiLogOut, FiUser, FiMail, FiTrash2, FiPhone } from 'react-icons/fi';
+import { FiLogOut, FiUser, FiMail, FiTrash2, FiPhone, FiEdit2 } from 'react-icons/fi';
 
 const UserManagementPage = () => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deletingDriver, setDeletingDriver] = useState(null); // Track which driver is being deleted
   const [updatingDriver, setUpdatingDriver] = useState(null); // Track which driver is being updated
+  const [editingDriver, setEditingDriver] = useState(null); // Track which driver is being edited
+  const [deliveryCities, setDeliveryCities] = useState([]); // Available delivery cities from config
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     name: '',
     phone: ''
   });
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    phone: '',
+    password: '',
+    allowedDeliveryCities: []
+  });
   const { userRole, activeBusinessId } = useAuth();
   const navigate = useNavigate();
+
+  // Load delivery cities from business config
+  useEffect(() => {
+    const loadDeliveryCities = async () => {
+      if (!activeBusinessId) return;
+      try {
+        const businessRef = doc(db, 'menus', activeBusinessId);
+        const businessSnap = await getDoc(businessRef);
+        if (businessSnap.exists()) {
+          const data = businessSnap.data();
+          const cities = data.config?.deliveryCities || [];
+          setDeliveryCities(cities);
+        }
+      } catch (error) {
+        console.error('Error loading delivery cities:', error);
+      }
+    };
+    loadDeliveryCities();
+  }, [activeBusinessId]);
 
   useEffect(() => {
     if (userRole !== 'admin') {
@@ -172,7 +200,183 @@ const UserManagementPage = () => {
     }
   };
 
-  // Update driver name (for drivers created before the fix)
+  // Open edit modal for driver
+  const handleEditDriver = async (driver) => {
+    // Fetch latest driver data from Firestore to ensure we have the most up-to-date allowedDeliveryCities
+    try {
+      const driverRef = doc(db, 'menus', activeBusinessId, 'users', driver.id);
+      const driverSnap = await getDoc(driverRef);
+      
+      if (driverSnap.exists()) {
+        const latestDriverData = driverSnap.data();
+        console.log('📋 Loading driver data for edit:', {
+          driverId: driver.id,
+          allowedDeliveryCities: latestDriverData.allowedDeliveryCities,
+          citiesCount: latestDriverData.allowedDeliveryCities?.length || 0
+        });
+        
+        setEditFormData({
+          name: latestDriverData.name || driver.name || '',
+          phone: latestDriverData.phone || driver.phone || '',
+          allowedDeliveryCities: latestDriverData.allowedDeliveryCities || []
+        });
+        setEditingDriver({ ...driver, ...latestDriverData });
+      } else {
+        // Fallback to driver data from state if document doesn't exist
+        setEditFormData({
+          name: driver.name || '',
+          phone: driver.phone || '',
+          allowedDeliveryCities: driver.allowedDeliveryCities || []
+        });
+        setEditingDriver(driver);
+      }
+    } catch (error) {
+      console.error('Error fetching driver data for edit:', error);
+      // Fallback to driver data from state on error
+      setEditFormData({
+        name: driver.name || '',
+        phone: driver.phone || '',
+        allowedDeliveryCities: driver.allowedDeliveryCities || []
+      });
+      setEditingDriver(driver);
+    }
+  };
+
+  // Close edit modal
+  const handleCloseEdit = () => {
+    setEditingDriver(null);
+    setEditFormData({
+      name: '',
+      phone: '',
+      password: '',
+      allowedDeliveryCities: []
+    });
+  };
+
+  // Save driver edits
+  const handleSaveDriverEdit = async () => {
+    if (!editingDriver || !activeBusinessId) return;
+    
+    setUpdatingDriver(editingDriver.id);
+    try {
+      const functions = getFunctions(firebaseApp, import.meta.env.VITE_FIREBASE_REGION || 'us-central1');
+      if (import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+      }
+      const inviteUser = httpsCallable(functions, 'inviteUser');
+      
+      // Format phone number
+      let formattedPhone = undefined;
+      if (editFormData.phone?.trim()) {
+        const phone = editFormData.phone.trim();
+        if (phone.startsWith('0')) {
+          formattedPhone = '+972' + phone.substring(1);
+        } else if (!phone.startsWith('+')) {
+          formattedPhone = '+972' + phone;
+        } else {
+          formattedPhone = phone;
+        }
+      }
+      
+      // Update name, phone, and allowed delivery cities via inviteUser function
+      console.log('💾 Saving driver data:', {
+        driverId: editingDriver.id,
+        allowedDeliveryCities: editFormData.allowedDeliveryCities,
+        citiesCount: editFormData.allowedDeliveryCities.length
+      });
+      
+      const inviteUserData = {
+        businessId: activeBusinessId,
+        email: editingDriver.email,
+        role: 'driver',
+        displayName: editFormData.name.trim() || undefined,
+        phone: formattedPhone,
+        allowedDeliveryCities: editFormData.allowedDeliveryCities,
+      };
+      
+      // Only include password if it was provided (not empty, at least 6 characters)
+      if (editFormData.password && editFormData.password.trim().length >= 6) {
+        inviteUserData.password = editFormData.password.trim();
+      }
+      
+      console.log('📤 Sending to inviteUser function:', {
+        ...inviteUserData,
+        hasPassword: !!inviteUserData.password,
+        allowedDeliveryCitiesType: typeof inviteUserData.allowedDeliveryCities,
+        allowedDeliveryCitiesIsArray: Array.isArray(inviteUserData.allowedDeliveryCities),
+        allowedDeliveryCitiesLength: Array.isArray(inviteUserData.allowedDeliveryCities) ? inviteUserData.allowedDeliveryCities.length : 'not an array'
+      });
+      
+      const result = await inviteUser(inviteUserData);
+      
+      console.log('📥 Response from inviteUser:', result.data);
+      
+      console.log('✅ Driver data saved successfully');
+      
+      // Wait a moment for Firestore to update, then refresh the driver data
+      setTimeout(() => {
+        // The real-time listener should update automatically, but we can force a refresh
+        const driverRef = doc(db, 'menus', activeBusinessId, 'users', editingDriver.id);
+        getDoc(driverRef).then((snap) => {
+          if (snap.exists()) {
+            const savedData = snap.data();
+            console.log('✅ Verified saved data:', {
+              allowedDeliveryCities: savedData.allowedDeliveryCities,
+              citiesCount: savedData.allowedDeliveryCities?.length || 0
+            });
+          }
+        });
+      }, 500);
+      
+      alert('✅ تم تحديث بيانات السائق بنجاح!');
+      handleCloseEdit();
+    } catch (error) {
+      alert('حدث خطأ أثناء تحديث بيانات السائق.');
+      console.error('Error updating driver:', error);
+    } finally {
+      setUpdatingDriver(null);
+    }
+  };
+
+  // Toggle city for driver in edit form
+  const toggleCityInEdit = (cityObj) => {
+    const currentCities = editFormData.allowedDeliveryCities || [];
+    const cityHe = typeof cityObj === 'string' ? cityObj : cityObj.he;
+    const cityAr = typeof cityObj === 'string' ? '' : cityObj.ar;
+    
+    // Check if city is already in allowed list
+    const cityExists = currentCities.some(c => {
+      const cHe = typeof c === 'string' ? c : c.he;
+      const cAr = typeof c === 'string' ? '' : c.ar;
+      return (
+        (cHe && cityHe && cHe.toLowerCase() === cityHe.toLowerCase()) ||
+        (cAr && cityAr && cAr.toLowerCase() === cityAr.toLowerCase())
+      );
+    });
+    
+    if (cityExists) {
+      // Remove city
+      setEditFormData(prev => ({
+        ...prev,
+        allowedDeliveryCities: currentCities.filter(c => {
+          const cHe = typeof c === 'string' ? c : c.he;
+          const cAr = typeof c === 'string' ? '' : c.ar;
+          return !(
+            (cHe && cityHe && cHe.toLowerCase() === cityHe.toLowerCase()) ||
+            (cAr && cityAr && cAr.toLowerCase() === cityAr.toLowerCase())
+          );
+        })
+      }));
+    } else {
+      // Add city
+      setEditFormData(prev => ({
+        ...prev,
+        allowedDeliveryCities: [...currentCities, typeof cityObj === 'string' ? { he: cityObj, ar: '' } : cityObj]
+      }));
+    }
+  };
+
+  // Update driver name (for drivers created before the fix) - kept for backward compatibility
   const handleUpdateDriverName = async (driver) => {
     const newName = window.prompt(`أدخل اسم السائق لـ ${driver.email}:`, driver.name || '');
     if (!newName || !newName.trim()) return;
@@ -444,30 +648,28 @@ const UserManagementPage = () => {
                   <div style={{ fontSize: 12, color: '#6c757d' }}>
                     {formatDate(driver.createdAt)}
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {(!driver.name || driver.name === 'بدون اسم') && (
-                      <button
-                        onClick={() => handleUpdateDriverName(driver)}
-                        disabled={updatingDriver === driver.id}
-                        style={{
-                          background: updatingDriver === driver.id ? '#6c757d' : '#ffc107',
-                          color: '#000',
-                          border: 'none',
-                          borderRadius: 6,
-                          padding: '6px 10px',
-                          cursor: updatingDriver === driver.id ? 'not-allowed' : 'pointer',
-                          fontSize: 14,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          opacity: updatingDriver === driver.id ? 0.7 : 1,
-                          fontWeight: 600
-                        }}
-                        title="تحديث الاسم"
-                      >
-                        ✏️ تحديث الاسم
-                      </button>
-                    )}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => handleEditDriver(driver)}
+                      disabled={updatingDriver === driver.id || deletingDriver === driver.id}
+                      style={{
+                        background: '#007bff',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '6px 10px',
+                        cursor: (updatingDriver === driver.id || deletingDriver === driver.id) ? 'not-allowed' : 'pointer',
+                        fontSize: 14,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        opacity: (updatingDriver === driver.id || deletingDriver === driver.id) ? 0.7 : 1,
+                        fontWeight: 600
+                      }}
+                      title="تعديل السائق"
+                    >
+                      <FiEdit2 /> تعديل
+                    </button>
                     <button
                       onClick={() => handleDeleteDriver(driver.id)}
                       disabled={deletingDriver === driver.id}
@@ -532,6 +734,292 @@ const UserManagementPage = () => {
           عرض الطلبات
         </button>
       </div>
+
+      {/* Edit Driver Modal */}
+      {editingDriver && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: isMobile ? '10px' : '20px'
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: isMobile ? '16px' : '24px',
+            width: '100%',
+            maxWidth: isMobile ? '95%' : 600,
+            maxHeight: isMobile ? '85vh' : '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? 16 : 20, flexShrink: 0 }}>
+              <h2 style={{ margin: 0, fontSize: isMobile ? 18 : 20, fontWeight: 700, color: '#495057' }}>
+                تعديل بيانات السائق
+              </h2>
+              <button
+                onClick={handleCloseEdit}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  color: '#6c757d',
+                  padding: 0,
+                  width: 30,
+                  height: 30,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 16,
+              overflowY: 'auto',
+              flex: 1,
+              paddingRight: 4,
+              marginRight: -4
+            }}>
+              {/* Email (read-only) */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#495057' }}>
+                  البريد الإلكتروني
+                </label>
+                <input
+                  type="email"
+                  value={editingDriver.email}
+                  disabled
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 6,
+                    border: '1px solid #ced4da',
+                    background: '#f8f9fa',
+                    color: '#6c757d',
+                    fontSize: 14
+                  }}
+                />
+              </div>
+
+              {/* Name */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#495057' }}>
+                  اسم السائق *
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="اسم السائق"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 6,
+                    border: '1px solid #ced4da',
+                    fontSize: 14
+                  }}
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#495057' }}>
+                  رقم الهاتف
+                </label>
+                <input
+                  type="tel"
+                  value={editFormData.phone}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="رقم الهاتف (اختياري)"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 6,
+                    border: '1px solid #ced4da',
+                    fontSize: 14
+                  }}
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#495057' }}>
+                  كلمة المرور
+                </label>
+                <input
+                  type="password"
+                  value={editFormData.password}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="اتركه فارغاً للحفاظ على كلمة المرور الحالية (أدخل كلمة جديدة لتغييرها)"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 6,
+                    border: '1px solid #ced4da',
+                    fontSize: 14
+                  }}
+                />
+                <div style={{ fontSize: 11, color: '#6c757d', marginTop: 4 }}>
+                  اتركه فارغاً للحفاظ على كلمة المرور الحالية. أدخل كلمة جديدة (6 أحرف على الأقل) لتغييرها.
+                </div>
+              </div>
+
+              {/* Allowed Delivery Cities */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#495057' }}>
+                  المدن المسموح بالتوصيل إليها
+                </label>
+                <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 8 }}>
+                  اختر المدن التي يمكن لهذا السائق تلقي طلبات التوصيل إليها. إذا لم يتم تحديد أي مدينة، سيتلقى السائق جميع الطلبات (للتوافق مع الإصدارات السابقة).
+                </div>
+                
+                {deliveryCities.length === 0 ? (
+                  <div style={{
+                    padding: 16,
+                    background: '#fff3cd',
+                    border: '1px solid #ffc107',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    color: '#856404',
+                    textAlign: 'center'
+                  }}>
+                    ⚠️ لا توجد مدن مضافة. يرجى إضافة المدن في صفحة الإعدادات أولاً.
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                    gap: 10,
+                    maxHeight: 200,
+                    overflowY: 'auto',
+                    padding: 12,
+                    background: '#f8f9fa',
+                    borderRadius: 6,
+                    border: '1px solid #dee2e6'
+                  }}>
+                    {deliveryCities.map((cityObj, idx) => {
+                      const cityHe = typeof cityObj === 'string' ? cityObj : cityObj.he;
+                      const cityAr = typeof cityObj === 'string' ? '' : cityObj.ar;
+                      
+                      const isAllowed = editFormData.allowedDeliveryCities.some(c => {
+                        const cHe = typeof c === 'string' ? c : c.he;
+                        const cAr = typeof c === 'string' ? '' : c.ar;
+                        return (
+                          (cHe && cityHe && cHe.toLowerCase() === cityHe.toLowerCase()) ||
+                          (cAr && cityAr && cAr.toLowerCase() === cityAr.toLowerCase())
+                        );
+                      });
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => toggleCityInEdit(cityObj)}
+                          style={{
+                            background: isAllowed ? '#28a745' : '#e9ecef',
+                            color: isAllowed ? '#fff' : '#495057',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '6px 8px',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            textAlign: 'center',
+                            lineHeight: 1.3,
+                            minHeight: 32
+                          }}
+                        >
+                          {cityAr || cityHe}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                <div style={{ fontSize: 11, color: '#6c757d', marginTop: 8 }}>
+                  {editFormData.allowedDeliveryCities.length > 0 
+                    ? `تم اختيار ${editFormData.allowedDeliveryCities.length} مدينة` 
+                    : 'لم يتم اختيار أي مدينة - السائق سيتلقى جميع الطلبات'}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons - Fixed at bottom */}
+            <div style={{ 
+              display: 'flex', 
+              gap: 10, 
+              marginTop: 16,
+              paddingTop: 16,
+              borderTop: '1px solid #dee2e6',
+              flexShrink: 0
+            }}>
+              <button
+                onClick={handleSaveDriverEdit}
+                disabled={updatingDriver === editingDriver.id || !editFormData.name.trim()}
+                style={{
+                  flex: 1,
+                  padding: isMobile ? '10px 16px' : '12px 24px',
+                  background: (updatingDriver === editingDriver.id || !editFormData.name.trim()) ? '#6c757d' : '#28a745',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: (updatingDriver === editingDriver.id || !editFormData.name.trim()) ? 'not-allowed' : 'pointer',
+                  fontSize: isMobile ? 14 : 16,
+                  fontWeight: 600,
+                  opacity: (updatingDriver === editingDriver.id || !editFormData.name.trim()) ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8
+                }}
+              >
+                {updatingDriver === editingDriver.id && <div style={{ 
+                  width: 16, 
+                  height: 16, 
+                  border: '2px solid transparent', 
+                  borderTop: '2px solid white', 
+                  borderRadius: '50%', 
+                  animation: 'spin 1s linear infinite' 
+                }}></div>}
+                {updatingDriver === editingDriver.id ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+              </button>
+              <button
+                onClick={handleCloseEdit}
+                disabled={updatingDriver === editingDriver.id}
+                style={{
+                  flex: 1,
+                  padding: isMobile ? '10px 16px' : '12px 24px',
+                  background: '#6c757d',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: updatingDriver === editingDriver.id ? 'not-allowed' : 'pointer',
+                  fontSize: isMobile ? 14 : 16,
+                  fontWeight: 600,
+                  opacity: updatingDriver === editingDriver.id ? 0.7 : 1
+                }}
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -15,6 +15,12 @@ export { onOrderCreated, onOrderStatusChange } from "./customerNotifications";
 // Driver notifications (NEW - for driver app, separate from customer notifications)
 export { notifyDriversOnStatusChange, notifyDriversOnCreate } from "./notifyDriversOnOrderUpdate";
 
+// Referral functions (for referral code system)
+export { onReferralCodeApplied, resetReferralData } from "./referralFunctions";
+
+// Driver password management
+export { resetDriverPassword } from "./resetDriverPassword";
+
 
 
 
