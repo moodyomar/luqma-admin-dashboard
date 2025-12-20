@@ -1,7 +1,51 @@
 // utils/couponUtils.js
-import { db } from '../firebase/firebaseConfig';
+import { db, auth } from '../firebase/firebaseConfig';
 import { collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, where, orderBy, limit, increment } from 'firebase/firestore';
 import brandConfig from '../constants/brandConfig';
+
+/**
+ * Force refresh Firebase Auth token to get latest custom claims
+ * This ensures Firestore rules can access the latest businessIds and roles
+ */
+const refreshAuthToken = async () => {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      // Force refresh token to get latest custom claims
+      const tokenResult = await user.getIdTokenResult(true);
+      console.log('✅ Auth token refreshed');
+      console.log('📋 Current token claims:', {
+        businessIds: tokenResult.claims.businessIds,
+        roles: tokenResult.claims.roles,
+        uid: user.uid
+      });
+      
+      // Verify claims for debugging
+      const hasBusinessId = tokenResult.claims.businessIds && tokenResult.claims.businessIds.includes(brandConfig.id);
+      const hasAdminRole = tokenResult.claims.roles && tokenResult.claims.roles.includes('admin');
+      
+      console.log(`🔍 Permission check for businessId "${brandConfig.id}":`, {
+        hasBusinessId,
+        hasAdminRole,
+        willPass: hasBusinessId && hasAdminRole
+      });
+      
+      if (!hasBusinessId || !hasAdminRole) {
+        console.warn('⚠️ Token claims missing required permissions:', {
+          businessIds: tokenResult.claims.businessIds,
+          roles: tokenResult.claims.roles,
+          requiredBusinessId: brandConfig.id,
+          requiredRole: 'admin'
+        });
+      }
+    } else {
+      console.warn('⚠️ No authenticated user found');
+    }
+  } catch (error) {
+    console.error('⚠️ Error refreshing auth token:', error);
+    // Don't throw - continue with operation
+  }
+};
 
 /**
  * Coupon Types
@@ -57,6 +101,9 @@ export const generateCouponCode = (length = 8) => {
  */
 export const createCoupon = async (couponData) => {
   try {
+    // Refresh token to ensure latest custom claims are available
+    await refreshAuthToken();
+    
     const couponRef = collection(db, 'menus', brandConfig.id, 'coupons');
     
     // Map to your exact field specifications
@@ -77,6 +124,10 @@ export const createCoupon = async (couponData) => {
     return docRef.id;
   } catch (error) {
     console.error('Error creating coupon:', error);
+    // Provide user-friendly error message
+    if (error.code === 'permission-denied') {
+      throw new Error('אין לך הרשאה ליצור קופונים. אנא התנתק והתחבר מחדש או פנה למנהל המערכת.');
+    }
     throw error;
   }
 };
@@ -140,6 +191,9 @@ export const getCouponByCode = async (code) => {
  */
 export const updateCoupon = async (couponId, updateData) => {
   try {
+    // Refresh token to ensure latest custom claims are available
+    await refreshAuthToken();
+    
     const couponRef = doc(db, 'menus', brandConfig.id, 'coupons', couponId);
     await updateDoc(couponRef, {
       ...updateData,
@@ -147,6 +201,10 @@ export const updateCoupon = async (couponId, updateData) => {
     });
   } catch (error) {
     console.error('Error updating coupon:', error);
+    // Provide user-friendly error message
+    if (error.code === 'permission-denied') {
+      throw new Error('אין לך הרשאה לעדכן קופונים. אנא התנתק והתחבר מחדש או פנה למנהל המערכת.');
+    }
     throw error;
   }
 };
@@ -158,10 +216,17 @@ export const updateCoupon = async (couponId, updateData) => {
  */
 export const deleteCoupon = async (couponId) => {
   try {
+    // Refresh token to ensure latest custom claims are available
+    await refreshAuthToken();
+    
     const couponRef = doc(db, 'menus', brandConfig.id, 'coupons', couponId);
     await deleteDoc(couponRef);
   } catch (error) {
     console.error('Error deleting coupon:', error);
+    // Provide user-friendly error message
+    if (error.code === 'permission-denied') {
+      throw new Error('אין לך הרשאה למחוק קופונים. אנא התנתק והתחבר מחדש או פנה למנהל המערכת.');
+    }
     throw error;
   }
 };
