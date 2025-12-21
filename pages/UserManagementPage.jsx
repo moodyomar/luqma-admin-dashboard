@@ -24,6 +24,13 @@ const UserManagementPage = () => {
     name: '',
     phone: ''
   });
+  const [jeebFormData, setJeebFormData] = useState({
+    email: '',
+    password: '',
+    name: '',
+    phone: ''
+  });
+  const [creatingJeebDriver, setCreatingJeebDriver] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
     phone: '',
@@ -110,6 +117,64 @@ const UserManagementPage = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleJeebInputChange = (field, value) => {
+    setJeebFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleCreateJeebDriver = async (e) => {
+    e.preventDefault();
+    setCreatingJeebDriver(true);
+
+    try {
+      const functions = getFunctions(firebaseApp, import.meta.env.VITE_FIREBASE_REGION || 'us-central1');
+      if (import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+      }
+      const createJeebDriverFn = httpsCallable(functions, 'createJeebDriver');
+      
+      // Format phone number to E.164 if provided
+      let formattedPhone = undefined;
+      if (jeebFormData.phone?.trim()) {
+        const phone = jeebFormData.phone.trim();
+        if (phone.startsWith('0')) {
+          formattedPhone = '+972' + phone.substring(1);
+        } else if (!phone.startsWith('+')) {
+          formattedPhone = '+972' + phone;
+        } else {
+          formattedPhone = phone;
+        }
+      }
+
+      const result = await createJeebDriverFn({
+        email: jeebFormData.email.trim(),
+        password: jeebFormData.password,
+        name: jeebFormData.name?.trim() || undefined,
+        phone: formattedPhone,
+      });
+      
+      console.log('✅ Jeeb driver created:', result.data);
+      
+      // Reset form
+      setJeebFormData({
+        email: '',
+        password: '',
+        name: '',
+        phone: ''
+      });
+      
+      alert(`✅ ${result.data.message || 'تم إنشاء سائق جيب بنجاح!'}`);
+    } catch (error) {
+      console.error('Error creating Jeeb driver:', error);
+      const errorMessage = error?.message || 'حدث خطأ أثناء إنشاء سائق جيب';
+      alert(`❌ ${errorMessage}`);
+    } finally {
+      setCreatingJeebDriver(false);
+    }
   };
 
   const handleCreateDriver = async (e) => {
@@ -593,6 +658,124 @@ const UserManagementPage = () => {
               animation: 'spin 1s linear infinite' 
             }}></div>}
             {loading ? 'جاري الإنشاء...' : 'إضافة سائق'}
+          </button>
+        </form>
+      </div>
+
+      {/* Create Jeeb Driver Form */}
+      <div style={{ 
+        background: '#e7f3ff', 
+        padding: 20, 
+        borderRadius: 8, 
+        marginBottom: 30,
+        border: '2px solid #007AFF'
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: 10, color: '#007AFF' }}>
+          🚗 إضافة سائق جيب (Jeeb Driver)
+        </h3>
+        <p style={{ marginBottom: 20, color: '#666', fontSize: 14 }}>
+          سائقي جيب يمكنهم تلقي طلبات من جميع الأعمال. هذا مختلف عن السائقين العاديين.
+        </p>
+        
+        <form onSubmit={handleCreateJeebDriver}>
+          <div
+            className="driver-form-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gridTemplateRows: '1fr 1fr',
+              gap: 15,
+              maxWidth: 400,
+              width: '100%',
+              margin: '0 auto',
+            }}
+          >
+            <input
+              type="email"
+              placeholder="البريد الإلكتروني"
+              value={jeebFormData.email}
+              onChange={(e) => handleJeebInputChange('email', e.target.value)}
+              required
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '10px',
+                borderRadius: 6,
+                border: '1px solid #ced4da',
+              }}
+            />
+            <input
+              type="password"
+              placeholder="كلمة المرور"
+              value={jeebFormData.password}
+              onChange={(e) => handleJeebInputChange('password', e.target.value)}
+              required
+              minLength={6}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '10px',
+                borderRadius: 6,
+                border: '1px solid #ced4da',
+              }}
+            />
+            <input
+              type="text"
+              placeholder="اسم السائق (اختياري)"
+              value={jeebFormData.name}
+              onChange={(e) => handleJeebInputChange('name', e.target.value)}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '10px',
+                borderRadius: 6,
+                border: '1px solid #ced4da',
+              }}
+            />
+            <input
+              type="tel"
+              placeholder="رقم الهاتف (اختياري)"
+              value={jeebFormData.phone}
+              onChange={(e) => handleJeebInputChange('phone', e.target.value)}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '10px',
+                borderRadius: 6,
+                border: '1px solid #ced4da',
+              }}
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={creatingJeebDriver}
+            style={{
+              marginTop: 15,
+              padding: '12px 24px',
+              background: creatingJeebDriver ? '#6c757d' : '#007AFF',
+              color: 'white',
+              border: 'none',
+              borderRadius: 6,
+              cursor: creatingJeebDriver ? 'not-allowed' : 'pointer',
+              fontSize: 16,
+              fontWeight: 600,
+              opacity: creatingJeebDriver ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8
+            }}
+          >
+            {creatingJeebDriver && <div style={{ 
+              width: 16, 
+              height: 16, 
+              border: '2px solid transparent', 
+              borderTop: '2px solid white', 
+              borderRadius: '50%', 
+              animation: 'spin 1s linear infinite' 
+            }}></div>}
+            {creatingJeebDriver ? 'جاري الإنشاء...' : 'إضافة سائق جيب'}
           </button>
         </form>
       </div>

@@ -1,22 +1,42 @@
 import React, { useState } from 'react';
 import { useAuth } from '../src/contexts/AuthContext';
-import { db } from '../firebase/firebaseConfig';
+import { db, auth } from '../firebase/firebaseConfig';
 import { 
   collection, 
   getDocs, 
   doc, 
   updateDoc, 
-  writeBatch
+  writeBatch,
+  deleteDoc
 } from 'firebase/firestore';
 import { FiAlertTriangle, FiTrash2, FiRefreshCw, FiDatabase, FiCheckCircle } from 'react-icons/fi';
-import brandConfig from '../constants/brandConfig';
 import './styles.css';
 
 const DebugToolsPage = () => {
-  const { userRole } = useAuth();
+  const { userRole, activeBusinessId, isAdmin, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  // Helper function to refresh auth token before operations
+  const refreshAuthToken = async () => {
+    if (user) {
+      try {
+        const tokenResult = await user.getIdTokenResult(true); // Force refresh
+        console.log('✅ Auth token refreshed');
+        console.log('📋 Current claims:', {
+          roles: tokenResult.claims.roles,
+          businessIds: tokenResult.claims.businessIds,
+          isAdmin: tokenResult.claims.roles?.includes('admin')
+        });
+        return tokenResult;
+      } catch (err) {
+        console.warn('⚠️ Could not refresh auth token:', err);
+        throw err;
+      }
+    }
+    return null;
+  };
 
   // Only show in development mode
   const isDev = import.meta.env.DEV;
@@ -48,7 +68,7 @@ const DebugToolsPage = () => {
     );
   }
 
-  if (userRole !== 'admin') {
+  if (!isAdmin) {
     return (
       <div style={{
         display: 'flex',
@@ -143,7 +163,11 @@ const DebugToolsPage = () => {
     setError(null);
 
     try {
-      const ordersRef = collection(db, 'menus', brandConfig.id, 'orders');
+      if (!activeBusinessId) {
+        throw new Error('لا يوجد معرف عمل نشط');
+      }
+      
+      const ordersRef = collection(db, 'menus', activeBusinessId, 'orders');
       const ordersSnapshot = await getDocs(ordersRef);
       
       let count = 0;
@@ -152,7 +176,7 @@ const DebugToolsPage = () => {
       let batchCount = 0;
 
       for (const orderDoc of ordersSnapshot.docs) {
-        const orderRef = doc(db, 'menus', brandConfig.id, 'orders', orderDoc.id);
+        const orderRef = doc(db, 'menus', activeBusinessId, 'orders', orderDoc.id);
         batch.delete(orderRef);
         count++;
         batchCount++;
@@ -189,6 +213,23 @@ const DebugToolsPage = () => {
     setError(null);
 
     try {
+      // Refresh auth token to ensure latest permissions
+      const tokenResult = await refreshAuthToken();
+      if (!tokenResult) {
+        throw new Error('Unable to refresh authentication token. Please sign out and sign back in.');
+      }
+      
+      const hasAdminRole = tokenResult.claims.roles?.includes('admin');
+      console.log('🔍 Admin role check:', {
+        roles: tokenResult.claims.roles,
+        hasAdminRole,
+        businessIds: tokenResult.claims.businessIds
+      });
+      
+      if (!hasAdminRole) {
+        throw new Error('You must have admin role to perform this operation. Your current roles: ' + (tokenResult.claims.roles?.join(', ') || 'none'));
+      }
+      
       const usersRef = collection(db, 'users');
       const usersSnapshot = await getDocs(usersRef);
       
@@ -222,44 +263,72 @@ const DebugToolsPage = () => {
         }
 
         // Delete referral transactions subcollection
+        // Use individual deletes instead of batch to ensure proper permission evaluation
         try {
           const transactionsRef = collection(db, 'users', userDoc.id, 'referralTransactions');
           const transactionsSnapshot = await getDocs(transactionsRef);
           
+          if (transactionsSnapshot.empty) {
+            // No transactions to delete, skip silently
+            continue;
+          }
+          
           for (const transactionDoc of transactionsSnapshot.docs) {
-            const transactionRef = doc(db, 'users', userDoc.id, 'referralTransactions', transactionDoc.id);
-            batch.delete(transactionRef);
-            transactionCount++;
-            batchCount++;
-
-            if (batchCount >= batchSize) {
-              await batch.commit();
-              batch = writeBatch(db);
-              batchCount = 0;
+            try {
+              const transactionRef = doc(db, 'users', userDoc.id, 'referralTransactions', transactionDoc.id);
+              await deleteDoc(transactionRef);
+              transactionCount++;
+            } catch (deleteErr) {
+              // Suppress errors for already-deleted or non-existent items
+              // Only log unexpected errors
+              const errorCode = deleteErr?.code || deleteErr?.message || '';
+              if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+                console.warn(`⚠️ Could not delete transaction ${transactionDoc.id} for user ${userDoc.id}:`, deleteErr.message || deleteErr);
+              }
+              // Continue with other transactions
             }
           }
         } catch (err) {
-          console.warn(`Could not delete referral transactions for user ${userDoc.id}:`, err);
+          // Suppress permission errors - data might already be cleared
+          const errorCode = err?.code || err?.message || '';
+          if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+            console.warn(`⚠️ Could not access referral transactions for user ${userDoc.id}:`, err.message || err);
+          }
+          // Continue with other users
         }
 
         // Delete referral stats subcollection
+        // Use individual deletes instead of batch to ensure proper permission evaluation
         try {
           const statsRef = collection(db, 'users', userDoc.id, 'referralStats');
           const statsSnapshot = await getDocs(statsRef);
           
+          if (statsSnapshot.empty) {
+            // No stats to delete, skip silently
+            continue;
+          }
+          
           for (const statDoc of statsSnapshot.docs) {
-            const statRef = doc(db, 'users', userDoc.id, 'referralStats', statDoc.id);
-            batch.delete(statRef);
-            batchCount++;
-
-            if (batchCount >= batchSize) {
-              await batch.commit();
-              batch = writeBatch(db);
-              batchCount = 0;
+            try {
+              const statRef = doc(db, 'users', userDoc.id, 'referralStats', statDoc.id);
+              await deleteDoc(statRef);
+            } catch (deleteErr) {
+              // Suppress errors for already-deleted or non-existent items
+              // Only log unexpected errors
+              const errorCode = deleteErr?.code || deleteErr?.message || '';
+              if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+                console.warn(`⚠️ Could not delete stat ${statDoc.id} for user ${userDoc.id}:`, deleteErr.message || deleteErr);
+              }
+              // Continue with other stats
             }
           }
         } catch (err) {
-          console.warn(`Could not delete referral stats for user ${userDoc.id}:`, err);
+          // Suppress permission errors - data might already be cleared
+          const errorCode = err?.code || err?.message || '';
+          if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+            console.warn(`⚠️ Could not access referral stats for user ${userDoc.id}:`, err.message || err);
+          }
+          // Continue with other users
         }
 
         if (batchCount >= batchSize) {
@@ -353,6 +422,23 @@ const DebugToolsPage = () => {
     setError(null);
 
     try {
+      // Refresh auth token to ensure latest permissions
+      const tokenResult = await refreshAuthToken();
+      if (!tokenResult) {
+        throw new Error('Unable to refresh authentication token. Please sign out and sign back in.');
+      }
+      
+      const hasAdminRole = tokenResult.claims.roles?.includes('admin');
+      console.log('🔍 Admin role check:', {
+        roles: tokenResult.claims.roles,
+        hasAdminRole,
+        businessIds: tokenResult.claims.businessIds
+      });
+      
+      if (!hasAdminRole) {
+        throw new Error('You must have admin role to perform this operation. Your current roles: ' + (tokenResult.claims.roles?.join(', ') || 'none'));
+      }
+      
       // Reset points
       const usersRef = collection(db, 'users');
       const usersSnapshot = await getDocs(usersRef);
@@ -377,14 +463,18 @@ const DebugToolsPage = () => {
       }
       
       // Reset orders
-      const ordersRef = collection(db, 'menus', brandConfig.id, 'orders');
+      if (!activeBusinessId) {
+        throw new Error('لا يوجد معرف عمل نشط');
+      }
+      
+      const ordersRef = collection(db, 'menus', activeBusinessId, 'orders');
       const ordersSnapshot = await getDocs(ordersRef);
       
       let ordersBatch = writeBatch(db);
       let ordersBatchCount = 0;
 
       for (const orderDoc of ordersSnapshot.docs) {
-        const orderRef = doc(db, 'menus', brandConfig.id, 'orders', orderDoc.id);
+        const orderRef = doc(db, 'menus', activeBusinessId, 'orders', orderDoc.id);
         ordersBatch.delete(orderRef);
         ordersBatchCount++;
 

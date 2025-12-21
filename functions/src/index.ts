@@ -24,6 +24,9 @@ export { resetDriverPassword } from "./resetDriverPassword";
 // Driver profile management
 export { updateDriverProfile } from "./updateDriverProfile";
 
+// Jeeb driver management
+export { createJeebDriver } from "./createJeebDriver";
+
 
 
 

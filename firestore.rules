@@ -32,6 +32,13 @@ service cloud.firestore {
              request.auth.token.roles.hasAny(['driver']);
     }
 
+    // Check if user is a Jeeb driver (works across all businesses)
+    function isJeebDriver() {
+      return isAuthed() && 
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['jeeb_driver']);
+    }
+
     // Check if user is admin for specific business
     function isBusinessAdmin(bid) {
       return hasBiz(bid) && isAdmin();
@@ -62,12 +69,48 @@ service cloud.firestore {
       // ========================================
       match /referralTransactions/{transactionId} {
         // Users can read their own referral transaction history
-        allow read: if isAuthed() && request.auth.uid == uid;
+        // Admins can read all referral transactions (for debug/cleanup tools)
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
         // Only admins can create/update referral transactions (via Cloud Functions)
         allow create, update: if isAdmin();
-        // Prevent deletion
-        allow delete: if false;
+        // Only admins can delete referral transactions (for debug/cleanup tools)
+        allow delete: if isAdmin();
       }
+
+      // ========================================
+      // REFERRAL STATS SUBCOLLECTION
+      // ========================================
+      match /referralStats/{statId} {
+        // Users can read their own referral stats
+        // Admins can read all referral stats (for debug/cleanup tools)
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+        // Only admins can create/update referral stats (via Cloud Functions)
+        allow create, update: if isAdmin();
+        // Only admins can delete referral stats (for debug/cleanup tools)
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ========================================
+    // GLOBAL DRIVERS COLLECTION (for Jeeb drivers)
+    // ========================================
+    match /drivers/{driverId} {
+      // Jeeb drivers can read their own profile
+      // Admins can read all driver profiles
+      allow read: if isAuthed() && (
+        (isJeebDriver() && request.auth.uid == driverId) ||
+        isAdmin()
+      );
+      
+      // Jeeb drivers can create/update their own profile
+      // Admins can create/update any driver profile
+      allow create, update: if isAuthed() && (
+        (isJeebDriver() && request.auth.uid == driverId) ||
+        isAdmin()
+      );
+      
+      // Prevent deletion (use soft delete or admin-only)
+      allow delete: if isAdmin();
     }
 
     // ========================================
