@@ -244,16 +244,39 @@ const DebugToolsPage = () => {
         const userRef = doc(db, 'users', userDoc.id);
         const userData = userDoc.data();
         
-        // Reset referral-related fields
+        // Reset referral-related fields (who referred this user)
+        // NOTE: We do NOT reset referralCode (user's own code) - that should persist
         const updates = {};
-        if (userData.referralCode !== undefined) {
-          updates.referralCode = null;
-        }
-        if (userData.referredBy !== undefined) {
+        
+        // Reset fields related to being referred by someone else
+        if (userData.referredBy !== undefined && userData.referredBy !== null) {
           updates.referredBy = null;
         }
-        if (userData.referralStats !== undefined) {
-          updates.referralStats = null;
+        if (userData.referredByUserId !== undefined && userData.referredByUserId !== null) {
+          updates.referredByUserId = null;
+        }
+        if (userData.referredAt !== undefined && userData.referredAt !== null) {
+          updates.referredAt = null;
+        }
+        if (userData.referralRewardAwarded !== undefined && userData.referralRewardAwarded !== null) {
+          updates.referralRewardAwarded = null;
+        }
+        if (userData.referralRewardAmount !== undefined && userData.referralRewardAmount !== null) {
+          updates.referralRewardAmount = null;
+        }
+        
+        // Reset referral stats (count and rewards earned from referring others)
+        if (userData.referralCount !== undefined && userData.referralCount !== null && userData.referralCount !== 0) {
+          updates.referralCount = 0;
+        }
+        if (userData.referralRewards !== undefined && userData.referralRewards !== null && userData.referralRewards !== 0) {
+          updates.referralRewards = 0;
+        }
+        if (userData.lastReferralAt !== undefined && userData.lastReferralAt !== null) {
+          updates.lastReferralAt = null;
+        }
+        if (userData.lastReferralRewardAt !== undefined && userData.lastReferralRewardAt !== null) {
+          updates.lastReferralRewardAt = null;
         }
 
         if (Object.keys(updates).length > 0) {
@@ -268,24 +291,21 @@ const DebugToolsPage = () => {
           const transactionsRef = collection(db, 'users', userDoc.id, 'referralTransactions');
           const transactionsSnapshot = await getDocs(transactionsRef);
           
-          if (transactionsSnapshot.empty) {
-            // No transactions to delete, skip silently
-            continue;
-          }
-          
-          for (const transactionDoc of transactionsSnapshot.docs) {
-            try {
-              const transactionRef = doc(db, 'users', userDoc.id, 'referralTransactions', transactionDoc.id);
-              await deleteDoc(transactionRef);
-              transactionCount++;
-            } catch (deleteErr) {
-              // Suppress errors for already-deleted or non-existent items
-              // Only log unexpected errors
-              const errorCode = deleteErr?.code || deleteErr?.message || '';
-              if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
-                console.warn(`⚠️ Could not delete transaction ${transactionDoc.id} for user ${userDoc.id}:`, deleteErr.message || deleteErr);
+          if (!transactionsSnapshot.empty) {
+            for (const transactionDoc of transactionsSnapshot.docs) {
+              try {
+                const transactionRef = doc(db, 'users', userDoc.id, 'referralTransactions', transactionDoc.id);
+                await deleteDoc(transactionRef);
+                transactionCount++;
+              } catch (deleteErr) {
+                // Suppress errors for already-deleted or non-existent items
+                // Only log unexpected errors
+                const errorCode = deleteErr?.code || deleteErr?.message || '';
+                if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+                  console.warn(`⚠️ Could not delete transaction ${transactionDoc.id} for user ${userDoc.id}:`, deleteErr.message || deleteErr);
+                }
+                // Continue with other transactions
               }
-              // Continue with other transactions
             }
           }
         } catch (err) {
@@ -303,23 +323,20 @@ const DebugToolsPage = () => {
           const statsRef = collection(db, 'users', userDoc.id, 'referralStats');
           const statsSnapshot = await getDocs(statsRef);
           
-          if (statsSnapshot.empty) {
-            // No stats to delete, skip silently
-            continue;
-          }
-          
-          for (const statDoc of statsSnapshot.docs) {
-            try {
-              const statRef = doc(db, 'users', userDoc.id, 'referralStats', statDoc.id);
-              await deleteDoc(statRef);
-            } catch (deleteErr) {
-              // Suppress errors for already-deleted or non-existent items
-              // Only log unexpected errors
-              const errorCode = deleteErr?.code || deleteErr?.message || '';
-              if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
-                console.warn(`⚠️ Could not delete stat ${statDoc.id} for user ${userDoc.id}:`, deleteErr.message || deleteErr);
+          if (!statsSnapshot.empty) {
+            for (const statDoc of statsSnapshot.docs) {
+              try {
+                const statRef = doc(db, 'users', userDoc.id, 'referralStats', statDoc.id);
+                await deleteDoc(statRef);
+              } catch (deleteErr) {
+                // Suppress errors for already-deleted or non-existent items
+                // Only log unexpected errors
+                const errorCode = deleteErr?.code || deleteErr?.message || '';
+                if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+                  console.warn(`⚠️ Could not delete stat ${statDoc.id} for user ${userDoc.id}:`, deleteErr.message || deleteErr);
+                }
+                // Continue with other stats
               }
-              // Continue with other stats
             }
           }
         } catch (err) {
@@ -363,10 +380,22 @@ const DebugToolsPage = () => {
     setError(null);
 
     try {
+      // Refresh auth token to ensure latest permissions
+      const tokenResult = await refreshAuthToken();
+      if (!tokenResult) {
+        throw new Error('Unable to refresh authentication token. Please sign out and sign back in.');
+      }
+      
+      const hasAdminRole = tokenResult.claims.roles?.includes('admin');
+      if (!hasAdminRole) {
+        throw new Error('You must have admin role to perform this operation.');
+      }
+
       const usersRef = collection(db, 'users');
       const usersSnapshot = await getDocs(usersRef);
       
       let count = 0;
+      let transactionCount = 0;
       const batchSize = 500;
       let batch = writeBatch(db);
       let batchCount = 0;
@@ -376,12 +405,18 @@ const DebugToolsPage = () => {
         const userData = userDoc.data();
         
         const updates = {};
-        if (userData.referralStats) {
-          // Reset referral stats if it exists
-          updates.referralStats = {
-            totalReferrals: 0,
-            totalEarned: 0
-          };
+        // Reset referral count and rewards (stats for referring others)
+        if (userData.referralCount !== undefined && userData.referralCount !== null && userData.referralCount !== 0) {
+          updates.referralCount = 0;
+        }
+        if (userData.referralRewards !== undefined && userData.referralRewards !== null && userData.referralRewards !== 0) {
+          updates.referralRewards = 0;
+        }
+        if (userData.lastReferralAt !== undefined && userData.lastReferralAt !== null) {
+          updates.lastReferralAt = null;
+        }
+        if (userData.lastReferralRewardAt !== undefined && userData.lastReferralRewardAt !== null) {
+          updates.lastReferralRewardAt = null;
         }
 
         if (Object.keys(updates).length > 0) {
@@ -395,6 +430,57 @@ const DebugToolsPage = () => {
             batchCount = 0;
           }
         }
+
+        // Delete referral transactions subcollection (clear transaction history)
+        try {
+          const transactionsRef = collection(db, 'users', userDoc.id, 'referralTransactions');
+          const transactionsSnapshot = await getDocs(transactionsRef);
+          
+          if (!transactionsSnapshot.empty) {
+            for (const transactionDoc of transactionsSnapshot.docs) {
+              try {
+                const transactionRef = doc(db, 'users', userDoc.id, 'referralTransactions', transactionDoc.id);
+                await deleteDoc(transactionRef);
+                transactionCount++;
+              } catch (deleteErr) {
+                const errorCode = deleteErr?.code || deleteErr?.message || '';
+                if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+                  console.warn(`⚠️ Could not delete transaction ${transactionDoc.id} for user ${userDoc.id}:`, deleteErr.message || deleteErr);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          const errorCode = err?.code || err?.message || '';
+          if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+            console.warn(`⚠️ Could not access referral transactions for user ${userDoc.id}:`, err.message || err);
+          }
+        }
+
+        // Delete referral stats subcollection (clear stats history)
+        try {
+          const statsRef = collection(db, 'users', userDoc.id, 'referralStats');
+          const statsSnapshot = await getDocs(statsRef);
+          
+          if (!statsSnapshot.empty) {
+            for (const statDoc of statsSnapshot.docs) {
+              try {
+                const statRef = doc(db, 'users', userDoc.id, 'referralStats', statDoc.id);
+                await deleteDoc(statRef);
+              } catch (deleteErr) {
+                const errorCode = deleteErr?.code || deleteErr?.message || '';
+                if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+                  console.warn(`⚠️ Could not delete stat ${statDoc.id} for user ${userDoc.id}:`, deleteErr.message || deleteErr);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          const errorCode = err?.code || err?.message || '';
+          if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+            console.warn(`⚠️ Could not access referral stats for user ${userDoc.id}:`, err.message || err);
+          }
+        }
       }
 
       if (batchCount > 0) {
@@ -403,10 +489,104 @@ const DebugToolsPage = () => {
       
       setResult({
         success: true,
-        message: `✅ تم إعادة تعيين عدد الإحالات لـ ${count} مستخدم`
+        message: `✅ تم إعادة تعيين عدد الإحالات لـ ${count} مستخدم و حذف ${transactionCount} معاملة`
       });
     } catch (err) {
       console.error('Error resetting referral count:', err);
+      setError(`❌ خطأ: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetSingleUserReferral = async () => {
+    const userId = window.prompt('أدخل معرف المستخدم (User ID) لإعادة تعيين بيانات الإحالة:');
+    if (!userId || !userId.trim()) {
+      return;
+    }
+
+    if (!confirmAction(`إعادة تعيين بيانات الإحالة للمستخدم ${userId.trim()}`)) return;
+    if (!confirmWithText()) return;
+
+    setLoading(true);
+    setResult(null);
+    setError(null);
+
+    try {
+      // Refresh auth token to ensure latest permissions
+      const tokenResult = await refreshAuthToken();
+      if (!tokenResult) {
+        throw new Error('Unable to refresh authentication token. Please sign out and sign back in.');
+      }
+      
+      const hasAdminRole = tokenResult.claims.roles?.includes('admin');
+      if (!hasAdminRole) {
+        throw new Error('You must have admin role to perform this operation.');
+      }
+
+      const userRef = doc(db, 'users', userId.trim());
+      const userDoc = await userRef.get();
+
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+
+      const userData = userDoc.data();
+      const updates = {};
+      let transactionCount = 0;
+
+      // Reset fields related to being referred by someone else
+      if (userData.referredBy !== undefined && userData.referredBy !== null) {
+        updates.referredBy = null;
+      }
+      if (userData.referredByUserId !== undefined && userData.referredByUserId !== null) {
+        updates.referredByUserId = null;
+      }
+      if (userData.referredAt !== undefined && userData.referredAt !== null) {
+        updates.referredAt = null;
+      }
+      if (userData.referralRewardAwarded !== undefined && userData.referralRewardAwarded !== null) {
+        updates.referralRewardAwarded = null;
+      }
+      if (userData.referralRewardAmount !== undefined && userData.referralRewardAmount !== null) {
+        updates.referralRewardAmount = null;
+      }
+
+      // Update user document
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(userRef, updates);
+      }
+
+      // Delete referral transactions
+      try {
+        const transactionsRef = collection(db, 'users', userId.trim(), 'referralTransactions');
+        const transactionsSnapshot = await getDocs(transactionsRef);
+        
+        for (const transactionDoc of transactionsSnapshot.docs) {
+          try {
+            const transactionRef = doc(db, 'users', userId.trim(), 'referralTransactions', transactionDoc.id);
+            await deleteDoc(transactionRef);
+            transactionCount++;
+          } catch (deleteErr) {
+            const errorCode = deleteErr?.code || deleteErr?.message || '';
+            if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+              console.warn(`⚠️ Could not delete transaction ${transactionDoc.id}:`, deleteErr.message || deleteErr);
+            }
+          }
+        }
+      } catch (err) {
+        const errorCode = err?.code || err?.message || '';
+        if (!errorCode.includes('permission') && !errorCode.includes('not-found') && !errorCode.includes('not found')) {
+          console.warn(`⚠️ Could not access referral transactions:`, err.message || err);
+        }
+      }
+
+      setResult({
+        success: true,
+        message: `✅ تم إعادة تعيين بيانات الإحالة للمستخدم ${userId.trim()} (${transactionCount} معاملة محذوفة)`
+      });
+    } catch (err) {
+      console.error('Error resetting single user referral:', err);
       setError(`❌ خطأ: ${err.message}`);
     } finally {
       setLoading(false);
@@ -488,62 +668,180 @@ const DebugToolsPage = () => {
         await ordersBatch.commit();
       }
       
-      // Reset referral data
+      // Reset referral data - FIRST delete all transactions/stats, THEN update user documents
+      // Get fresh snapshot for referral operations
+      console.log('📋 Getting users snapshot for referral reset...');
+      let referralUsersSnapshot;
+      try {
+        referralUsersSnapshot = await getDocs(collection(db, 'users'));
+        console.log(`📋 Found ${referralUsersSnapshot.docs.length} users`);
+      } catch (err) {
+        console.error('❌ Error getting users snapshot:', err);
+        throw new Error(`Failed to get users: ${err.message}`);
+      }
+      
+      let transactionCount = 0;
+      let statsCount = 0;
+
+      // STEP 1: Delete all referral transactions and stats first (complete this before batch updates)
+      console.log('🗑️ Step 1: Deleting referral transactions and stats...');
+      try {
+        for (const userDoc of referralUsersSnapshot.docs) {
+          const userId = userDoc.id;
+        // Delete referral transactions
+        try {
+          const transactionsRef = collection(db, 'users', userId, 'referralTransactions');
+          const transactionsSnapshot = await getDocs(transactionsRef);
+          
+          if (!transactionsSnapshot.empty) {
+            console.log(`  🗑️ Deleting ${transactionsSnapshot.docs.length} transactions for user ${userId}`);
+            for (const transactionDoc of transactionsSnapshot.docs) {
+              try {
+                const transactionRef = doc(db, 'users', userId, 'referralTransactions', transactionDoc.id);
+                await deleteDoc(transactionRef);
+                transactionCount++;
+              } catch (deleteErr) {
+                // Log permission errors but don't throw - continue with other deletions
+                const errorCode = deleteErr?.code || deleteErr?.message || '';
+                if (errorCode.includes('permission')) {
+                  console.error(`❌ Permission denied deleting transaction ${transactionDoc.id} for user ${userId}:`, deleteErr);
+                  throw deleteErr; // Re-throw permission errors to see them
+                } else if (!errorCode.includes('not-found') && !errorCode.includes('not found')) {
+                  console.warn(`⚠️ Could not delete transaction ${transactionDoc.id} for user ${userId}:`, deleteErr.message || deleteErr);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          const errorCode = err?.code || err?.message || '';
+          if (errorCode.includes('permission')) {
+            console.error(`❌ Permission error accessing referral transactions for user ${userId}:`, err);
+            throw err; // Re-throw permission errors
+          } else if (!errorCode.includes('not-found') && !errorCode.includes('not found')) {
+            console.warn(`⚠️ Could not access referral transactions for user ${userId}:`, err.message || err);
+          }
+        }
+
+        // Delete referral stats
+        try {
+          const statsRef = collection(db, 'users', userId, 'referralStats');
+          const statsSnapshot = await getDocs(statsRef);
+          
+          if (!statsSnapshot.empty) {
+            console.log(`  🗑️ Deleting ${statsSnapshot.docs.length} stats for user ${userId}`);
+            for (const statDoc of statsSnapshot.docs) {
+              try {
+                const statRef = doc(db, 'users', userId, 'referralStats', statDoc.id);
+                await deleteDoc(statRef);
+                statsCount++;
+              } catch (deleteErr) {
+                const errorCode = deleteErr?.code || deleteErr?.message || '';
+                if (errorCode.includes('permission')) {
+                  console.error(`❌ Permission denied deleting stat ${statDoc.id} for user ${userId}:`, deleteErr);
+                  throw deleteErr; // Re-throw permission errors
+                } else if (!errorCode.includes('not-found') && !errorCode.includes('not found')) {
+                  console.warn(`⚠️ Could not delete stat ${statDoc.id} for user ${userId}:`, deleteErr.message || deleteErr);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          const errorCode = err?.code || err?.message || '';
+          if (errorCode.includes('permission')) {
+            console.error(`❌ Permission error accessing referral stats for user ${userId}:`, err);
+            throw err; // Re-throw permission errors
+          } else if (!errorCode.includes('not-found') && !errorCode.includes('not found')) {
+            console.warn(`⚠️ Could not access referral stats for user ${userId}:`, err.message || err);
+          }
+        }
+      } catch (err) {
+        console.error('❌ Error during transaction/stats deletion:', err);
+        // Continue anyway - we'll try to update user documents
+        console.warn('⚠️ Continuing with user document updates despite deletion errors...');
+      }
+
+      console.log(`✅ Deleted ${transactionCount} transactions and ${statsCount} stats`);
+
+      // STEP 2: Now update user documents with batch operations
+      console.log('📝 Step 2: Updating user documents...');
       let referralBatch = writeBatch(db);
       let referralBatchCount = 0;
       let userCount = 0;
-      let transactionCount = 0;
 
-      for (const userDoc of usersSnapshot.docs) {
-        const userRef = doc(db, 'users', userDoc.id);
-        const userData = userDoc.data();
+      try {
+        for (const userDoc of referralUsersSnapshot.docs) {
+          const userId = userDoc.id;
+          const userRef = doc(db, 'users', userId);
+          const userData = userDoc.data();
         
+        // Reset referral-related fields (who referred this user)
+        // NOTE: We do NOT reset referralCode (user's own code) - that should persist
         const updates = {};
-        if (userData.referralCode !== undefined) updates.referralCode = null;
-        if (userData.referredBy !== undefined) updates.referredBy = null;
-        if (userData.referralStats !== undefined) updates.referralStats = null;
+        
+        // Reset fields related to being referred by someone else
+        if (userData.referredBy !== undefined && userData.referredBy !== null) {
+          updates.referredBy = null;
+        }
+        if (userData.referredByUserId !== undefined && userData.referredByUserId !== null) {
+          updates.referredByUserId = null;
+        }
+        if (userData.referredAt !== undefined && userData.referredAt !== null) {
+          updates.referredAt = null;
+        }
+        if (userData.referralRewardAwarded !== undefined && userData.referralRewardAwarded !== null) {
+          updates.referralRewardAwarded = null;
+        }
+        if (userData.referralRewardAmount !== undefined && userData.referralRewardAmount !== null) {
+          updates.referralRewardAmount = null;
+        }
+        
+        // Reset referral stats (count and rewards earned from referring others)
+        if (userData.referralCount !== undefined && userData.referralCount !== null && userData.referralCount !== 0) {
+          updates.referralCount = 0;
+        }
+        if (userData.referralRewards !== undefined && userData.referralRewards !== null && userData.referralRewards !== 0) {
+          updates.referralRewards = 0;
+        }
+        if (userData.lastReferralAt !== undefined && userData.lastReferralAt !== null) {
+          updates.lastReferralAt = null;
+        }
+        if (userData.lastReferralRewardAt !== undefined && userData.lastReferralRewardAt !== null) {
+          updates.lastReferralRewardAt = null;
+        }
 
         if (Object.keys(updates).length > 0) {
           referralBatch.update(userRef, updates);
           userCount++;
           referralBatchCount++;
-        }
 
-        // Delete referral transactions
-        try {
-          const transactionsRef = collection(db, 'users', userDoc.id, 'referralTransactions');
-          const transactionsSnapshot = await getDocs(transactionsRef);
-          
-          for (const transactionDoc of transactionsSnapshot.docs) {
-            const transactionRef = doc(db, 'users', userDoc.id, 'referralTransactions', transactionDoc.id);
-            referralBatch.delete(transactionRef);
-            transactionCount++;
-            referralBatchCount++;
-
-            if (referralBatchCount >= batchSize) {
-              await referralBatch.commit();
-              referralBatch = writeBatch(db);
-              referralBatchCount = 0;
-            }
+          if (referralBatchCount >= batchSize) {
+            await referralBatch.commit();
+            referralBatch = writeBatch(db);
+            referralBatchCount = 0;
           }
-        } catch (err) {
-          console.warn(`Could not delete referral transactions for user ${userDoc.id}:`, err);
         }
 
-        if (referralBatchCount >= batchSize) {
+        // Commit any remaining batch updates
+        if (referralBatchCount > 0) {
+          console.log(`📝 Committing final batch of ${referralBatchCount} user updates...`);
           await referralBatch.commit();
-          referralBatch = writeBatch(db);
-          referralBatchCount = 0;
+          console.log('✅ Final batch committed successfully');
         }
-      }
-
-      if (referralBatchCount > 0) {
-        await referralBatch.commit();
+        
+        console.log(`✅ Updated ${userCount} user documents`);
+      } catch (err) {
+        console.error('❌ Error during user document updates:', err);
+        console.error('Error details:', {
+          code: err?.code,
+          message: err?.message,
+          stack: err?.stack
+        });
+        throw err; // Re-throw to show in UI
       }
       
       setResult({
         success: true,
-        message: '✅ تم إعادة تعيين جميع البيانات بنجاح'
+        message: `✅ تم إعادة تعيين جميع البيانات بنجاح (${userCount} مستخدم، ${transactionCount} معاملة)`
       });
     } catch (err) {
       console.error('Error resetting all data:', err);
@@ -573,15 +871,23 @@ const DebugToolsPage = () => {
     {
       id: 'reset-referral-count',
       label: 'إعادة تعيين عدد الإحالات',
-      description: 'يعيد تعيين إحصائيات الإحالة للمستخدمين',
+      description: 'يعيد تعيين إحصائيات الإحالة للمستخدمين (referralCount, referralRewards)',
       icon: FiDatabase,
       color: '#2196f3',
       action: resetReferralCount
     },
     {
+      id: 'reset-single-user-referral',
+      label: 'إعادة تعيين إحالة مستخدم واحد',
+      description: 'يعيد تعيين بيانات الإحالة لمستخدم محدد (referredBy, referredByUserId, etc.)',
+      icon: FiRefreshCw,
+      color: '#9c27b0',
+      action: resetSingleUserReferral
+    },
+    {
       id: 'reset-referral-data',
-      label: 'إعادة تعيين بيانات الإحالة',
-      description: 'يحذف جميع بيانات الإحالة والمعاملات',
+      label: 'إعادة تعيين بيانات الإحالة (الكل)',
+      description: 'يحذف جميع بيانات الإحالة والمعاملات لجميع المستخدمين',
       icon: FiTrash2,
       color: '#9c27b0',
       action: resetReferralData
