@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
 import brandConfig from '../constants/brandConfig';
 import { useAuth } from '../src/contexts/AuthContext';
+import { Toaster, toast } from 'react-hot-toast';
 
 const AnalyticsPage = () => {
   const [orders, setOrders] = useState([]);
@@ -565,9 +566,11 @@ const AnalyticsPage = () => {
   }
 
   return (
-    <div 
-      className="analytics-page-container"
-      style={{ 
+    <>
+      <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+      <div 
+        className="analytics-page-container"
+        style={{ 
         padding: window.innerWidth < 768 ? '8px' : '16px', 
         paddingBottom: window.innerWidth < 768 ? '100px' : '16px',
         maxWidth: '1200px', 
@@ -1123,63 +1126,38 @@ const AnalyticsPage = () => {
                   
                   if (result && result.includes('success')) {
                     console.log('✅ Daily report printed successfully');
-                    // Still download the HTML file
-                    const blob = new Blob([pdfContent], { type: 'text/html' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `تقرير_يومي_${todayStr.replace(/\//g, '-')}.html`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(url);
+                    toast.success('✅ تمت طباعة التقرير اليومي بنجاح', {
+                      duration: 2000,
+                      position: 'top-center',
+                      style: {
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        padding: '16px 24px',
+                      },
+                    });
                     return;
                   } else if (result && result.includes('error')) {
                     console.error('Native print error:', result);
-                    // Fall through to browser print
+                    toast.error('❌ خطأ في الطباعة: ' + result, {
+                      duration: 3000,
+                      position: 'top-center',
+                    });
+                    return;
                   }
                 } catch (err) {
                   console.error('Native POS print failed:', err);
-                  // Fall through to browser print
+                  toast.error('❌ فشل الاتصال بالطابعة', {
+                    duration: 3000,
+                    position: 'top-center',
+                  });
+                  return;
                 }
-              }
-              
-              // Fallback to browser print dialog
-              console.log('⚠️ Using fallback browser print for daily report');
-              
-              // Create blob and download
-              const blob = new Blob([pdfContent], { type: 'text/html' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `تقرير_يومي_${todayStr.replace(/\//g, '-')}.html`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-              
-              // Also try to print if possible
-              const printWindow = window.open('', '_blank', 'width=800,height=1000');
-              if (printWindow) {
-                printWindow.document.open();
-                printWindow.document.write(pdfContent);
-                printWindow.document.close();
-                printWindow.focus();
-                const triggerPrint = () => {
-                  try {
-                    printWindow.print();
-                  } catch (err) {
-                    console.error('Print error', err);
-                  }
-                };
-                if (printWindow.document.readyState === 'complete') {
-                  setTimeout(triggerPrint, 250);
-                } else {
-                  printWindow.onload = () => setTimeout(triggerPrint, 250);
-                }
-                printWindow.onafterprint = () => {
-                  printWindow.close();
-                };
+              } else {
+                // Native printer not available
+                toast.error('⚠️ الطابعة غير متاحة. يرجى التأكد من الاتصال بالطابعة.', {
+                  duration: 3000,
+                  position: 'top-center',
+                });
               }
             }}
             style={{
@@ -1475,63 +1453,38 @@ const AnalyticsPage = () => {
                   
                   if (result && result.includes('success')) {
                     console.log('✅ Weekly report printed successfully');
-                    // Still download the HTML file
-                    const blob = new Blob([pdfContent], { type: 'text/html' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `تقرير_أسبوعي_${dateRangeStr.replace(/\./g, '-')}.html`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(url);
+                    toast.success('✅ تمت طباعة التقرير الأسبوعي بنجاح', {
+                      duration: 2000,
+                      position: 'top-center',
+                      style: {
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        padding: '16px 24px',
+                      },
+                    });
                     return;
                   } else if (result && result.includes('error')) {
                     console.error('Native print error:', result);
-                    // Fall through to browser print
+                    toast.error('❌ خطأ في الطباعة: ' + result, {
+                      duration: 3000,
+                      position: 'top-center',
+                    });
+                    return;
                   }
                 } catch (err) {
                   console.error('Native POS print failed:', err);
-                  // Fall through to browser print
+                  toast.error('❌ فشل الاتصال بالطابعة', {
+                    duration: 3000,
+                    position: 'top-center',
+                  });
+                  return;
                 }
-              }
-              
-              // Fallback to browser print dialog
-              console.log('⚠️ Using fallback browser print for weekly report');
-              
-              // Create blob and download
-              const blob = new Blob([pdfContent], { type: 'text/html' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `تقرير_أسبوعي_${dateRangeStr.replace(/\./g, '-')}.html`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-              
-              // Also try to print if possible
-              const printWindow = window.open('', '_blank', 'width=800,height=1000');
-              if (printWindow) {
-                printWindow.document.open();
-                printWindow.document.write(pdfContent);
-                printWindow.document.close();
-                printWindow.focus();
-                const triggerPrint = () => {
-                  try {
-                    printWindow.print();
-                  } catch (err) {
-                    console.error('Print error', err);
-                  }
-                };
-                if (printWindow.document.readyState === 'complete') {
-                  setTimeout(triggerPrint, 250);
-                } else {
-                  printWindow.onload = () => setTimeout(triggerPrint, 250);
-                }
-                printWindow.onafterprint = () => {
-                  printWindow.close();
-                };
+              } else {
+                // Native printer not available
+                toast.error('⚠️ الطابعة غير متاحة. يرجى التأكد من الاتصال بالطابعة.', {
+                  duration: 3000,
+                  position: 'top-center',
+                });
               }
             }}
             style={{
@@ -2564,7 +2517,8 @@ const AnalyticsPage = () => {
           }
         `}
       </style>
-    </div>
+      </div>
+    </>
   );
 };
 
