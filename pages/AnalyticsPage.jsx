@@ -1009,6 +1009,12 @@ const AnalyticsPage = () => {
               `;
               
               // Create text version for silent printing (optimized for thermal printer)
+              // Capture variables from outer scope to avoid closure issues
+              const currentAnalytics = analytics;
+              const currentOrders = orders;
+              const currentToday = today;
+              const currentTodayDateStr = todayDateStr;
+              
               const buildReportText = () => {
                 const lines = [];
                 const maxWidth = 32; // Thermal printer width (conservative for Arabic)
@@ -1025,12 +1031,12 @@ const AnalyticsPage = () => {
                 // Header
                 lines.push('================================');
                 lines.push(centerText('تقرير يومي'));
-                lines.push(centerText(todayDateStr));
+                lines.push(centerText(currentTodayDateStr));
                 lines.push('================================');
                 lines.push('');
                 
                 // Date info
-                const dateInfo = today.toLocaleDateString('ar-SA', { 
+                const dateInfo = currentToday.toLocaleDateString('ar-SA', { 
                   weekday: 'long', 
                   year: 'numeric', 
                   month: 'long', 
@@ -1044,10 +1050,10 @@ const AnalyticsPage = () => {
                 lines.push('--- الإحصائيات الرئيسية ---');
                 lines.push('');
                 lines.push(`إجمالي المبيعات:`);
-                lines.push(`${formatNumber(analytics.totalSales)}₪`);
+                lines.push(`${formatNumber(currentAnalytics.totalSales)}₪`);
                 lines.push('');
-                lines.push(`عدد الطلبات: ${analytics.orderCount}`);
-                lines.push(`متوسط قيمة الطلب: ${analytics.avgOrderValue.toFixed(2)}₪`);
+                lines.push(`عدد الطلبات: ${currentAnalytics.orderCount}`);
+                lines.push(`متوسط قيمة الطلب: ${currentAnalytics.avgOrderValue.toFixed(2)}₪`);
                 lines.push('');
                 lines.push('- - - - - - - - - - - - - - - -');
                 lines.push('');
@@ -1061,8 +1067,8 @@ const AnalyticsPage = () => {
                   'eat_in': 'اكل بالمطعم',
                   'unknown': 'غير محدد'
                 };
-                const deliveryTotal = Object.values(analytics.deliveryStats).reduce((a, b) => a + b, 0);
-                Object.entries(analytics.deliveryStats)
+                const deliveryTotal = Object.values(currentAnalytics.deliveryStats).reduce((a, b) => a + b, 0);
+                Object.entries(currentAnalytics.deliveryStats)
                   .sort(([,a], [,b]) => b - a) // Sort by count descending
                   .forEach(([method, count]) => {
                     const percentage = deliveryTotal > 0 ? ((count / deliveryTotal) * 100).toFixed(1) : 0;
@@ -1083,16 +1089,16 @@ const AnalyticsPage = () => {
                   'apple_pay': 'Apple Pay',
                   'unknown': 'غير محدد'
                 };
-                const paymentTotal = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
+                const paymentTotal = Object.values(currentAnalytics.paymentStats).reduce((a, b) => a + b, 0);
                 
                 // Calculate payment amounts from filtered orders (daily)
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const tomorrow = new Date(today);
+                const todayForCalc = new Date(currentToday);
+                todayForCalc.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(todayForCalc);
                 tomorrow.setDate(tomorrow.getDate() + 1);
-                const filteredOrdersForCalc = orders.filter(order => {
+                const filteredOrdersForCalc = currentOrders.filter(order => {
                   const orderDate = new Date(order.createdAt);
-                  return orderDate >= today && orderDate < tomorrow;
+                  return orderDate >= todayForCalc && orderDate < tomorrow;
                 });
                 
                 const paymentAmounts = {};
@@ -1101,7 +1107,7 @@ const AnalyticsPage = () => {
                   paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
                 });
                 
-                Object.entries(analytics.paymentStats)
+                Object.entries(currentAnalytics.paymentStats)
                   .sort(([,a], [,b]) => b - a) // Sort by count descending
                   .forEach(([method, count]) => {
                     const percentage = paymentTotal > 0 ? ((count / paymentTotal) * 100).toFixed(1) : 0;
@@ -1355,6 +1361,13 @@ const AnalyticsPage = () => {
               `;
               
               // Create text version for silent printing (optimized for thermal printer)
+              // Capture variables from outer scope to avoid closure issues
+              const currentAnalytics = analytics;
+              const currentOrders = orders;
+              const currentStartDate = startDate;
+              const currentEndDate = endDate;
+              const currentDateRangeStr = dateRangeStr;
+              
               const buildReportText = () => {
                 const lines = [];
                 const maxWidth = 32; // Thermal printer width (conservative for Arabic)
@@ -1371,7 +1384,7 @@ const AnalyticsPage = () => {
                 // Header
                 lines.push('================================');
                 lines.push(centerText('تقرير أسبوعي'));
-                lines.push(centerText(dateRangeStr));
+                lines.push(centerText(currentDateRangeStr));
                 lines.push('================================');
                 lines.push('');
                 
@@ -1382,8 +1395,8 @@ const AnalyticsPage = () => {
                   const year = date.getFullYear();
                   return `${day}/${month}/${year}`;
                 };
-                const startDateEn = formatDateEnglish(startDate);
-                const endDateEn = formatDateEnglish(endDate);
+                const startDateEn = formatDateEnglish(currentStartDate);
+                const endDateEn = formatDateEnglish(currentEndDate);
                 lines.push(`من: ${startDateEn}`);
                 lines.push(`إلى: ${endDateEn}`);
                 lines.push('- - - - - - - - - - - - - - - -');
@@ -1393,10 +1406,10 @@ const AnalyticsPage = () => {
                 lines.push('--- الإحصائيات الرئيسية ---');
                 lines.push('');
                 lines.push(`إجمالي المبيعات:`);
-                lines.push(`${formatNumber(analytics.totalSales)}₪`);
+                lines.push(`${formatNumber(currentAnalytics.totalSales)}₪`);
                 lines.push('');
-                lines.push(`عدد الطلبات: ${analytics.orderCount}`);
-                lines.push(`متوسط قيمة الطلب: ${analytics.avgOrderValue.toFixed(2)}₪`);
+                lines.push(`عدد الطلبات: ${currentAnalytics.orderCount}`);
+                lines.push(`متوسط قيمة الطلب: ${currentAnalytics.avgOrderValue.toFixed(2)}₪`);
                 lines.push('');
                 lines.push('- - - - - - - - - - - - - - - -');
                 lines.push('');
@@ -1410,8 +1423,8 @@ const AnalyticsPage = () => {
                   'eat_in': 'اكل بالمطعم',
                   'unknown': 'غير محدد'
                 };
-                const deliveryTotal = Object.values(analytics.deliveryStats).reduce((a, b) => a + b, 0);
-                Object.entries(analytics.deliveryStats)
+                const deliveryTotal = Object.values(currentAnalytics.deliveryStats).reduce((a, b) => a + b, 0);
+                Object.entries(currentAnalytics.deliveryStats)
                   .sort(([,a], [,b]) => b - a) // Sort by count descending
                   .forEach(([method, count]) => {
                     const percentage = deliveryTotal > 0 ? ((count / deliveryTotal) * 100).toFixed(1) : 0;
@@ -1432,12 +1445,12 @@ const AnalyticsPage = () => {
                   'apple_pay': 'Apple Pay',
                   'unknown': 'غير محدد'
                 };
-                const paymentTotal = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
+                const paymentTotal = Object.values(currentAnalytics.paymentStats).reduce((a, b) => a + b, 0);
                 
                 // Calculate payment amounts from filtered orders (weekly)
-                const filteredOrdersForCalc = orders.filter(order => {
+                const filteredOrdersForCalc = currentOrders.filter(order => {
                   const orderDate = new Date(order.createdAt);
-                  return orderDate >= startDate && orderDate <= endDate;
+                  return orderDate >= currentStartDate && orderDate <= currentEndDate;
                 });
                 
                 const paymentAmounts = {};
@@ -1446,7 +1459,7 @@ const AnalyticsPage = () => {
                   paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
                 });
                 
-                Object.entries(analytics.paymentStats)
+                Object.entries(currentAnalytics.paymentStats)
                   .sort(([,a], [,b]) => b - a) // Sort by count descending
                   .forEach(([method, count]) => {
                     const percentage = paymentTotal > 0 ? ((count / paymentTotal) * 100).toFixed(1) : 0;
