@@ -754,6 +754,7 @@ const DebugToolsPage = () => {
             console.warn(`⚠️ Could not access referral stats for user ${userId}:`, err.message || err);
           }
         }
+        } // Close for loop
       } catch (err) {
         console.error('❌ Error during transaction/stats deletion:', err);
         // Continue anyway - we'll try to update user documents
