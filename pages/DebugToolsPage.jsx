@@ -819,6 +819,7 @@ const DebugToolsPage = () => {
             await referralBatch.commit();
             referralBatch = writeBatch(db);
             referralBatchCount = 0;
+          }
         }
         } // Close for loop
 
