@@ -819,8 +819,8 @@ const DebugToolsPage = () => {
             await referralBatch.commit();
             referralBatch = writeBatch(db);
             referralBatchCount = 0;
-          }
         }
+        } // Close for loop
 
         // Commit any remaining batch updates
         if (referralBatchCount > 0) {
