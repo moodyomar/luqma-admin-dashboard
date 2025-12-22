@@ -1122,9 +1122,13 @@ const AnalyticsPage = () => {
                 try {
                   console.log('✅ Using native POS printer (H10) for daily report');
                   const reportText = buildReportText();
-                  const result = await window.PosPrinter.printText(reportText);
+                  console.log('📄 Report text length:', reportText.length);
+                  console.log('📄 Report text preview (first 200 chars):', reportText.substring(0, 200));
                   
-                  if (result && result.includes('success')) {
+                  const result = await window.PosPrinter.printText(reportText);
+                  console.log('🖨️ Print result:', result, 'Type:', typeof result);
+                  
+                  if (result && typeof result === 'string' && result.includes('success')) {
                     console.log('✅ Daily report printed successfully');
                     toast.success('✅ تمت طباعة التقرير اليومي بنجاح', {
                       duration: 2000,
@@ -1136,17 +1140,30 @@ const AnalyticsPage = () => {
                       },
                     });
                     return;
-                  } else if (result && result.includes('error')) {
+                  } else if (result && typeof result === 'string' && result.includes('error')) {
                     console.error('Native print error:', result);
                     toast.error('❌ خطأ في الطباعة: ' + result, {
                       duration: 3000,
                       position: 'top-center',
                     });
                     return;
+                  } else {
+                    // Result might be null, undefined, or unexpected format
+                    console.warn('⚠️ Unexpected print result format:', result);
+                    toast.error('❌ خطأ غير متوقع في الطباعة', {
+                      duration: 3000,
+                      position: 'top-center',
+                    });
+                    return;
                   }
                 } catch (err) {
-                  console.error('Native POS print failed:', err);
-                  toast.error('❌ فشل الاتصال بالطابعة', {
+                  console.error('❌ Native POS print failed:', err);
+                  console.error('Error details:', {
+                    message: err?.message,
+                    stack: err?.stack,
+                    name: err?.name
+                  });
+                  toast.error('❌ فشل الاتصال بالطابعة: ' + (err?.message || 'خطأ غير معروف'), {
                     duration: 3000,
                     position: 'top-center',
                   });
@@ -1154,6 +1171,7 @@ const AnalyticsPage = () => {
                 }
               } else {
                 // Native printer not available
+                console.warn('⚠️ Native printer not available');
                 toast.error('⚠️ الطابعة غير متاحة. يرجى التأكد من الاتصال بالطابعة.', {
                   duration: 3000,
                   position: 'top-center',
@@ -1449,9 +1467,13 @@ const AnalyticsPage = () => {
                 try {
                   console.log('✅ Using native POS printer (H10) for weekly report');
                   const reportText = buildReportText();
-                  const result = await window.PosPrinter.printText(reportText);
+                  console.log('📄 Report text length:', reportText.length);
+                  console.log('📄 Report text preview (first 200 chars):', reportText.substring(0, 200));
                   
-                  if (result && result.includes('success')) {
+                  const result = await window.PosPrinter.printText(reportText);
+                  console.log('🖨️ Print result:', result, 'Type:', typeof result);
+                  
+                  if (result && typeof result === 'string' && result.includes('success')) {
                     console.log('✅ Weekly report printed successfully');
                     toast.success('✅ تمت طباعة التقرير الأسبوعي بنجاح', {
                       duration: 2000,
@@ -1463,17 +1485,30 @@ const AnalyticsPage = () => {
                       },
                     });
                     return;
-                  } else if (result && result.includes('error')) {
+                  } else if (result && typeof result === 'string' && result.includes('error')) {
                     console.error('Native print error:', result);
                     toast.error('❌ خطأ في الطباعة: ' + result, {
                       duration: 3000,
                       position: 'top-center',
                     });
                     return;
+                  } else {
+                    // Result might be null, undefined, or unexpected format
+                    console.warn('⚠️ Unexpected print result format:', result);
+                    toast.error('❌ خطأ غير متوقع في الطباعة', {
+                      duration: 3000,
+                      position: 'top-center',
+                    });
+                    return;
                   }
                 } catch (err) {
-                  console.error('Native POS print failed:', err);
-                  toast.error('❌ فشل الاتصال بالطابعة', {
+                  console.error('❌ Native POS print failed:', err);
+                  console.error('Error details:', {
+                    message: err?.message,
+                    stack: err?.stack,
+                    name: err?.name
+                  });
+                  toast.error('❌ فشل الاتصال بالطابعة: ' + (err?.message || 'خطأ غير معروف'), {
                     duration: 3000,
                     position: 'top-center',
                   });
@@ -1481,6 +1516,7 @@ const AnalyticsPage = () => {
                 }
               } else {
                 // Native printer not available
+                console.warn('⚠️ Native printer not available');
                 toast.error('⚠️ الطابعة غير متاحة. يرجى التأكد من الاتصال بالطابعة.', {
                   duration: 3000,
                   position: 'top-center',
