@@ -315,3 +315,5 @@ adb logcat | grep -E "Luqma|printer|error"
 
 
 
+
+

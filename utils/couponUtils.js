@@ -186,7 +186,7 @@ export const getCouponByCode = async (code) => {
 /**
  * Update a coupon
  * @param {string} couponId - Coupon document ID
- * @param {Object} updateData - Data to update
+ * @param {Object} updateData - Data to update (can use form field names or Firestore field names)
  * @returns {Promise<void>}
  */
 export const updateCoupon = async (couponId, updateData) => {
@@ -195,9 +195,93 @@ export const updateCoupon = async (couponId, updateData) => {
     await refreshAuthToken();
     
     const couponRef = doc(db, 'menus', brandConfig.id, 'coupons', couponId);
+    
+    // Map form field names to Firestore field names (same as createCoupon)
+    const mappedData = {};
+    
+    // Map code (if provided)
+    if (updateData.code !== undefined) {
+      mappedData.code = updateData.code.toUpperCase();
+    }
+    
+    // Map type -> discountType
+    if (updateData.type !== undefined) {
+      mappedData.discountType = updateData.type;
+    }
+    // Also support direct discountType (for backward compatibility)
+    if (updateData.discountType !== undefined) {
+      mappedData.discountType = updateData.discountType;
+    }
+    
+    // Map value -> discountValue
+    if (updateData.value !== undefined) {
+      mappedData.discountValue = parseFloat(updateData.value);
+    }
+    // Also support direct discountValue (for backward compatibility)
+    if (updateData.discountValue !== undefined) {
+      mappedData.discountValue = parseFloat(updateData.discountValue);
+    }
+    
+    // Map minOrderAmount -> minimumOrder
+    if (updateData.minOrderAmount !== undefined) {
+      mappedData.minimumOrder = updateData.minOrderAmount ? parseFloat(updateData.minOrderAmount) : null;
+    }
+    // Also support direct minimumOrder
+    if (updateData.minimumOrder !== undefined) {
+      mappedData.minimumOrder = updateData.minimumOrder ? parseFloat(updateData.minimumOrder) : null;
+    }
+    
+    // Map status -> isActive
+    if (updateData.status !== undefined) {
+      mappedData.isActive = updateData.status === COUPON_STATUS.ACTIVE;
+    }
+    // Also support direct isActive (for backward compatibility)
+    if (updateData.isActive !== undefined) {
+      mappedData.isActive = updateData.isActive;
+    }
+    
+    // Map expiresAt -> expiryDate
+    if (updateData.expiresAt !== undefined) {
+      mappedData.expiryDate = updateData.expiresAt ? new Date(updateData.expiresAt) : null;
+    }
+    // Also support direct expiryDate
+    if (updateData.expiryDate !== undefined) {
+      mappedData.expiryDate = updateData.expiryDate ? new Date(updateData.expiryDate) : null;
+    }
+    
+    // Map usageLimit -> maxUsage
+    if (updateData.usageLimit !== undefined) {
+      mappedData.maxUsage = updateData.usageLimit ? parseInt(updateData.usageLimit) : null;
+    }
+    // Also support direct maxUsage
+    if (updateData.maxUsage !== undefined) {
+      mappedData.maxUsage = updateData.maxUsage ? parseInt(updateData.maxUsage) : null;
+    }
+    
+    // Map description (no mapping needed)
+    if (updateData.description !== undefined) {
+      mappedData.description = updateData.description || '';
+    }
+    
+    // Map maxDiscountAmount (if used)
+    if (updateData.maxDiscountAmount !== undefined) {
+      mappedData.maxDiscountAmount = updateData.maxDiscountAmount ? parseFloat(updateData.maxDiscountAmount) : null;
+    }
+    
+    // Preserve usageCount if explicitly provided (usually shouldn't be updated directly)
+    if (updateData.usageCount !== undefined) {
+      mappedData.usageCount = parseInt(updateData.usageCount);
+    }
+    
     await updateDoc(couponRef, {
-      ...updateData,
+      ...mappedData,
       updatedAt: new Date().toISOString()
+    });
+    
+    console.log('✅ Coupon updated successfully:', {
+      couponId,
+      mappedData,
+      originalUpdateData: updateData
     });
   } catch (error) {
     console.error('Error updating coupon:', error);

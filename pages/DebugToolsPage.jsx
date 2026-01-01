@@ -9,6 +9,8 @@ import {
   writeBatch,
   deleteDoc
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
+import { firebaseApp } from '../firebase/firebaseConfig';
 import { FiAlertTriangle, FiTrash2, FiRefreshCw, FiDatabase, FiCheckCircle } from 'react-icons/fi';
 import './styles.css';
 
@@ -17,6 +19,13 @@ const DebugToolsPage = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [jeebFormData, setJeebFormData] = useState({
+    email: '',
+    password: '',
+    name: '',
+    phone: ''
+  });
+  const [creatingJeebDriver, setCreatingJeebDriver] = useState(false);
 
   // Helper function to refresh auth token before operations
   const refreshAuthToken = async () => {
@@ -108,6 +117,62 @@ const DebugToolsPage = () => {
     return text === 'نعم';
   };
 
+  const handleCreateJeebDriver = async (e) => {
+    e.preventDefault();
+    setCreatingJeebDriver(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const functions = getFunctions(firebaseApp, import.meta.env.VITE_FIREBASE_REGION || 'us-central1');
+      if (import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+      }
+      const createJeebDriverFn = httpsCallable(functions, 'createJeebDriver');
+      
+      // Format phone number to E.164 if provided
+      let formattedPhone = undefined;
+      if (jeebFormData.phone?.trim()) {
+        const phone = jeebFormData.phone.trim();
+        if (phone.startsWith('0')) {
+          formattedPhone = '+972' + phone.substring(1);
+        } else if (!phone.startsWith('+')) {
+          formattedPhone = '+972' + phone;
+        } else {
+          formattedPhone = phone;
+        }
+      }
+
+      const result = await createJeebDriverFn({
+        email: jeebFormData.email.trim(),
+        password: jeebFormData.password,
+        name: jeebFormData.name?.trim() || undefined,
+        phone: formattedPhone,
+      });
+      
+      console.log('✅ Jeeb driver created:', result.data);
+      
+      // Reset form
+      setJeebFormData({
+        email: '',
+        password: '',
+        name: '',
+        phone: ''
+      });
+      
+      setResult({
+        success: true,
+        message: result.data.message || '✅ تم إنشاء سائق جيب بنجاح!'
+      });
+    } catch (error) {
+      console.error('Error creating Jeeb driver:', error);
+      const errorMessage = error?.message || 'حدث خطأ أثناء إنشاء سائق جيب';
+      setError(`❌ ${errorMessage}`);
+    } finally {
+      setCreatingJeebDriver(false);
+    }
+  };
+
   const resetUserPoints = async () => {
     if (!confirmAction('إعادة تعيين جميع نقاط المستخدمين')) return;
     if (!confirmWithText()) return;
@@ -163,6 +228,23 @@ const DebugToolsPage = () => {
     setError(null);
 
     try {
+      // Refresh auth token to ensure latest permissions
+      const tokenResult = await refreshAuthToken();
+      if (!tokenResult) {
+        throw new Error('Unable to refresh authentication token. Please sign out and sign back in.');
+      }
+      
+      const hasAdminRole = tokenResult.claims.roles?.includes('admin');
+      console.log('🔍 Admin role check:', {
+        roles: tokenResult.claims.roles,
+        hasAdminRole,
+        businessIds: tokenResult.claims.businessIds
+      });
+      
+      if (!hasAdminRole) {
+        throw new Error('You must have admin role to perform this operation. Your current roles: ' + (tokenResult.claims.roles?.join(', ') || 'none'));
+      }
+
       if (!activeBusinessId) {
         throw new Error('لا يوجد معرف عمل نشط');
       }
@@ -1073,6 +1155,136 @@ const DebugToolsPage = () => {
             </div>
           );
         })}
+      </div>
+
+      {/* Create Jeeb Driver Section */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        padding: '32px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        marginTop: '24px'
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: '20px',
+          fontSize: '24px',
+          fontWeight: 'bold',
+          color: '#333',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          🚗 إضافة سائق جيب (Jeeb Driver)
+        </h2>
+        <p style={{ 
+          marginBottom: '24px', 
+          color: '#666', 
+          fontSize: '14px',
+          lineHeight: '1.6'
+        }}>
+          سائقي جيب يمكنهم تلقي طلبات من جميع الأعمال. هذا مختلف عن السائقين العاديين.
+        </p>
+        
+        <form onSubmit={handleCreateJeebDriver}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '16px',
+            marginBottom: '20px'
+          }}>
+            <input
+              type="email"
+              placeholder="البريد الإلكتروني"
+              value={jeebFormData.email}
+              onChange={(e) => setJeebFormData(prev => ({ ...prev, email: e.target.value }))}
+              required
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ced4da',
+                fontSize: '14px',
+                fontFamily: 'system-ui'
+              }}
+            />
+            <input
+              type="password"
+              placeholder="كلمة المرور"
+              value={jeebFormData.password}
+              onChange={(e) => setJeebFormData(prev => ({ ...prev, password: e.target.value }))}
+              required
+              minLength={6}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ced4da',
+                fontSize: '14px',
+                fontFamily: 'system-ui'
+              }}
+            />
+            <input
+              type="text"
+              placeholder="اسم السائق (اختياري)"
+              value={jeebFormData.name}
+              onChange={(e) => setJeebFormData(prev => ({ ...prev, name: e.target.value }))}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ced4da',
+                fontSize: '14px',
+                fontFamily: 'system-ui'
+              }}
+            />
+            <input
+              type="tel"
+              placeholder="رقم الهاتف (اختياري)"
+              value={jeebFormData.phone}
+              onChange={(e) => setJeebFormData(prev => ({ ...prev, phone: e.target.value }))}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ced4da',
+                fontSize: '14px',
+                fontFamily: 'system-ui'
+              }}
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={creatingJeebDriver}
+            style={{
+              padding: '12px 24px',
+              background: creatingJeebDriver ? '#6c757d' : '#007AFF',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: creatingJeebDriver ? 'not-allowed' : 'pointer',
+              fontSize: '16px',
+              fontWeight: 600,
+              opacity: creatingJeebDriver ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              width: '100%',
+              maxWidth: '400px',
+              margin: '0 auto'
+            }}
+          >
+            {creatingJeebDriver && (
+              <div style={{ 
+                width: 16, 
+                height: 16, 
+                border: '2px solid transparent', 
+                borderTop: '2px solid white', 
+                borderRadius: '50%', 
+                animation: 'spin 1s linear infinite' 
+              }}></div>
+            )}
+            {creatingJeebDriver ? 'جاري الإنشاء...' : 'إضافة سائق جيب'}
+          </button>
+        </form>
       </div>
 
       <style>{`

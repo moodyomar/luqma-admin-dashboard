@@ -193,8 +193,15 @@ service cloud.firestore {
         // - Customers: can create orders (via menu app) - any authenticated user
         allow create: if isAuthed();
         
-        // Only admins can delete orders
-        allow delete: if isBusinessAdmin(businessId);
+        // Delete access:
+        // - Admins: can delete any order
+        // - Users: can delete their own orders, but only if status is 'pending' (not yet processed)
+        //   Security: Users can only delete orders where userId matches their auth.uid
+        //   Note: We use userId field for ownership verification (more secure than phone)
+        allow delete: if isBusinessAdmin(businessId) || 
+                      (isAuthed() && 
+                       resource.data.status == 'pending' &&
+                       resource.data.userId == request.auth.uid);
       }
 
       // ========================================
@@ -224,8 +231,9 @@ service cloud.firestore {
         // Business members can read coupons (for validation)
         allow read: if hasBiz(businessId) || true; // Public read for customer validation
         
-        // Only admins can manage coupons (same pattern as products/categories)
-        allow write: if isBusinessAdmin(businessId);
+        // Allow business admins OR global admins to manage coupons
+        // This provides flexibility and prevents permission issues
+        allow write: if isBusinessAdmin(businessId) || isAdmin();
       }
 
       // ========================================
