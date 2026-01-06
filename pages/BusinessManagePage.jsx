@@ -57,7 +57,7 @@ const BusinessManagePage = () => {
     deliveryFee: '',
     isOpen: true,
     workingHours: { open: '', close: '' },
-    contact: { instagram: '', phone: '', website: '', waze: '' },
+    contact: { instagram: '', phone: '', website: '', waze: '', googleMapsUrl: '', coordinates: '' },
     prepTimeOptions: [], // new field
     deliveryCities: [], // NEW FIELD for delivery cities
     storeStatusMode: 'auto', // NEW FIELD
@@ -136,6 +136,8 @@ const BusinessManagePage = () => {
           phone: data.config?.contact?.phone || data.contact?.phone || '',
           website: data.config?.contact?.website || data.contact?.website || '',
           waze: data.config?.contact?.waze || data.contact?.waze || '',
+          googleMapsUrl: data.config?.contact?.googleMapsUrl || data.contact?.googleMapsUrl || '',
+          coordinates: data.config?.contact?.coordinates || data.contact?.coordinates || '',
         };
         // Get prepTimeOptions from config if available
         const prepTimeOptions = data.config?.prepTimeOptions || [];
@@ -246,7 +248,7 @@ const BusinessManagePage = () => {
         ...prev,
         workingHours: { ...prev.workingHours, [name]: value },
       }));
-    } else if (["email", "instagram", "phone", "website", "waze"].includes(name)) {
+    } else if (["email", "instagram", "phone", "website", "waze", "googleMapsUrl", "coordinates"].includes(name)) {
       setForm((prev) => ({
         ...prev,
         contact: { ...prev.contact, [name]: value },
@@ -1696,9 +1698,37 @@ const BusinessManagePage = () => {
               name="waze"
               value={form.contact.waze}
               onChange={handleChange}
-              placeholder="https://waze.com/ul/..."
+              placeholder="https://waze.com/ul/... או קואורדינטות: 32.0853,34.7818"
               style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
             />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            Google Maps:
+            <input
+              type="text"
+              name="googleMapsUrl"
+              value={form.contact.googleMapsUrl}
+              onChange={handleChange}
+              placeholder="https://maps.app.goo.gl/o3K3yXmw33nby6p27?g_st=ic"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              💡 הזן קישור Google Maps של העסק שלך. ניתן למצוא אותו ב-Google Maps > שתף > העתק קישור
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            קואורדינטות מדויקות (Latitude, Longitude):
+            <input
+              type="text"
+              name="coordinates"
+              value={form.contact.coordinates}
+              onChange={handleChange}
+              placeholder="32.0853,34.7818"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה יעזור ל-Apple Maps ו-Google Maps למצוא את המיקום הנכון. ניתן למצוא ב-Google Maps > לחץ על המיקום > העתק קואורדינטות
+            </div>
           </label>
           <label style={{ fontWeight: 500, color: '#444' }}>
             אימייל:
