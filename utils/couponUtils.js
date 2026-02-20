@@ -97,14 +97,15 @@ export const generateCouponCode = (length = 8) => {
 /**
  * Create a new coupon
  * @param {Object} couponData - Coupon data
+ * @param {string} [businessId] - Business ID (defaults to brandConfig.id); use activeBusinessId from auth when in dashboard
  * @returns {Promise<string>} Document ID of created coupon
  */
-export const createCoupon = async (couponData) => {
+export const createCoupon = async (couponData, businessId = brandConfig.id) => {
   try {
     // Refresh token to ensure latest custom claims are available
     await refreshAuthToken();
     
-    const couponRef = collection(db, 'menus', brandConfig.id, 'coupons');
+    const couponRef = collection(db, 'menus', businessId, 'coupons');
     
     // Map to your exact field specifications
     const coupon = {
@@ -134,12 +135,13 @@ export const createCoupon = async (couponData) => {
 
 /**
  * Get all coupons
- * @param {string} status - Filter by status (optional)
+ * @param {string} [status] - Filter by status (optional)
+ * @param {string} [businessId] - Business ID (defaults to brandConfig.id)
  * @returns {Promise<Array>} Array of coupons
  */
-export const getAllCoupons = async (status = null) => {
+export const getAllCoupons = async (status = null, businessId = brandConfig.id) => {
   try {
-    const couponsRef = collection(db, 'menus', brandConfig.id, 'coupons');
+    const couponsRef = collection(db, 'menus', businessId, 'coupons');
     let q = query(couponsRef, orderBy('createdAt', 'desc'));
     
     if (status) {
@@ -162,9 +164,9 @@ export const getAllCoupons = async (status = null) => {
  * @param {string} code - Coupon code
  * @returns {Promise<Object|null>} Coupon data or null if not found
  */
-export const getCouponByCode = async (code) => {
+export const getCouponByCode = async (code, businessId = brandConfig.id) => {
   try {
-    const couponsRef = collection(db, 'menus', brandConfig.id, 'coupons');
+    const couponsRef = collection(db, 'menus', businessId, 'coupons');
     const q = query(couponsRef, where('code', '==', code.toUpperCase()));
     const snapshot = await getDocs(q);
     
@@ -189,12 +191,12 @@ export const getCouponByCode = async (code) => {
  * @param {Object} updateData - Data to update (can use form field names or Firestore field names)
  * @returns {Promise<void>}
  */
-export const updateCoupon = async (couponId, updateData) => {
+export const updateCoupon = async (couponId, updateData, businessId = brandConfig.id) => {
   try {
     // Refresh token to ensure latest custom claims are available
     await refreshAuthToken();
     
-    const couponRef = doc(db, 'menus', brandConfig.id, 'coupons', couponId);
+    const couponRef = doc(db, 'menus', businessId, 'coupons', couponId);
     
     // Map form field names to Firestore field names (same as createCoupon)
     const mappedData = {};
@@ -296,14 +298,15 @@ export const updateCoupon = async (couponId, updateData) => {
 /**
  * Delete a coupon
  * @param {string} couponId - Coupon document ID
+ * @param {string} [businessId] - Business ID (defaults to brandConfig.id)
  * @returns {Promise<void>}
  */
-export const deleteCoupon = async (couponId) => {
+export const deleteCoupon = async (couponId, businessId = brandConfig.id) => {
   try {
     // Refresh token to ensure latest custom claims are available
     await refreshAuthToken();
     
-    const couponRef = doc(db, 'menus', brandConfig.id, 'coupons', couponId);
+    const couponRef = doc(db, 'menus', businessId, 'coupons', couponId);
     await deleteDoc(couponRef);
   } catch (error) {
     console.error('Error deleting coupon:', error);
@@ -417,9 +420,9 @@ export const validateCoupon = async (code, orderAmount = 0) => {
  * @param {string} couponId - Coupon document ID
  * @returns {Promise<void>}
  */
-export const applyCoupon = async (couponId) => {
+export const applyCoupon = async (couponId, businessId = brandConfig.id) => {
   try {
-    const couponRef = doc(db, 'menus', brandConfig.id, 'coupons', couponId);
+    const couponRef = doc(db, 'menus', businessId, 'coupons', couponId);
     await updateDoc(couponRef, {
       usageCount: increment(1),
       updatedAt: new Date().toISOString()

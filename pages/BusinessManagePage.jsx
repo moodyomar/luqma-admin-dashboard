@@ -523,11 +523,12 @@ const BusinessManagePage = () => {
     }
   };
 
-  // Coupon management functions
+  // Coupon management functions (use activeBusinessId so Firestore rules match)
   const loadCoupons = async () => {
+    if (!activeBusinessId) return;
     try {
       setCouponsLoading(true);
-      const allCoupons = await getAllCoupons();
+      const allCoupons = await getAllCoupons(null, activeBusinessId);
       setCoupons(allCoupons);
     } catch (error) {
       toast.error('שגיאה בטעינת הקופונים');
@@ -550,7 +551,7 @@ const BusinessManagePage = () => {
   const handleDeleteCoupon = async (coupon) => {
     if (window.confirm(`האם אתה בטוח שברצונך למחוק את הקופון "${coupon.code}"?`)) {
       try {
-        await deleteCoupon(coupon.id);
+        await deleteCoupon(coupon.id, activeBusinessId);
         toast.success('הקופון נמחק בהצלחה!');
         loadCoupons();
       } catch (error) {
@@ -563,7 +564,7 @@ const BusinessManagePage = () => {
   const handleToggleCouponStatus = async (coupon) => {
     try {
       const newStatus = !coupon.isActive;
-      await updateCoupon(coupon.id, { isActive: newStatus });
+      await updateCoupon(coupon.id, { isActive: newStatus }, activeBusinessId);
       toast.success(`הקופון ${newStatus ? 'הופעל' : 'בוטל'} בהצלחה!`);
       loadCoupons();
     } catch (error) {
@@ -578,12 +579,12 @@ const BusinessManagePage = () => {
     loadCoupons();
   };
 
-  // Load coupons when coupon section is opened
+  // Load coupons when coupon section is opened or business changes
   useEffect(() => {
-    if (showCoupons && coupons.length === 0) {
+    if (showCoupons && activeBusinessId) {
       loadCoupons();
     }
-  }, [showCoupons]);
+  }, [showCoupons, activeBusinessId]);
 
   // Notification management functions
   const loadUsers = async () => {
@@ -1703,6 +1704,32 @@ const BusinessManagePage = () => {
             />
           </label>
           <label style={{ fontWeight: 500, color: '#444' }}>
+            <span style={{ color: '#d32f2f', fontWeight: 600 }}>⭐</span> קואורדינטות מדויקות (Latitude, Longitude):
+            <input
+              type="text"
+              name="coordinates"
+              value={form.contact.coordinates}
+              onChange={handleChange}
+              placeholder="32.0853,34.7818"
+              style={{ 
+                width: '100%', 
+                padding: 10, 
+                borderRadius: 8, 
+                border: form.contact.coordinates ? '2px solid #4caf50' : '1px solid #bbb', 
+                marginTop: 6, 
+                fontSize: 16,
+                backgroundColor: form.contact.coordinates ? '#f1f8f4' : '#fff'
+              }}
+            />
+            <div style={{ fontSize: 11, color: form.contact.coordinates ? '#4caf50' : '#666', marginTop: 4, fontWeight: form.contact.coordinates ? 500 : 400 }}>
+              {form.contact.coordinates ? (
+                <>✅ קואורדינטות מוגדרות: {form.contact.coordinates} - זה יעזור להצגת המיקום במפה</>
+              ) : (
+                <>💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה נדרש להצגת המיקום במפה. ניתן למצוא ב-Google Maps > לחץ על המיקום > העתק קואורדינטות</>
+              )}
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
             Google Maps:
             <input
               type="text"
@@ -1714,20 +1741,6 @@ const BusinessManagePage = () => {
             />
             <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
               💡 הזן קישור Google Maps של העסק שלך. ניתן למצוא אותו ב-Google Maps > שתף > העתק קישור
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            קואורדינטות מדויקות (Latitude, Longitude):
-            <input
-              type="text"
-              name="coordinates"
-              value={form.contact.coordinates}
-              onChange={handleChange}
-              placeholder="32.0853,34.7818"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-              💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה יעזור ל-Apple Maps ו-Google Maps למצוא את המיקום הנכון. ניתן למצוא ב-Google Maps > לחץ על המיקום > העתק קואורדינטות
             </div>
           </label>
           <label style={{ fontWeight: 500, color: '#444' }}>
@@ -2305,6 +2318,7 @@ const BusinessManagePage = () => {
           setEditingCoupon(null);
         }}
         isOpen={showCouponForm}
+        activeBusinessId={activeBusinessId}
       />
     </div>
   );
@@ -2495,7 +2509,7 @@ const CouponCard = ({ coupon, onEdit, onDelete, onToggleStatus }) => {
 };
 
 // Coupon Form Component
-const CouponForm = ({ coupon, onSave, onCancel, isOpen }) => {
+const CouponForm = ({ coupon, onSave, onCancel, isOpen, activeBusinessId }) => {
   const [formData, setFormData] = useState({
     code: '',
     type: COUPON_TYPES.PERCENTAGE,
@@ -2557,11 +2571,12 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen }) => {
         status: formData.status
       };
 
+      const businessId = activeBusinessId || brandConfig.id;
       if (coupon) {
-        await updateCoupon(coupon.id, couponData);
+        await updateCoupon(coupon.id, couponData, businessId);
         toast.success('הקופון עודכן בהצלחה!');
       } else {
-        await createCoupon(couponData);
+        await createCoupon(couponData, businessId);
         toast.success('הקופון נוצר בהצלחה!');
       }
       

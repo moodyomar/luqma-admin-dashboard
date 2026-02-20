@@ -259,3 +259,5 @@ allow write: if isBusinessAdmin(businessId) || isAdmin();
 4. בדוק את ה-custom claims
 5. תשאל אותי לפני שינוי נוסף! 😊
 
+
+

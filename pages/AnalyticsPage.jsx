@@ -6,6 +6,22 @@ import brandConfig from '../constants/brandConfig';
 import { useAuth } from '../src/contexts/AuthContext';
 import { Toaster, toast } from 'react-hot-toast';
 
+/**
+ * Revenue for the business = cart subtotal only. Excludes delivery fee (belongs to driver).
+ * Uses order.cart when available; falls back to order.total for legacy orders.
+ */
+function getOrderRevenue(order) {
+  if (order.cart && Array.isArray(order.cart)) {
+    const cartSubtotal = order.cart.reduce((sum, item) => {
+      const itemPrice = parseFloat(item.totalPrice || item.price || 0);
+      const quantity = parseInt(item.quantity || 1);
+      return sum + (itemPrice * quantity);
+    }, 0);
+    return cartSubtotal;
+  }
+  return parseFloat(order.total || order.price || 0);
+}
+
 const AnalyticsPage = () => {
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
@@ -156,8 +172,8 @@ const AnalyticsPage = () => {
       : new Date(now.getTime() - (days * 2) * 24 * 60 * 60 * 1000);
     const previousFilteredOrders = filterOrdersByRange(orders, previousStartDate, startDate);
 
-    // Current period calculations
-    const totalSales = filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+    // Current period calculations (revenue = cart only, excludes delivery fee)
+    const totalSales = filteredOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
     const avgOrderValue = filteredOrders.length > 0 ? totalSales / filteredOrders.length : 0;
     const orderCount = filteredOrders.length;
     
@@ -184,8 +200,8 @@ const AnalyticsPage = () => {
     const hoursInPeriod = days * 24;
     const revenuePerHour = totalSales / hoursInPeriod;
 
-    // Previous period calculations
-    const previousTotalSales = previousFilteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+    // Previous period calculations (revenue = cart only, excludes delivery fee)
+    const previousTotalSales = previousFilteredOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
     const previousAvgOrderValue = previousFilteredOrders.length > 0 
       ? previousTotalSales / previousFilteredOrders.length 
       : 0;
@@ -251,7 +267,7 @@ const AnalyticsPage = () => {
           })
         };
       }
-      dailySales[dateKey].sales += order.total || 0;
+      dailySales[dateKey].sales += getOrderRevenue(order);
       dailySales[dateKey].orders += 1;
     });
 
@@ -350,7 +366,7 @@ const AnalyticsPage = () => {
     filteredOrders.forEach(order => {
       const hour = new Date(order.createdAt).getHours();
       hourlyStats[hour].orders += 1;
-      hourlyStats[hour].sales += order.total || 0;
+      hourlyStats[hour].sales += getOrderRevenue(order);
     });
 
     const peakHours = Object.entries(hourlyStats)
@@ -968,7 +984,7 @@ const AnalyticsPage = () => {
                     </thead>
                     <tbody>
                       ${(() => {
-                        // Calculate payment amounts from filtered orders (daily)
+                        // Calculate payment amounts from filtered orders (daily) — revenue only, no delivery fee
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
                         const tomorrow = new Date(today);
@@ -981,7 +997,7 @@ const AnalyticsPage = () => {
                         const paymentAmounts = {};
                         filteredOrdersForCalc.forEach(order => {
                           const method = order.paymentMethod || 'unknown';
-                          paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
+                          paymentAmounts[method] = (paymentAmounts[method] || 0) + getOrderRevenue(order);
                         });
                         
                         const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
@@ -1091,7 +1107,7 @@ const AnalyticsPage = () => {
                 };
                 const paymentTotal = Object.values(currentAnalytics.paymentStats).reduce((a, b) => a + b, 0);
                 
-                // Calculate payment amounts from filtered orders (daily)
+                // Calculate payment amounts from filtered orders (daily) — revenue only, no delivery fee
                 const todayForCalc = new Date(currentToday);
                 todayForCalc.setHours(0, 0, 0, 0);
                 const tomorrow = new Date(todayForCalc);
@@ -1104,7 +1120,7 @@ const AnalyticsPage = () => {
                 const paymentAmounts = {};
                 filteredOrdersForCalc.forEach(order => {
                   const method = order.paymentMethod || 'unknown';
-                  paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
+                  paymentAmounts[method] = (paymentAmounts[method] || 0) + getOrderRevenue(order);
                 });
                 
                 Object.entries(currentAnalytics.paymentStats)
@@ -1324,7 +1340,7 @@ const AnalyticsPage = () => {
                     </thead>
                     <tbody>
                       ${(() => {
-                        // Calculate payment amounts from filtered orders (weekly)
+                        // Calculate payment amounts from filtered orders (weekly) — revenue only, no delivery fee
                         const filteredOrdersForCalc = orders.filter(order => {
                           const orderDate = new Date(order.createdAt);
                           return orderDate >= startDate && orderDate <= endDate;
@@ -1333,7 +1349,7 @@ const AnalyticsPage = () => {
                         const paymentAmounts = {};
                         filteredOrdersForCalc.forEach(order => {
                           const method = order.paymentMethod || 'unknown';
-                          paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
+                          paymentAmounts[method] = (paymentAmounts[method] || 0) + getOrderRevenue(order);
                         });
                         
                         const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
@@ -1447,7 +1463,7 @@ const AnalyticsPage = () => {
                 };
                 const paymentTotal = Object.values(currentAnalytics.paymentStats).reduce((a, b) => a + b, 0);
                 
-                // Calculate payment amounts from filtered orders (weekly)
+                // Calculate payment amounts from filtered orders (weekly) — revenue only, no delivery fee
                 const filteredOrdersForCalc = currentOrders.filter(order => {
                   const orderDate = new Date(order.createdAt);
                   return orderDate >= currentStartDate && orderDate <= currentEndDate;
@@ -1456,7 +1472,7 @@ const AnalyticsPage = () => {
                 const paymentAmounts = {};
                 filteredOrdersForCalc.forEach(order => {
                   const method = order.paymentMethod || 'unknown';
-                  paymentAmounts[method] = (paymentAmounts[method] || 0) + (order.total || 0);
+                  paymentAmounts[method] = (paymentAmounts[method] || 0) + getOrderRevenue(order);
                 });
                 
                 Object.entries(currentAnalytics.paymentStats)
