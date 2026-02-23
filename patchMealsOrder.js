@@ -7,8 +7,8 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// Get business ID from environment (set per client via .env or init script)
-const BUSINESS_ID = process.env.BUSINESS_ID || process.env.VITE_BRAND_ID || 'your-brand';
+// Business ID for this dashboard (Luqma).
+const BUSINESS_ID = process.env.BUSINESS_ID || process.env.VITE_BRAND_ID || 'luqma';
 
 async function patchOrders() {
   const menuDoc = await db.collection('menus').doc(BUSINESS_ID).get();

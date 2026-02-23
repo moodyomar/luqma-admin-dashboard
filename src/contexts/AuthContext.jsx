@@ -4,15 +4,6 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import brandConfig from '../../constants/brandConfig';
 
-// Luqma domain or localhost → always require 'luqma' (this repo is the Luqma admin dashboard).
-const getRequiredBusinessId = () => {
-  if (typeof window !== 'undefined') {
-    const h = window.location.hostname;
-    if (h.includes('luqma') || h === 'localhost' || h === '127.0.0.1') return 'luqma';
-  }
-  return brandConfig.id;
-};
-
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -32,7 +23,7 @@ export const AuthProvider = ({ children }) => {
   // Multi-tenancy state
   const [businessIds, setBusinessIds] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [activeBusinessId, setActiveBusinessId] = useState(getRequiredBusinessId());
+  const [activeBusinessId, setActiveBusinessId] = useState(brandConfig.id);
   const [claims, setClaims] = useState(null);
 
   useEffect(() => {
@@ -71,21 +62,18 @@ export const AuthProvider = ({ children }) => {
           }
           
           // ========================================
-          // 3. VALIDATE BUSINESS ACCESS FOR CURRENT APP
+          // 3. VALIDATE BUSINESS ACCESS FOR CURRENT APP (Luqma)
           // ========================================
-          // Required business: Luqma domain → luqma; else from brandConfig (env)
-          const requiredBusinessId = getRequiredBusinessId();
-          if (!userBusinessIds.includes(requiredBusinessId)) {
+          if (!userBusinessIds.includes(brandConfig.id)) {
             setUserRole('invalid');
-            setAuthError(`⚠️ لا يوجد لديك صلاحية للوصول إلى ${requiredBusinessId}. حسابك مُفعل للوصول إلى: ${userBusinessIds.join(', ')}. يرجى تسجيل الخروج وتسجيل الدخول بالحساب المناسب.`);
-            console.warn(`❌ User doesn't have access to ${requiredBusinessId}, has access to: ${userBusinessIds.join(', ')}`);
+            setAuthError(`⚠️ لا يوجد لديك صلاحية للوصول إلى ${brandConfig.id}. حسابك مُفعل للوصول إلى: ${userBusinessIds.join(', ')}. يرجى تسجيل الخروج وتسجيل الدخول بالحساب المناسب.`);
+            console.warn(`❌ User doesn't have access to ${brandConfig.id}, has access to: ${userBusinessIds.join(', ')}`);
             setLoading(false);
             return;
           }
           
-          // User has access to the configured business
-          setActiveBusinessId(requiredBusinessId);
-          console.log(`✅ User has access to configured business: ${requiredBusinessId}`);
+          setActiveBusinessId(brandConfig.id);
+          console.log(`✅ User has access to configured business: ${brandConfig.id}`);
           
           // ========================================
           // 4. SET USER ROLE
@@ -105,7 +93,7 @@ export const AuthProvider = ({ children }) => {
           // ========================================
           try {
             const membershipDoc = await getDoc(
-              doc(db, 'menus', requiredBusinessId, 'users', firebaseUser.uid)
+              doc(db, 'menus', brandConfig.id, 'users', firebaseUser.uid)
             );
             
             if (membershipDoc.exists()) {
@@ -121,7 +109,7 @@ export const AuthProvider = ({ children }) => {
           console.log('✅ Auth initialization complete:', {
             uid: firebaseUser.uid,
             businessIds: userBusinessIds,
-            activeBusinessId: requiredBusinessId,
+            activeBusinessId: brandConfig.id,
             roles: userRoles,
             role: userRoles.includes('admin') ? 'admin' : 'driver'
           });
@@ -137,7 +125,7 @@ export const AuthProvider = ({ children }) => {
         setUserRole(null);
         setBusinessIds([]);
         setRoles([]);
-        setActiveBusinessId(getRequiredBusinessId());
+        setActiveBusinessId(brandConfig.id);
         setClaims(null);
         setAuthError(null);
         console.log('👋 User signed out');

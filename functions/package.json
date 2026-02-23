@@ -1,5 +1,5 @@
 {
-  "name": "admin-dashboard-functions",
+  "name": "luqma-functions",
   "version": "1.0.0",
   "description": "Firebase Cloud Functions for multi-tenant restaurant management",
   "main": "lib/index.js",
