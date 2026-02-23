@@ -46,7 +46,7 @@ The printed receipt is a **384px wide bitmap image** (58mm thermal paper) with t
 │                                     │
 ├─────────────────────────────────────┤
 │                                     │
-│    Thank you for using Luqma        │
+│    Thank you for your order         │
 │    شكراً لاستخدامكم تطبيق لقمة      │
 │                                     │
 └─────────────────────────────────────┘
@@ -101,7 +101,7 @@ lines.push('- - - - - - - - - - - - - - - -');
 
 ### Location 2: Visual Styling (`createTextBitmap`)
 
-**File:** `admin-dashboard/pos-print-sdk/poswebview/src/main/java/com/luqma/pos/MainActivity.java`  
+**File:** `pos-print-sdk/poswebview/src/main/java/.../MainActivity.java` (POS app; package may be com.luqma.pos or per-client)  
 **Method:** `createTextBitmap()` (lines 270-464)
 
 This method converts text lines into a **bitmap image** with styling.

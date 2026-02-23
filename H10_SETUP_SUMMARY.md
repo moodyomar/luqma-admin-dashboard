@@ -39,7 +39,7 @@ Exposes these functions to your web dashboard:
 
 ### Step 1: Build the APK
 ```bash
-cd /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk
+cd admin-dashboard/pos-print-sdk
 
 # Open in Android Studio and click "Build → Build APK"
 # OR use command line:
@@ -57,12 +57,12 @@ adb install -r poswebview/build/outputs/apk/debug/poswebview-debug.apk
 ### Step 3: Test It
 1. **Start your dev server:**
    ```bash
-   cd /Users/moody/Documents/Dev/luqma/admin-dashboard
+   cd admin-dashboard
    npm run dev
    # Should show: Network: http://192.168.1.110:5173/
    ```
 
-2. **Open "Luqma POS" app on H10**
+2. **Open "POS Terminal" app on H10**
 
 3. **Look for purple status bar:** "طابعة H10 متصلة ✅"
 
@@ -76,7 +76,7 @@ adb install -r poswebview/build/outputs/apk/debug/poswebview-debug.apk
 
 | File | Purpose |
 |------|---------|
-| `pos-print-sdk/poswebview/src/main/java/com/luqma/pos/MainActivity.java` | Android app + printer bridge |
+| `pos-print-sdk/poswebview/.../MainActivity.java` | Android app + printer bridge |
 | `pos-print-sdk/poswebview/build.gradle` | Android build config |
 | `pages/OrdersPage.jsx` (line 278) | Web print logic |
 | `pages/pos-terminal.css` | POS-optimized styles |
@@ -119,7 +119,7 @@ adb install -r poswebview/build/outputs/apk/debug/poswebview-debug.apk
 - All items with options & extras
 - Customer notes
 - Total price
-- Branding ("لقمة - Luqma")
+- Branding (from strings.xml: brand_name, brand_name_ar)
 
 ---
 
@@ -173,7 +173,7 @@ Edit `pos-terminal.css` line 9:
 
 ### Check Logs:
 ```bash
-adb logcat | grep -i "luqma\|printer"
+adb logcat | grep -i "POS\|printer"
 ```
 
 ---
@@ -187,8 +187,8 @@ When ready to go live:
 3. **Build signed APK:**
    ```bash
    # Create keystore (one time):
-   keytool -genkey -v -keystore luqma-pos.keystore \
-     -alias luqma -keyalg RSA -keysize 2048 -validity 10000
+   keytool -genkey -v -keystore your-pos.keystore \
+     -alias your-alias -keyalg RSA -keysize 2048 -validity 10000
    
    # Build release:
    ./gradlew assembleRelease
@@ -205,7 +205,7 @@ When ready to go live:
 │   H10 Device    │
 │                 │
 │  ┌───────────┐  │     WiFi      ┌─────────────┐
-│  │ Luqma POS │  │◄─────────────►│ Your Mac    │
+│  │ POS Terminal │  │◄─────────────►│ Your Mac    │
 │  │  WebView  │  │               │ Vite Server │
 │  │    App    │  │               │   :5173     │
 │  └─────┬─────┘  │               └─────────────┘
@@ -299,7 +299,7 @@ The printer will work **silently** - no prompts, no dialogs, just instant printi
 
 ## 🆘 Need Help?
 
-1. **Check logs:** `adb logcat | grep Luqma`
+1. **Check logs:** `adb logcat | grep POS`
 2. **Review guide:** `H10_POS_DEPLOYMENT_GUIDE.md`
 3. **Test printer:** Use built-in H10 printer test utility
 4. **Verify network:** `ping 192.168.1.110` from H10

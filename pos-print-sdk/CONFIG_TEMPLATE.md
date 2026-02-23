@@ -43,18 +43,18 @@ defaultConfig {
 
 | Variable | Example | Location |
 |----------|---------|----------|
-| `{{ADMIN_URL}}` | `https://admin.luqma.co.il/` | `config.xml` line 9 |
-| `{{APP_NAME}}` | `Luqma POS` | `config.xml` line 12 |
+| `{{ADMIN_URL}}` | Your dashboard URL | `config.xml` / strings.xml |
+| `{{APP_NAME}}` | POS Terminal (or client name) | strings.xml |
 | `{{BRAND_COLOR}}` | `#2e7d32` | `config.xml` line 15 |
-| `{{PACKAGE_NAME}}` | `com.luqma.pos` | `AndroidManifest.xml` line 3 |
-| `{{APPLICATION_ID}}` | `com.luqma.pos` | `build.gradle` line 8 |
+| `{{PACKAGE_NAME}}` | e.g. `com.luqma.pos` (or per client) | `AndroidManifest.xml` |
+| `{{APPLICATION_ID}}` | Same as package | `build.gradle` |
 
 ### **Script Example:**
 
 ```bash
 # In init script, after cloning:
-sed -i '' "s|https://admin.luqma.co.il/|$ADMIN_URL|g" pos-print-sdk/poswebview/src/main/res/values/config.xml
-sed -i '' "s|Luqma POS|$BRAND_NAME POS|g" pos-print-sdk/poswebview/src/main/res/values/config.xml
+sed -i '' "s|https://your-dashboard.example.com/|$ADMIN_URL|g" pos-print-sdk/poswebview/src/main/res/values/strings.xml
+sed -i '' "s|POS Terminal|$BRAND_NAME POS|g" pos-print-sdk/poswebview/src/main/res/values/strings.xml
 sed -i '' "s|#2e7d32|$BRAND_COLOR|g" pos-print-sdk/poswebview/src/main/res/values/config.xml
 ```
 

@@ -63,7 +63,7 @@ export function isTenantScoped(path) {
  * Migration helper: Convert legacy path to tenant-scoped path
  * @param {string} legacyPath - Legacy path (e.g., 'orders/123')
  * @param {string} businessId - Business ID to scope to
- * @returns {string} Tenant-scoped path (e.g., 'menus/luqma/orders/123')
+ * @returns {string} Tenant-scoped path (e.g., 'menus/{businessId}/orders/123')
  */
 export function convertToTenantPath(legacyPath, businessId) {
   if (isTenantScoped(legacyPath)) {

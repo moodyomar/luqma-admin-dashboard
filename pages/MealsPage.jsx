@@ -406,7 +406,7 @@ const MealsPage = () => {
             items: updatedItems,
           });
 
-          // 🔥 Update in Firestore (menus/luqma document)
+          // 🔥 Update in Firestore (menus/{businessId} document)
           try {
             await updateDoc(doc(db, 'menus', activeBusinessId), {
               categories: updatedCategories,

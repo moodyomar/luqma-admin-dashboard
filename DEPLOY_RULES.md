@@ -3,7 +3,7 @@
 ## Quick Deploy
 
 ```bash
-cd /Users/moody/Documents/Dev/luqma/admin-dashboard
+cd admin-dashboard
 firebase deploy --only firestore:rules
 ```
 

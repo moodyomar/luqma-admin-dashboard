@@ -87,8 +87,8 @@ When sending to "all users":
 ### Issue: "PUSH_TOO_MANY_EXPERIENCE_IDS" Error
 
 **Cause:** Mixing tokens from different Expo projects in the same batch
-- `@devmoody/luqma` (customer app)
-- `@devmoody/luqma-driver-app` (driver app)
+- Customer app (e.g. React Native)
+- Driver app (e.g. React Native)
 
 **Solution:** The filtering logic should prevent this by:
 - Excluding users with ANY driver tokens

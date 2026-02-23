@@ -1,6 +1,6 @@
-# 🏢 Luqma Admin Dashboard
+# 🏢 Admin Dashboard
 
-Multi-tenant restaurant management system built with React, Firebase, and Vite.
+Multi-tenant restaurant management system built with React, Firebase, and Vite. Configure per client via env (e.g. `VITE_BRAND_ID`, `VITE_BRAND_NAME`) or an init script.
 
 ## ✨ Features
 
@@ -37,7 +37,7 @@ Multi-tenant restaurant management system built with React, Firebase, and Vite.
 ```bash
 # Clone repository
 git clone <your-repo-url>
-cd luqma-admin-dashboard
+cd admin-dashboard
 
 # Install dependencies
 npm install
@@ -67,7 +67,7 @@ Visit `http://localhost:5173`
 ## 📁 Project Structure
 
 ```
-luqma-admin-dashboard/
+admin-dashboard/
 ├── src/
 │   ├── App.jsx                      # Main app component
 │   ├── contexts/
@@ -121,7 +121,7 @@ luqma-admin-dashboard/
 
 ```javascript
 {
-  businessIds: ["luqma", "refresh"],  // Businesses user can access
+  businessIds: ["your-brand"],  // Businesses user can access (from VITE_BRAND_ID)
   roles: ["admin"]                     // User's roles
 }
 ```
@@ -151,7 +151,7 @@ const { activeBusinessId } = useAuth();
 const ordersRef = getTenantCollection(activeBusinessId, 'orders');
 
 // ❌ BAD: Never hard-code business ID
-const ordersRef = collection(db, 'menus', 'luqma', 'orders');
+const ordersRef = collection(db, 'menus', businessId, 'orders');  // businessId from brandConfig or context
 ```
 
 ---
@@ -203,19 +203,19 @@ This sets custom claims for existing users. Users must sign out and back in afte
 ### Test Scenarios
 
 **Single Business Admin**:
-- Claims: `{ businessIds: ["luqma"], roles: ["admin"] }`
-- ✓ Can access Luqma data
+- Claims: `{ businessIds: ["your-brand"], roles: ["admin"] }`
+- ✓ Can access that business's data
 - ✗ Cannot access other businesses
 - ✗ No business switcher
 
 **Multi-Business Admin**:
-- Claims: `{ businessIds: ["luqma", "refresh"], roles: ["admin"] }`
+- Claims: `{ businessIds: ["your-brand", "other-brand"], roles: ["admin"] }`
 - ✓ Can access both businesses
 - ✓ Business switcher appears
 - ✓ Data updates when switching
 
 **Driver**:
-- Claims: `{ businessIds: ["luqma"], roles: ["driver"] }`
+- Claims: `{ businessIds: ["your-brand"], roles: ["driver"] }`
 - ✓ Can view/update orders
 - ✗ Cannot access products/settings
 

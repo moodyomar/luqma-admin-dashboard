@@ -42,7 +42,7 @@ const functions = getFunctions();
 const inviteUser = httpsCallable(functions, 'inviteUser');
 
 const result = await inviteUser({
-  businessId: 'luqma',
+  businessId: 'your-brand',  // e.g. client id from VITE_BRAND_ID
   email: 'user@example.com',
   role: 'admin',
   displayName: 'John Doe'
@@ -61,7 +61,7 @@ console.log(result.data); // { uid, email, isNewUser, message }
 ```typescript
 import { addBusinessClaims } from './setClaims';
 
-await addBusinessClaims(uid, 'luqma', ['admin']);
+await addBusinessClaims(uid, 'your-brand', ['admin']);
 ```
 
 ---
@@ -74,7 +74,7 @@ await addBusinessClaims(uid, 'luqma', ['admin']);
 ```typescript
 import { removeBusinessClaims } from './setClaims';
 
-await removeBusinessClaims(uid, 'luqma');
+await removeBusinessClaims(uid, 'your-brand');
 ```
 
 ---
@@ -135,7 +135,7 @@ curl -X POST http://localhost:5001/YOUR_PROJECT_ID/us-central1/inviteUser \
   -H "Content-Type: application/json" \
   -d '{
     "data": {
-      "businessId": "luqma",
+      "businessId": "your-brand",
       "email": "test@example.com",
       "role": "admin"
     }
@@ -229,7 +229,7 @@ firebase functions:log --only inviteUser | grep ERROR
 
 ```javascript
 {
-  businessIds: ["luqma", "refresh"],  // Array of business IDs
+  businessIds: ["your-brand"],  // Array of business IDs (e.g. from VITE_BRAND_ID)
   roles: ["admin", "driver"]          // Array of roles
 }
 ```

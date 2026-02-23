@@ -1,4 +1,4 @@
-// Top-level build file for Luqma POS Terminal App
+// Top-level build file for POS Terminal App
 buildscript {
     repositories {
         google()

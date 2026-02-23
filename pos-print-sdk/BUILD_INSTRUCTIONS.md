@@ -13,7 +13,7 @@ brew install --cask android-studio
 ### Step 2: Open Project
 1. Open Android Studio
 2. Click **"Open"**
-3. Navigate to: `/Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk`
+3. Navigate to: `admin-dashboard/pos-print-sdk` (or your project path)
 4. Click **"Open"**
 
 ### Step 3: Build APK
@@ -43,7 +43,7 @@ brew install openjdk@11
 
 ### Initialize Gradle Wrapper:
 ```bash
-cd /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk
+cd admin-dashboard/pos-print-sdk
 
 # Download gradle wrapper jar:
 gradle wrapper

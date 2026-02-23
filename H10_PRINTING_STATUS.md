@@ -90,7 +90,7 @@ The H10's `InnerPrinter` uses **SENRAISE's proprietary API** which is not public
 The current setup works perfectly for daily operations:
 
 **Setup:**
-1. Deploy admin dashboard to: `https://admin.luqma.co.il/`
+1. Deploy admin dashboard to your URL (e.g. Vercel or custom domain)
 2. Update `MainActivity.java` line 29: Change URL to production domain
 3. Build signed release APK
 4. Install on all H10 terminals

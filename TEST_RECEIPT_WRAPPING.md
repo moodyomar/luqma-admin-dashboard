@@ -16,7 +16,7 @@ admin-dashboard/pages/ReceiptTestPreview.html
 You can open it directly:
 - **Mac:** Right-click file → "Open With" → Chrome/Safari/Firefox
 - **Or:** Drag the file into your browser window
-- **Or:** Use `file://` URL: `file:///Users/moody/Documents/Dev/luqma/admin-dashboard/pages/ReceiptTestPreview.html`
+- **Or:** Use `file://` URL: `file:///path/to/admin-dashboard/pages/ReceiptTestPreview.html`
 
 ### Step 2: Test with Real Data
 

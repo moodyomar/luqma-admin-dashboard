@@ -20,7 +20,7 @@
     
     <application
         android:allowBackup="true"
-        android:label="Luqma POS"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar"
         android:usesCleartextTraffic="true">

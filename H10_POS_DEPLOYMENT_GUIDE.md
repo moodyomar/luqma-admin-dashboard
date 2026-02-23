@@ -2,13 +2,13 @@
 
 **Device:** H10 Wireless Data Terminal  
 **Android Version:** 14 (H10P-OS01 14.0.207)  
-**Purpose:** Silent printing for Luqma Admin Dashboard
+**Purpose:** Silent printing for the Admin Dashboard
 
 ---
 
 ## 📋 Overview
 
-This guide will help you deploy the Luqma POS app to your H10 terminal for **silent, seamless receipt printing** without browser prompts.
+This guide will help you deploy the POS Terminal app to your H10 terminal for **silent, seamless receipt printing** without browser prompts.
 
 ### What We Built:
 1. ✅ **Android WebView App** - Loads your admin dashboard at `http://192.168.1.110:5173/`
@@ -29,7 +29,7 @@ This guide will help you deploy the Luqma POS app to your H10 terminal for **sil
 
 ```bash
 # Navigate to the POS SDK directory
-cd /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk
+cd admin-dashboard/pos-print-sdk
 
 # Open in Android Studio
 # Or build from command line:
@@ -111,7 +111,7 @@ cd /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk
 2. **Verify Admin Dashboard Server:**
    ```bash
    # On your Mac, ensure dev server is running:
-   cd /Users/moody/Documents/Dev/luqma/admin-dashboard
+   cd admin-dashboard
    npm run dev
    
    # Should show:
@@ -172,7 +172,7 @@ If printer doesn't work, you may need to find the correct port:
 
 ### Launch the App:
 
-1. **Open Luqma POS app** on H10
+1. **Open POS Terminal app** on H10
 2. Wait for dashboard to load
 3. Look for the **purple printer status bar** at the top:
    - ✅ **"طابعة H10 متصلة"** = Printer ready!
@@ -232,7 +232,7 @@ If printer doesn't work, you may need to find the correct port:
 
 **Check logs:**
 ```bash
-adb logcat | grep -i "luqma\|printer\|error"
+adb logcat | grep -i "POS\|printer\|error"
 ```
 
 Common fixes:
@@ -284,12 +284,12 @@ Common fixes:
 2. **Build signed release APK:**
    ```bash
    # Create keystore (first time only):
-   keytool -genkey -v -keystore luqma-pos.keystore -alias luqma -keyalg RSA -keysize 2048 -validity 10000
+   keytool -genkey -v -keystore your-pos.keystore -alias your-alias -keyalg RSA -keysize 2048 -validity 10000
    
    # Add to gradle.properties:
-   KEYSTORE_FILE=luqma-pos.keystore
+   KEYSTORE_FILE=your-pos.keystore
    KEYSTORE_PASSWORD=your_password
-   KEY_ALIAS=luqma
+   KEY_ALIAS=your-alias
    KEY_PASSWORD=your_password
    
    # Build release:
@@ -370,7 +370,7 @@ adb shell dpm set-device-owner com.luqma.pos/.DeviceAdminReceiver
 
 1. **Check logs:**
    ```bash
-   adb logcat -s LuqmaPOS
+   adb logcat -s POS
    ```
 
 2. **Test printer manually:**
@@ -432,7 +432,7 @@ admin-dashboard/
 
 ---
 
-**Built with ❤️ for Luqma**
+**Built for multi-tenant admin dashboard**
 
 For issues or questions, check the troubleshooting section or review the code comments in `MainActivity.java` and `OrdersPage.jsx`.
 

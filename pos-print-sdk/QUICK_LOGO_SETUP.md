@@ -4,10 +4,10 @@
 
 ### Step 1: Save the Logo
 1. Right-click the logo image in chat
-2. "Save Image As..." → Save to Desktop as `luqma_logo.png`
+2. "Save Image As..." → Save to Desktop as `receipt_logo.png` (or any name)
 
 ### Step 2: Optimize with Preview
-1. **Open** `luqma_logo.png` in **Preview** (double-click)
+1. **Open** your logo file in **Preview** (double-click)
 2. **Tools → Adjust Size...**
    - Width: `200` pixels
    - ✅ Check "Scale proportionally"
@@ -18,7 +18,7 @@
    - Save as: `receipt_logo.png`
 4. **Copy to project:**
    ```bash
-   cp ~/Desktop/receipt_logo.png /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
+   cp ~/Desktop/receipt_logo.png admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
    ```
 
 ### Step 3: Rebuild & Test
@@ -43,7 +43,7 @@
 
 ### Step 3: Add to Project
 ```bash
-cp ~/Downloads/receipt_logo.png /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
+cp ~/Downloads/receipt_logo.png admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
 ```
 
 ---
@@ -54,7 +54,7 @@ cp ~/Downloads/receipt_logo.png /Users/moody/Documents/Dev/luqma/admin-dashboard
 ```bash
 # Save logo from chat to Desktop first
 # Then:
-cp ~/Desktop/luqma_logo.png /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
+cp ~/Desktop/receipt_logo.png admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
 ```
 
 **Android will resize it automatically!**
@@ -64,7 +64,7 @@ cp ~/Desktop/luqma_logo.png /Users/moody/Documents/Dev/luqma/admin-dashboard/pos
 ## ✅ Verify Logo is Added:
 
 ```bash
-ls -lh /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
+ls -lh admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
 ```
 
 Should show the file!
@@ -91,7 +91,7 @@ adb install -r poswebview/build/outputs/apk/debug/poswebview-debug.apk
 ```bash
 # 1. Save logo image from chat to Desktop
 # 2. Run this command:
-cp ~/Desktop/luqma_logo.png /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png && echo "✅ Logo added! Now rebuild in Android Studio"
+cp ~/Desktop/receipt_logo.png admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png && echo "✅ Logo added! Now rebuild in Android Studio"
 ```
 
 Done! 🎉

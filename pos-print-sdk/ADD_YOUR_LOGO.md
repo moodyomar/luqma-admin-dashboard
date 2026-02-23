@@ -22,7 +22,7 @@ admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/
 
 **Full path:**
 ```
-/Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
+pos-print-sdk/poswebview/src/main/res/drawable/receipt_logo.png
 ```
 
 ---
@@ -36,7 +36,7 @@ admin-dashboard/pos-print-sdk/poswebview/src/main/res/drawable/
 
 **Or command line:**
 ```bash
-cd /Users/moody/Documents/Dev/luqma/admin-dashboard/pos-print-sdk
+cd admin-dashboard/pos-print-sdk
 ./gradlew assembleDebug
 adb install -r poswebview/build/outputs/apk/debug/poswebview-debug.apk
 ```
@@ -46,7 +46,7 @@ adb install -r poswebview/build/outputs/apk/debug/poswebview-debug.apk
 ## 🖨️ Step 4: Test
 
 **On H10:**
-- Open Luqma POS app
+- Open POS Terminal app
 - Click test print
 - **Logo will appear at top of receipt!** 🎉
 
@@ -96,7 +96,7 @@ adb install -r poswebview/build/outputs/apk/debug/poswebview-debug.apk
 **Logo not showing?**
 - Check file is named exactly: `receipt_logo.png`
 - Check file is in: `res/drawable/` folder
-- Check logs: `adb logcat | grep LuqmaPOS`
+- Check logs: `adb logcat | grep POS`
   - Should see: "📷 Loading logo from resources"
   - If see: "ℹ️ No logo found" = file not in correct location
 

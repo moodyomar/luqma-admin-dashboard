@@ -104,7 +104,7 @@ The H10's InnerPrinter doesn't have Arabic fonts in ROM. Our solution:
 ### **Printer Not Found:**
 - Check Bluetooth is enabled on H10
 - Verify "InnerPrinter" is paired in Bluetooth settings
-- Check logs: `adb logcat | grep LuqmaPOS`
+- Check logs: `adb logcat | grep POS`
 
 ### **Blank Receipts:**
 - **Check thermal paper!** Must be heat-sensitive
@@ -123,7 +123,7 @@ The H10's InnerPrinter doesn't have Arabic fonts in ROM. Our solution:
 pos-print-sdk/
 ├── poswebview/
 │   ├── src/main/
-│   │   ├── java/com/luqma/pos/
+│   │   ├── java/.../MainActivity (package per client or com.luqma.pos)
 │   │   │   └── MainActivity.java          ← Main app logic
 │   │   ├── res/
 │   │   │   ├── layout/activity_main.xml   ← WebView layout

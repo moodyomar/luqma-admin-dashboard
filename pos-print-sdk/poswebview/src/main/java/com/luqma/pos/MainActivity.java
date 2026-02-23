@@ -37,9 +37,9 @@ import com.sun.jna.Pointer;
 import com.sun.jna.WString;
 
 /**
- * Luqma POS Terminal WebView App
+ * POS Terminal WebView App
  * For H10 Wireless Data Terminal (Android 14)
- * Provides silent printing via JavaScript bridge
+ * Provides silent printing via JavaScript bridge. Brand name from strings.xml.
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -109,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
         
         // Load admin dashboard from config
         String adminUrl = getAdminUrl();
-        android.util.Log.i("LuqmaPOS", "🌐 Loading dashboard: " + adminUrl);
+        android.util.Log.i("POS", "🌐 Loading dashboard: " + adminUrl);
         webView.loadUrl(adminUrl);
     }
 
@@ -117,14 +117,14 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             senraisePrinterService = service;
-            android.util.Log.i("LuqmaPOS", "✅ Connected to SENRAISE PrinterService!");
+            android.util.Log.i("POS", "✅ Connected to SENRAISE PrinterService!");
             Toast.makeText(MainActivity.this, "✅ طابعة SENRAISE متصلة", Toast.LENGTH_SHORT).show();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             senraisePrinterService = null;
-            android.util.Log.w("LuqmaPOS", "⚠️ Disconnected from SENRAISE PrinterService");
+            android.util.Log.w("POS", "⚠️ Disconnected from SENRAISE PrinterService");
         }
     };
     
@@ -134,13 +134,13 @@ public class MainActivity extends AppCompatActivity {
             intent.setComponent(new ComponentName("recieptservice.com.recieptservice", 
                                                   "recieptservice.com.recieptservice.service.PrinterService"));
             boolean bound = bindService(intent, printerConnection, Context.BIND_AUTO_CREATE);
-            android.util.Log.i("LuqmaPOS", "🔌 Binding to SENRAISE PrinterService: " + bound);
+            android.util.Log.i("POS", "🔌 Binding to SENRAISE PrinterService: " + bound);
             
             if (!bound) {
                 Toast.makeText(this, "⚠️ فشل الاتصال بخدمة الطباعة", Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
-            android.util.Log.e("LuqmaPOS", "❌ Failed to bind PrinterService: " + e.getMessage());
+            android.util.Log.e("POS", "❌ Failed to bind PrinterService: " + e.getMessage());
             Toast.makeText(this, "❌ خطأ في الاتصال: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
@@ -161,15 +161,15 @@ public class MainActivity extends AppCompatActivity {
             }
             
             if (needsRequest) {
-                android.util.Log.i("LuqmaPOS", "📱 Requesting Bluetooth permissions...");
+                android.util.Log.i("POS", "📱 Requesting Bluetooth permissions...");
                 ActivityCompat.requestPermissions(this, permissions, BLUETOOTH_PERMISSION_REQUEST_CODE);
             } else {
-                android.util.Log.i("LuqmaPOS", "✅ Bluetooth permissions already granted");
+                android.util.Log.i("POS", "✅ Bluetooth permissions already granted");
                 initializePrinter();
             }
         } else {
             // Android 11 and below - permissions granted at install time
-            android.util.Log.i("LuqmaPOS", "✅ Android < 12, using install-time permissions");
+            android.util.Log.i("POS", "✅ Android < 12, using install-time permissions");
             initializePrinter();
         }
     }
@@ -188,11 +188,11 @@ public class MainActivity extends AppCompatActivity {
             }
             
             if (allGranted) {
-                android.util.Log.i("LuqmaPOS", "✅ Bluetooth permissions granted!");
+                android.util.Log.i("POS", "✅ Bluetooth permissions granted!");
                 Toast.makeText(this, "✅ تم منح أذونات البلوتوث", Toast.LENGTH_SHORT).show();
                 initializePrinter();
             } else {
-                android.util.Log.e("LuqmaPOS", "❌ Bluetooth permissions denied");
+                android.util.Log.e("POS", "❌ Bluetooth permissions denied");
                 Toast.makeText(this, "⚠️ يرجى منح أذونات البلوتوث للطباعة", Toast.LENGTH_LONG).show();
             }
         }
@@ -201,7 +201,7 @@ public class MainActivity extends AppCompatActivity {
     private void initializePrinter() {
         try {
             printer = AutoReplyPrint.INSTANCE;
-            android.util.Log.i("LuqmaPOS", "🔍 Searching for InnerPrinter via Bluetooth...");
+            android.util.Log.i("POS", "🔍 Searching for InnerPrinter via Bluetooth...");
             
             // H10 uses internal Bluetooth printer named "InnerPrinter"
             // Try to connect via Bluetooth SPP (Serial Port Profile)
@@ -209,44 +209,44 @@ public class MainActivity extends AppCompatActivity {
             // First, try to find "InnerPrinter" Bluetooth device
             android.bluetooth.BluetoothAdapter btAdapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter();
             if (btAdapter != null && btAdapter.isEnabled()) {
-                android.util.Log.i("LuqmaPOS", "📶 Bluetooth is enabled, searching for paired devices...");
+                android.util.Log.i("POS", "📶 Bluetooth is enabled, searching for paired devices...");
                 
                 try {
                     java.util.Set<android.bluetooth.BluetoothDevice> pairedDevices = btAdapter.getBondedDevices();
                     for (android.bluetooth.BluetoothDevice device : pairedDevices) {
                         String deviceName = device.getName();
                         String deviceAddress = device.getAddress();
-                        android.util.Log.i("LuqmaPOS", "Found paired device: " + deviceName + " (" + deviceAddress + ")");
+                        android.util.Log.i("POS", "Found paired device: " + deviceName + " (" + deviceAddress + ")");
                         
                         if (deviceName != null && (deviceName.contains("InnerPrinter") || deviceName.contains("Printer") || deviceName.contains("H10"))) {
-                            android.util.Log.i("LuqmaPOS", "🎯 Found printer device: " + deviceName + " - attempting connection...");
+                            android.util.Log.i("POS", "🎯 Found printer device: " + deviceName + " - attempting connection...");
                             
                             // Try to connect via AutoReplyPrint Bluetooth SPP
                             printerHandle = printer.CP_Port_OpenBtSpp(deviceAddress, 0);
                             
                             if (printerHandle != null && Pointer.nativeValue(printerHandle) != 0) {
-                                android.util.Log.i("LuqmaPOS", "✅ Successfully connected to " + deviceName);
+                                android.util.Log.i("POS", "✅ Successfully connected to " + deviceName);
                                 Toast.makeText(this, "✅ الطابعة متصلة: " + deviceName, Toast.LENGTH_SHORT).show();
                                 return;
                             } else {
-                                android.util.Log.w("LuqmaPOS", "⚠️ Failed to connect to " + deviceName);
+                                android.util.Log.w("POS", "⚠️ Failed to connect to " + deviceName);
                             }
                         }
                     }
                 } catch (SecurityException e) {
-                    android.util.Log.e("LuqmaPOS", "❌ Bluetooth permission denied: " + e.getMessage());
+                    android.util.Log.e("POS", "❌ Bluetooth permission denied: " + e.getMessage());
                 }
             } else {
-                android.util.Log.w("LuqmaPOS", "⚠️ Bluetooth is disabled or not available");
+                android.util.Log.w("POS", "⚠️ Bluetooth is disabled or not available");
             }
             
             // If Bluetooth failed, log detailed error
-            android.util.Log.e("LuqmaPOS", "❌ Could not connect to InnerPrinter");
+            android.util.Log.e("POS", "❌ Could not connect to InnerPrinter");
             Toast.makeText(this, "⚠️ لم يتم العثور على الطابعة الداخلية", Toast.LENGTH_LONG).show();
             
         } catch (Exception e) {
             e.printStackTrace();
-            android.util.Log.e("LuqmaPOS", "❌ Printer init error: " + e.getMessage());
+            android.util.Log.e("POS", "❌ Printer init error: " + e.getMessage());
             Toast.makeText(this, "❌ خطأ: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
@@ -277,7 +277,7 @@ public class MainActivity extends AppCompatActivity {
         int numLines = lines != null ? lines.length : 0;
         int height = Math.max(100, (numLines * lineHeight) + headerSpace + 40);
         
-        android.util.Log.i("LuqmaPOS", "🖼️ Creating beautiful RTL receipt: " + width + "x" + height);
+        android.util.Log.i("POS", "🖼️ Creating beautiful RTL receipt: " + width + "x" + height);
         
         // Create bitmap
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -294,7 +294,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 int logoResId = getResources().getIdentifier("receipt_logo", "drawable", getPackageName());
                 if (logoResId != 0) {
-                    android.util.Log.i("LuqmaPOS", "📷 Loading logo from resources");
+                    android.util.Log.i("POS", "📷 Loading logo from resources");
                     Bitmap logoBitmap = BitmapFactory.decodeResource(getResources(), logoResId);
                     
                     if (logoBitmap != null) {
@@ -314,13 +314,13 @@ public class MainActivity extends AppCompatActivity {
                         canvas.drawBitmap(scaledLogo, logoX, currentY, null);
                         currentY += scaledHeight + 25; // More space under logo
                         
-                        android.util.Log.i("LuqmaPOS", "✅ Logo drawn: " + scaledWidth + "x" + scaledHeight);
+                        android.util.Log.i("POS", "✅ Logo drawn: " + scaledWidth + "x" + scaledHeight);
                     }
                 } else {
-                    android.util.Log.i("LuqmaPOS", "ℹ️ No logo found, using text header");
+                    android.util.Log.i("POS", "ℹ️ No logo found, using text header");
                 }
             } catch (Exception e) {
-                android.util.Log.w("LuqmaPOS", "⚠️ Logo load failed: " + e.getMessage());
+                android.util.Log.w("POS", "⚠️ Logo load failed: " + e.getMessage());
             }
             
             // If no logo, show brand name
@@ -367,9 +367,9 @@ public class MainActivity extends AppCompatActivity {
             // Try to load custom Cairo font if available
             Typeface customFont = Typeface.createFromAsset(getAssets(), "fonts/Cairo-Bold.ttf");
             cairoFont = customFont;
-            android.util.Log.i("LuqmaPOS", "✅ Using Cairo font from assets");
+            android.util.Log.i("POS", "✅ Using Cairo font from assets");
         } catch (Exception e) {
-            android.util.Log.i("LuqmaPOS", "ℹ️ Cairo font not found, using sans-serif");
+            android.util.Log.i("POS", "ℹ️ Cairo font not found, using sans-serif");
         }
         
         // Setup paint for regular text - BOLD, DARK, Cairo-style
@@ -458,7 +458,7 @@ public class MainActivity extends AppCompatActivity {
             currentY += lineHeight;
         }
         
-        android.util.Log.i("LuqmaPOS", "🖼️ Beautiful RTL receipt created!");
+        android.util.Log.i("POS", "🖼️ Beautiful RTL receipt created!");
         
         return bitmap;
     }
@@ -486,10 +486,10 @@ public class MainActivity extends AppCompatActivity {
                     return "error: printer not initialized";
                 }
                 
-                android.util.Log.i("LuqmaPOS", "📝 Printing order SILENTLY...");
+                android.util.Log.i("POS", "📝 Printing order SILENTLY...");
                 
                 // Build full receipt with Windows-1256 for Arabic
-                android.util.Log.i("LuqmaPOS", "🖼️ Printing beautiful order receipt with logo & Arabic");
+                android.util.Log.i("POS", "🖼️ Printing beautiful order receipt with logo & Arabic");
                 
                 // Build clean receipt without manual separators (handled by createTextBitmap)
                 String fullText = text + 
@@ -497,13 +497,13 @@ public class MainActivity extends AppCompatActivity {
                         getString(R.string.receipt_thank_you_en) + " " + getBrandName() + "\n" +
                         getString(R.string.receipt_thank_you_ar) + " " + getString(R.string.brand_name_ar_short);
                 
-                android.util.Log.i("LuqmaPOS", "📝 Receipt length: " + fullText.length() + " chars");
+                android.util.Log.i("POS", "📝 Receipt length: " + fullText.length() + " chars");
                 
                 // Create beautiful bitmap with header/logo
                 String[] lines = fullText.split("\n");
                 Bitmap receiptBitmap = createTextBitmap(lines, true);
                 
-                android.util.Log.i("LuqmaPOS", "🖼️ Beautiful receipt bitmap: " + receiptBitmap.getWidth() + "x" + receiptBitmap.getHeight());
+                android.util.Log.i("POS", "🖼️ Beautiful receipt bitmap: " + receiptBitmap.getWidth() + "x" + receiptBitmap.getHeight());
                 
                 // Print bitmap
                 printer.CP_Pos_SetAlignment(printerHandle, 0);
@@ -516,7 +516,7 @@ public class MainActivity extends AppCompatActivity {
                     0
                 );
                 
-                android.util.Log.i("LuqmaPOS", "🖼️ Beautiful receipt printed: " + success);
+                android.util.Log.i("POS", "🖼️ Beautiful receipt printed: " + success);
                 
                 if (success) {
                     printer.CP_Pos_FeedLine(printerHandle, 5); // More feed lines
@@ -529,7 +529,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 
             } catch (Exception e) {
-                android.util.Log.e("LuqmaPOS", "❌ Print error: " + e.getMessage());
+                android.util.Log.e("POS", "❌ Print error: " + e.getMessage());
                 return "error: " + e.getMessage();
             }
         }
@@ -575,18 +575,18 @@ public class MainActivity extends AppCompatActivity {
                     return "error: printer not initialized";
                 }
                 
-                android.util.Log.i("LuqmaPOS", "🧪 Test print with beautiful formatting");
+                android.util.Log.i("POS", "🧪 Test print with beautiful formatting");
                 
                 // Clean test receipt (header/logo added by createTextBitmap)
                 String testText = "اختبار الطباعة - Test Print\n" +
                         "---\n" +
                         "الجهاز: H10 Terminal\n" +
-                        "التطبيق: Luqma POS\n" +
+                        "التطبيق: " + getString(R.string.app_name) + "\n" +
                         "الحالة: متصل بنجاح\n" +
                         "\n" +
                         "--- اختبار النصوص ---\n" +
                         "إنجليزي: ABCDEFGH 1234\n" +
-                        "عربي: لقمة طباعة اختبار\n" +
+                        "عربي: طباعة اختبار\n" +
                         "عبري: בדיקה הדפסה\n" +
                         "رموز: !@#$%^&*()\n" +
                         "\n" +
@@ -598,16 +598,16 @@ public class MainActivity extends AppCompatActivity {
                         "✓ النص واضح وسهل القراءة\n" +
                         "✓ العربية مقروءة تماماً";
                 
-                android.util.Log.i("LuqmaPOS", "🖼️ Printing beautiful receipt with logo & Arabic...");
+                android.util.Log.i("POS", "🖼️ Printing beautiful receipt with logo & Arabic...");
                 
                 // Split into lines
                 String[] lines = testText.split("\n");
-                android.util.Log.i("LuqmaPOS", "🖼️ Split into " + lines.length + " lines");
+                android.util.Log.i("POS", "🖼️ Split into " + lines.length + " lines");
                 
                 // Create beautiful bitmap with header/logo (Android renders Arabic correctly!)
                 Bitmap textBitmap = createTextBitmap(lines, true);
                 
-                android.util.Log.i("LuqmaPOS", "🖼️ Bitmap size: " + textBitmap.getWidth() + "x" + textBitmap.getHeight());
+                android.util.Log.i("POS", "🖼️ Bitmap size: " + textBitmap.getWidth() + "x" + textBitmap.getHeight());
                 
                 // Print bitmap using helper method (handles conversion internally)
                 printer.CP_Pos_SetAlignment(printerHandle, 0);
@@ -620,7 +620,7 @@ public class MainActivity extends AppCompatActivity {
                     0   // compress: 0=none
                 );
                 
-                android.util.Log.i("LuqmaPOS", "🖼️ Beautiful receipt printed: " + success);
+                android.util.Log.i("POS", "🖼️ Beautiful receipt printed: " + success);
                 
                 if (success) {
                     printer.CP_Pos_FeedLine(printerHandle, 4);
@@ -633,7 +633,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 
             } catch (Exception e) {
-                android.util.Log.e("LuqmaPOS", "❌ Error: " + e.getMessage());
+                android.util.Log.e("POS", "❌ Error: " + e.getMessage());
                 return "error: " + e.getMessage();
             }
         }

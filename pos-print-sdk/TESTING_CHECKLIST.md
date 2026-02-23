@@ -25,7 +25,7 @@ Use this checklist when testing your POS terminal setup.
 
 ### App Installation
 - [ ] APK installs via ADB: `adb install -r poswebview-debug.apk`
-- [ ] "Luqma POS" icon appears in app drawer
+- [ ] "POS Terminal" icon appears in app drawer
 - [ ] App launches without crashing
 - [ ] Permissions granted (if prompted)
 
@@ -41,7 +41,7 @@ Use this checklist when testing your POS terminal setup.
 
 ### H10 Connection
 - [ ] H10 browser can access: `http://192.168.1.110:5173/`
-- [ ] Luqma POS app loads dashboard automatically
+- [ ] POS Terminal app loads dashboard automatically
 - [ ] No "connection refused" errors
 - [ ] Page renders correctly (not blank)
 
@@ -73,7 +73,7 @@ Test Print
 ════════════════════════
 
 Device: H10 Terminal
-App: Luqma POS
+App: POS Terminal
 
 ✅ الطابعة تعمل بشكل صحيح
 ✅ Printer working correctly
@@ -296,7 +296,7 @@ _________________________________
 
 **View logs:**
 ```bash
-adb logcat | grep -E "Luqma|printer|error"
+adb logcat | grep -E "POS|printer|error"
 ```
 
 ---

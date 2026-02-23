@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- App Display Name -->
-    <string name="app_name">Luqma POS</string>
-    <string name="app_name_pos">Luqma POS</string>
+    <!-- App Display Name - set per client or use generic -->
+    <string name="app_name">POS Terminal</string>
+    <string name="app_name_pos">POS Terminal</string>
     
-    <!-- Configuration - Update per client/restaurant -->
-    <string name="admin_dashboard_url">https://admin.luqma.co.il/</string>
-    <string name="brand_name">Luqma</string>
-    <string name="brand_name_ar">لقمة</string>
-    <string name="brand_name_ar_short">لقمة</string>
-    <string name="brand_name_he">לוקמה</string>
+    <!-- Configuration - set per client (init script or manual) -->
+    <string name="admin_dashboard_url">https://your-dashboard.example.com/</string>
+    <string name="brand_name">Your Brand</string>
+    <string name="brand_name_ar">علامتك</string>
+    <string name="brand_name_ar_short">علامتك</string>
+    <string name="brand_name_he">המותג שלך</string>
     <string name="receipt_thank_you_en">Thank you for using</string>
     <string name="receipt_thank_you_ar">شكراً لاستخدامكم تطبيق</string>
     

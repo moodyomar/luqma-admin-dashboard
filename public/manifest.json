@@ -1,7 +1,7 @@
 {
-  "name": "Luqma Admin Dashboard",
-  "short_name": "Luqma Admin",
-  "description": "Admin dashboard for Luqma application",
+  "name": "Admin Dashboard",
+  "short_name": "Admin",
+  "description": "Admin dashboard for your restaurant",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

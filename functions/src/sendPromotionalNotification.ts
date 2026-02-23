@@ -254,7 +254,7 @@ export const sendPromotionalNotification = onCall(
 
       // Send via Expo Push API
       // IMPORTANT: Expo requires tokens from the same project in each batch
-      // We've already filtered to only customer app tokens, so all should be from @devmoody/luqma
+      // We've already filtered to only customer app tokens
       let successCount = 0;
       let failureCount = 0;
 

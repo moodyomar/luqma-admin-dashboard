@@ -51,7 +51,7 @@ Body: "طلب توصيل جديد - [Customer Name]"
   ```
   Title: "طلب جاهز للتوصيل! ✅"
   Body: "الطلب #[OrderID] جاهز الآن - [Address]"
-  Sound: "luqma.mp3" (custom sound)
+  Sound: VITE_NOTIFICATION_SOUND or default (e.g. notification.mp3)
   ```
 
 ## 🔧 Manual Deployment Options
