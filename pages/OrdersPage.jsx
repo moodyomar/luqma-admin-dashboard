@@ -1416,6 +1416,8 @@ const OrdersPage = () => {
   const [prevOrdersCount, setPrevOrdersCount] = useState(0);
   const isFirstLoad = useRef(true); // 🟡 new flag
   const knownOrderIds = useRef(new Set()); // Track known order IDs to detect truly new orders
+  const futureOrderDuePlayedIds = useRef(new Set()); // Track which future orders we already played "due" sound for
+  const ordersRef = useRef([]); // Latest orders for interval callback
   const [viewType, setViewType] = useState('new'); // 'new', 'active', 'past', 'future'
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'delivery', 'pickup', 'eat_in'
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
@@ -1501,13 +1503,12 @@ const OrdersPage = () => {
                 console.warn('Failed to play audio:', err);
               });
               
-              // Track unaccepted orders for retry after 1 minute
+              // Track unaccepted orders: play "order not accepted yet" after 2 minutes if still pending
+              const notAcceptedDelayMs = brandConfig.orderNotAcceptedAfterMs ?? 2 * 60 * 1000;
+              const notAcceptedSound = brandConfig.orderNotAcceptedSound || brandConfig.notificationSound;
               newOrders.forEach(order => {
                 if (order && (order.status === 'pending' || order.status === 'confirmed')) {
-                  // Set timeout to retry sound after 1 minute if order is still unaccepted
                   setTimeout(() => {
-                    // Re-check order status from current orders state
-                    // Note: We need to check the actual current state, not the closure
                     const checkOrder = async () => {
                       try {
                         const orderRef = doc(db, 'menus', activeBusinessId, 'orders', order.id);
@@ -1515,25 +1516,36 @@ const OrdersPage = () => {
                         if (orderSnap.exists()) {
                           const currentOrder = orderSnap.data();
                           if (currentOrder.status === 'pending' || currentOrder.status === 'confirmed') {
-                            // Order still unaccepted, play sound again (one retry only)
                             try {
-                              const retryAudio = new Audio(brandConfig.notificationSound);
-                              retryAudio.volume = 1.0;
-                              retryAudio.play().catch(err => {
-                                console.warn('Failed to play retry audio:', err);
-                              });
-                              console.log('🔔 Retry alert sound for unaccepted order:', order.id);
+                              const audio = new Audio(notAcceptedSound);
+                              audio.volume = 1.0;
+                              audio.play().catch(err => console.warn('Failed to play order-not-accepted audio:', err));
+                              console.log('🔔 Order not accepted yet – reminder sound:', order.id);
+                              toast.custom(() => (
+                                <div style={{
+                                  background: '#ffecb3',
+                                  padding: '14px 20px',
+                                  borderRadius: '10px',
+                                  fontWeight: 'bold',
+                                  fontSize: '16px',
+                                  color: '#222',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                  direction: 'rtl'
+                                }}>
+                                  ⏱️ طلب لم يُقبل بعد – يرجى القبول
+                                </div>
+                              ), { duration: 8000 });
                             } catch (err) {
-                              console.warn('Retry audio error:', err);
+                              console.warn('Order-not-accepted audio error:', err);
                             }
                           }
                         }
                       } catch (err) {
-                        console.warn('Error checking order status for retry:', err);
+                        console.warn('Error checking order status for not-accepted reminder:', err);
                       }
                     };
                     checkOrder();
-                  }, 60000); // 1 minute = 60000ms
+                  }, notAcceptedDelayMs);
                 }
               });
             } catch (err) {
@@ -1563,6 +1575,51 @@ const OrdersPage = () => {
       });
 
     return () => unsubscribe();
+  }, [activeBusinessId]);
+
+  // Keep ref in sync with orders for interval
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
+  // Future order due: every 30s check if any scheduled order's time has arrived; play sound once per order
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    const futureDueSound = brandConfig.futureOrderDueSound || brandConfig.notificationSound;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentOrders = ordersRef.current || [];
+      currentOrders.forEach((order) => {
+        if (order.status !== 'pending' || !order.deliveryDateTime) return;
+        if (futureOrderDuePlayedIds.current.has(order.id)) return;
+        const scheduled = getScheduledDate(order.deliveryDateTime);
+        if (!scheduled || scheduled > now) return;
+        futureOrderDuePlayedIds.current.add(order.id);
+        try {
+          const audio = new Audio(futureDueSound);
+          audio.volume = 1.0;
+          audio.play().catch((err) => console.warn('Failed to play future-order-due audio:', err));
+          console.log('🔔 Future order due – play sound:', order.id);
+          toast.custom(() => (
+            <div style={{
+              background: '#c8e6c9',
+              padding: '14px 20px',
+              borderRadius: '10px',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              color: '#222',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              direction: 'rtl'
+            }}>
+              📅 طلب مجدول – حان وقت التحضير
+            </div>
+          ), { duration: 8000 });
+        } catch (err) {
+          console.warn('Future-order-due audio error:', err);
+        }
+      });
+    }, 30000); // every 30 seconds
+    return () => clearInterval(interval);
   }, [activeBusinessId]);
 
   // Countdown timer effect
