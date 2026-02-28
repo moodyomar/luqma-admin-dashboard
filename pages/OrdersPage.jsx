@@ -42,6 +42,14 @@ const isFutureOrder = (order) => {
 // Helper: order is a reservation request (eat-in, not yet confirmed by admin)
 const isReservationRequest = (order) => order.reservationStatus === 'reservation_request';
 
+// Helper: reservation order is waiting for client to pay (not yet reservation_paid)
+const isReservationAwaitingPayment = (order) =>
+  order.reservationStatus && order.reservationStatus !== 'reservation_paid';
+
+// Helper: reservation is paid and table assigned (fully complete from admin perspective)
+const isReservationFullyComplete = (order) =>
+  order.reservationStatus === 'reservation_paid' && !!order.tableNumber;
+
 const pluralizeAr = (value, singular, plural) => (value === 1 ? singular : plural);
 const formatNumber = (value) => new Intl.NumberFormat('en-US').format(value ?? 0);
 
@@ -94,6 +102,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
                         order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل'
   const paymentString = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين'
+  const showAsPaid = paymentString === 'اونلاين' && !isReservationAwaitingPayment(order);
+  const isReservationPaid = order.reservationStatus === 'reservation_paid';
 
   const [showPrepTime, setShowPrepTime] = useState(false);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -193,7 +203,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       <div class="section">
         <div>طريقة التوصيل: ${deliveryString}</div>
         ${order.deliveryMethod === 'eat_in' && order.numberOfPeople ? `<div>عدد الأشخاص: ${order.numberOfPeople}</div>` : ''}
-        <div>الدفع: ${paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString}</div>
+        <div>الدفع: ${(order.reservationStatus && order.reservationStatus !== 'reservation_paid')
+          ? 'بأنتظار الدفع'
+          : (paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString)}</div>
         <div>عدد المنتجات: ${order.cart?.length || 0}</div>
       </div>
       ${(() => {
@@ -380,7 +392,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     }
     
     if (order.paymentMethod) {
-      const paymentLabel = order.paymentMethod === 'cash' ? 'نقداً (كاش)' : 'مدفوع اونلاين';
+      const isAwaiting = order.reservationStatus && order.reservationStatus !== 'reservation_paid';
+      const paymentLabel = isAwaiting ? 'بأنتظار الدفع' : (order.paymentMethod === 'cash' ? 'نقداً (كاش)' : 'مدفوع اونلاين');
       lines.push(`طريقة الدفع: ${paymentLabel}`);
     }
     lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
@@ -1079,8 +1092,10 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           <span className="value">{deliveryString || '—'}</span>
         </div>
         <div>
-          <span className="label">💳 {paymentString === 'اونلاين' ? 'وضع الطلب:' : 'الدفع:'}</span>
-          <span className="value">{paymentString === 'اونلاين' ? 'مدفوع' : paymentString || '—'}</span>
+          <span className="label">💳 {showAsPaid || isReservationPaid ? 'وضع الطلب:' : paymentString === 'اونلاين' ? 'وضع الطلب:' : 'الدفع:'}</span>
+          <span className="value">
+            {showAsPaid || isReservationPaid ? (isReservationPaid && order.paymentMethod === 'cash' ? 'مدفوع (كاش عند الوصول)' : 'مدفوع') : paymentString === 'اونلاين' ? 'بأنتظار الدفع' : paymentString || '—'}
+          </span>
         </div>
       </div>
 
@@ -1113,12 +1128,21 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
               <span className="value">{order.numberOfPeople}</span>
             </p>
           )}
-          {order.tableNumber ? (
+          {/* Future eat-in: table is assigned only via the bottom button; here just show it if set */}
+          {isFutureOrder(order) ? (
+            order.tableNumber && (
+              <p>
+                <span className="label">🪑 رقم الطاولة:</span>
+                <span className="value">{order.tableNumber}</span>
+              </p>
+            )
+          ) : order.tableNumber && !showTableAssignment ? (
             <p>
               <span className="label">🪑 رقم الطاولة:</span>
               <span className="value">{order.tableNumber}</span>
             </p>
           ) : (
+            !isFutureOrder(order) && (
             <div style={{ marginTop: 12, marginBottom: 12 }}>
               {!showTableAssignment ? (
                 <button 
@@ -1199,6 +1223,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
                 </div>
               )}
             </div>
+            )
           )}
         </>
       )}
@@ -1336,28 +1361,77 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         if (isFuture && futureMeta && futureMeta.scheduled > new Date()) {
           // Future order - can confirm reservation or wait until scheduled time
           return (
-            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
               {/* For eat-in orders, allow confirming reservation + assigning table early */}
               {order.deliveryMethod === 'eat_in' ? (
-                <button 
-                  onClick={() => {
-                    // Open table assignment modal for reservation confirmation
-                    setShowTableAssignment(true);
-                  }}
-                  disabled={loading}
-                  style={{ 
-                    fontWeight: 600, 
-                    padding: '10px 20px', 
-                    borderRadius: 8, 
-                    background: '#17a2b8', 
-                    color: '#fff', 
-                    border: 'none', 
-                    cursor: 'pointer', 
-                    fontSize: 16 
-                  }}
-                >
-                  تأكيد الحجز وتعيين الطاولة
-                </button>
+                isReservationFullyComplete(order) ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      padding: '12px 20px',
+                      borderRadius: 10,
+                      background: 'linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)',
+                      border: '1px solid #28a745',
+                      color: '#155724',
+                      fontSize: 15,
+                      fontWeight: 600
+                    }}
+                  >
+                    <span>✓ حجز مؤكد</span>
+                    <span style={{ opacity: 0.8 }}>•</span>
+                    <span>طاولة {order.tableNumber}</span>
+                    <span style={{ opacity: 0.8 }}>•</span>
+                    <span>مدفوع</span>
+                  </div>
+                ) : showTableAssignment ? (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <input
+                      type="text"
+                      value={selectedTableNumber}
+                      onChange={(e) => setSelectedTableNumber(e.target.value)}
+                      placeholder="أدخل رقم الطاولة"
+                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14, width: '150px' }}
+                      onKeyPress={(e) => { if (e.key === 'Enter') handleAssignTable(); }}
+                    />
+                    <button onClick={handleAssignTable} disabled={tableAssignmentLoading} style={{ fontWeight: 600, padding: '8px 16px', borderRadius: 8, background: '#34C759', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14 }}>
+                      {tableAssignmentLoading ? 'جاري...' : 'تأكيد'}
+                    </button>
+                    <button onClick={() => { setShowTableAssignment(false); setSelectedTableNumber(''); }} disabled={tableAssignmentLoading} style={{ fontWeight: 600, padding: '8px 16px', borderRadius: 8, background: '#ccc', color: '#222', border: 'none', cursor: 'pointer', fontSize: 14 }}>
+                      إلغاء
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {order.tableNumber && isReservationAwaitingPayment(order) && (
+                      <div style={{ fontSize: 13, color: '#856404', marginBottom: 4 }}>
+                        طاولة {order.tableNumber} معينة • في انتظار الدفع
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => {
+                        setSelectedTableNumber(order.tableNumber || '');
+                        setShowTableAssignment(true);
+                      }}
+                      disabled={loading}
+                      style={{ 
+                        fontWeight: 600, 
+                        padding: '10px 20px', 
+                        borderRadius: 8, 
+                        background: '#17a2b8', 
+                        color: '#fff', 
+                        border: 'none', 
+                        cursor: 'pointer', 
+                        fontSize: 16 
+                      }}
+                    >
+                      {order.tableNumber ? 'تغيير الطاولة' : 'تأكيد الحجز وتعيين الطاولة'}
+                    </button>
+                  </>
+                )
               ) : (
                 <button 
                   onClick={() => setShowPrepTime(true)}

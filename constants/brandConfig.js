@@ -18,7 +18,7 @@ const brandConfig = {
   orderNotAcceptedSound: import.meta.env.VITE_ORDER_NOT_ACCEPTED_SOUND || DEFAULT_NOT_ACCEPTED_SOUND,
   // 3) Future order due – personalized voice. Set VITE_FUTURE_ORDER_DUE_SOUND in .env per app.
   futureOrderDueSound: import.meta.env.VITE_FUTURE_ORDER_DUE_SOUND || DEFAULT_FUTURE_DUE_SOUND,
-  adminPassword: import.meta.env.VITE_ADMIN_PASSWORD || 'admin123',
+  adminPassword: import.meta.env.VITE_ADMIN_PASSWORD || '0011',
 };
 
 export default brandConfig;

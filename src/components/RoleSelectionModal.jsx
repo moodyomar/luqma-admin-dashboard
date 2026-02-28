@@ -10,7 +10,7 @@ const RoleSelectionModal = ({ onRoleSelected, onClose }) => {
   const navigate = useNavigate();
 
   // Admin password from brandConfig
-  const ADMIN_PASSWORD = brandConfig.adminPassword || 'admin123';
+  const ADMIN_PASSWORD = brandConfig.adminPassword || '0011';
 
   const handleRoleSelect = (role) => {
     setSelectedRole(role);

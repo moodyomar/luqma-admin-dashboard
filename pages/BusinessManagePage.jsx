@@ -895,11 +895,11 @@ const BusinessManagePage = () => {
           <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 8, minHeight: '20px', display: 'flex', alignItems: 'center' }}>ساعات العمل</label>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת פתיחה</label>
+              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת סגירה</label>
               <input
                 type="time"
-                name="open"
-                value={form.workingHours.open}
+                name="close"
+                value={form.workingHours.close}
                 onChange={handleChange}
                 style={{
                   height: 44,
@@ -915,11 +915,11 @@ const BusinessManagePage = () => {
               />
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת סגירה</label>
+              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת פתיחה</label>
               <input
                 type="time"
-                name="close"
-                value={form.workingHours.close}
+                name="open"
+                value={form.workingHours.open}
                 onChange={handleChange}
                 style={{
                   height: 44,
