@@ -39,6 +39,9 @@ const isFutureOrder = (order) => {
   return scheduledTime > new Date();
 };
 
+// Helper: order is a reservation request (eat-in, not yet confirmed by admin)
+const isReservationRequest = (order) => order.reservationStatus === 'reservation_request';
+
 const pluralizeAr = (value, singular, plural) => (value === 1 ? singular : plural);
 const formatNumber = (value) => new Intl.NumberFormat('en-US').format(value ?? 0);
 
@@ -99,6 +102,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   const [showTableAssignment, setShowTableAssignment] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState('');
   const [tableAssignmentLoading, setTableAssignmentLoading] = useState(false);
+  const [showSuggestAlternativesModal, setShowSuggestAlternativesModal] = useState(false);
+  const [alternativeSlots, setAlternativeSlots] = useState([{ date: '', time: '12:00' }]);
+  const [reservationActionLoading, setReservationActionLoading] = useState(false);
 
   // Fetch prep time options from business config
   useEffect(() => {
@@ -719,6 +725,74 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     }
   };
 
+  // --- Reservation request actions (reservationStatus === 'reservation_request') ---
+  const handleConfirmReservation = async () => {
+    setReservationActionLoading(true);
+    try {
+      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
+      await updateDoc(ref, {
+        reservationStatus: 'reservation_confirmed',
+        reservationConfirmedAt: new Date().toISOString(),
+      });
+      toast.success('تم تأكيد الحجز. يمكن للعميل اختيار طريقة الدفع في التطبيق.', { position: 'top-center' });
+    } catch (err) {
+      console.error('Error confirming reservation:', err);
+      toast.error('خطأ في تأكيد الحجز: ' + err.message);
+    } finally {
+      setReservationActionLoading(false);
+    }
+  };
+
+  const handleSendAlternatives = async () => {
+    const slots = alternativeSlots
+      .map(({ date, time }) => {
+        if (!date || !time) return null;
+        const [h, m] = time.split(':').map(Number);
+        const d = new Date(date);
+        d.setHours(h || 0, m || 0, 0, 0);
+        return { dateTime: d.toISOString(), label: `${date} ${time}` };
+      })
+      .filter(Boolean);
+    if (slots.length === 0) {
+      toast.error('أضف وقتاً واحداً على الأقل');
+      return;
+    }
+    setReservationActionLoading(true);
+    try {
+      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
+      await updateDoc(ref, {
+        reservationStatus: 'alternatives_sent',
+        alternativeSlots: slots,
+      });
+      setShowSuggestAlternativesModal(false);
+      setAlternativeSlots([{ date: '', time: '12:00' }]);
+      toast.success('تم إرسال الأوقات البديلة للعميل.', { position: 'top-center' });
+    } catch (err) {
+      console.error('Error sending alternatives:', err);
+      toast.error('خطأ: ' + err.message);
+    } finally {
+      setReservationActionLoading(false);
+    }
+  };
+
+  const handleDeclineReservation = async () => {
+    if (!window.confirm('رفض طلب الحجز؟ سيتم إبلاغ العميل.')) return;
+    setReservationActionLoading(true);
+    try {
+      const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
+      await updateDoc(ref, {
+        reservationStatus: 'reservation_declined',
+        declineReason: null,
+      });
+      toast.success('تم رفض طلب الحجز.', { position: 'top-center' });
+    } catch (err) {
+      console.error('Error declining reservation:', err);
+      toast.error('خطأ: ' + err.message);
+    } finally {
+      setReservationActionLoading(false);
+    }
+  };
+
   // Mark order as ready
   const handleOrderReady = async () => {
     setLoading(true);
@@ -1184,7 +1258,77 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       )}
 
       {/* Action buttons for order status */}
-      {order.status === 'pending' && (() => {
+      {isReservationRequest(order) && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ padding: '10px 14px', background: '#fff3cd', color: '#856404', borderRadius: 8, marginBottom: 12, fontSize: 14 }}>
+            طلب حجز — بانتظار التأكيد (العميل لم يدفع بعد)
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+            <button
+              onClick={handleConfirmReservation}
+              disabled={reservationActionLoading}
+              style={{ fontWeight: 600, padding: '10px 20px', borderRadius: 8, background: '#28a745', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15 }}
+            >
+              {reservationActionLoading ? 'جاري...' : 'أكد الحجز'}
+            </button>
+            <button
+              onClick={() => setShowSuggestAlternativesModal(true)}
+              disabled={reservationActionLoading}
+              style={{ fontWeight: 600, padding: '10px 20px', borderRadius: 8, background: '#17a2b8', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15 }}
+            >
+              اقترح أوقاتاً أخرى
+            </button>
+            <button
+              onClick={handleDeclineReservation}
+              disabled={reservationActionLoading}
+              style={{ fontWeight: 600, padding: '10px 20px', borderRadius: 8, background: '#dc3545', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15 }}
+            >
+              رفض
+            </button>
+          </div>
+          {showSuggestAlternativesModal && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+              <div style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 420, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>اقتراح أوقات بديلة</h3>
+                <p style={{ margin: '0 0 16px', color: '#666', fontSize: 14 }}>أضف أوقاتاً متاحة وسيتم إرسالها للعميل لاختيار واحد والدفع.</p>
+                {alternativeSlots.map((slot, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+                    <input
+                      type="date"
+                      value={slot.date}
+                      onChange={(e) => {
+                        const next = [...alternativeSlots];
+                        next[idx] = { ...next[idx], date: e.target.value };
+                        setAlternativeSlots(next);
+                      }}
+                      style={{ flex: 1, padding: '8px 12px', border: '1px solid #ddd', borderRadius: 8 }}
+                    />
+                    <input
+                      type="time"
+                      value={slot.time}
+                      onChange={(e) => {
+                        const next = [...alternativeSlots];
+                        next[idx] = { ...next[idx], time: e.target.value };
+                        setAlternativeSlots(next);
+                      }}
+                      style={{ width: 100, padding: '8px 12px', border: '1px solid #ddd', borderRadius: 8 }}
+                    />
+                    {alternativeSlots.length > 1 && (
+                      <button type="button" onClick={() => setAlternativeSlots(alternativeSlots.filter((_, i) => i !== idx))} style={{ padding: '8px 12px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>حذف</button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                  <button type="button" onClick={() => setAlternativeSlots([...alternativeSlots, { date: '', time: '12:00' }])} style={{ padding: '8px 16px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>+ إضافة وقت</button>
+                  <button type="button" onClick={handleSendAlternatives} disabled={reservationActionLoading} style={{ padding: '8px 20px', background: '#17a2b8', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{reservationActionLoading ? 'جاري...' : 'إرسال'}</button>
+                  <button type="button" onClick={() => { setShowSuggestAlternativesModal(false); setAlternativeSlots([{ date: '', time: '12:00' }]); }} style={{ padding: '8px 16px', background: '#ccc', color: '#222', border: 'none', borderRadius: 8, cursor: 'pointer' }}>إلغاء</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {order.status === 'pending' && !isReservationRequest(order) && (() => {
         const isFuture = isFutureOrder(order);
         const futureMeta = isFuture ? formatFutureOrderMeta(order.deliveryDateTime) : null;
         
