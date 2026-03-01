@@ -147,7 +147,7 @@ const handleDragEnd = async (event) => {
         }}
         onClick={() => setIsOpen(!isOpen)}
       >
-        📂 הוספת קטגוריה חדשה
+        📂 إضافة قسم جديد
         <span style={{ fontSize: isMobile ? '14px' : '18px' }}>{isOpen ? '▲' : '▼'}</span>
       </h4>
 
@@ -198,7 +198,7 @@ const handleDragEnd = async (event) => {
             }}
           >
             <input
-              placeholder="מזהה קטגוריה"
+              placeholder="رمز القسم"
               value={form.id}
               onChange={(e) => handleInput('id', e.target.value)}
               disabled={isEditing}
@@ -210,7 +210,7 @@ const handleDragEnd = async (event) => {
               }}
             />
             <input
-              placeholder="كישور תמונה"
+              placeholder="لينك الصوره"
               value={form.icon}
               onChange={(e) => handleInput('icon', e.target.value)}
               style={{
@@ -282,7 +282,7 @@ const handleDragEnd = async (event) => {
             minWidth: isMobile ? 'auto' : '120px'
           }}
         >
-          {isEditing ? 'עדכון' : 'הוספת'} קטגוריה
+          {isEditing ? 'تحديث' : 'إضافة'} قسم
         </button>
         {isEditing && (
           <button 
@@ -294,7 +294,7 @@ const handleDragEnd = async (event) => {
               minWidth: isMobile ? 'auto' : '120px'
             }}
           >
-            ביטול
+            الغاء
           </button>
         )}
       </div>
@@ -326,7 +326,7 @@ const handleDragEnd = async (event) => {
               cursor: 'pointer'
             }}
           />
-          הצג גם קטגוריות מוסתרות
+          إظهار الأقسام المخفية أيضاً
         </label>
       </div>
 

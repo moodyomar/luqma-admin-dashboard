@@ -382,9 +382,11 @@ const AnalyticsPage = () => {
 
     // Payment Method Breakdown
     const paymentStats = {};
+    const paymentAmounts = {};
     filteredOrders.forEach(order => {
       const method = order.paymentMethod || 'unknown';
       paymentStats[method] = (paymentStats[method] || 0) + 1;
+      paymentAmounts[method] = (paymentAmounts[method] || 0) + getOrderRevenue(order);
     });
 
     // Sort daily sales by date and limit based on time range
@@ -406,6 +408,7 @@ const AnalyticsPage = () => {
       peakHours,
       deliveryStats,
       paymentStats,
+      paymentAmounts,
       // Percentage changes
       salesChange,
       orderCountChange,
@@ -1866,6 +1869,7 @@ const AnalyticsPage = () => {
         </div>
 
         <div 
+          className="analytics-desktop-only"
           style={{
             background: 'linear-gradient(135deg, #7c2d12 0%, #991b1b 100%)',
             padding: '20px 24px',
@@ -1987,6 +1991,7 @@ const AnalyticsPage = () => {
         </div>
 
         <div 
+          className="analytics-desktop-only"
           style={{
             background: 'linear-gradient(135deg, #155e75 0%, #0e7490 100%)',
             padding: '20px 24px',
@@ -2259,21 +2264,38 @@ const AnalyticsPage = () => {
           boxSizing: 'border-box',
           maxWidth: '100%'
         }}>
-          <h3 style={{ marginBottom: '20px', color: '#333' }}>💳 طرق الدفع</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
+            <h3 style={{ margin: 0, color: '#333' }}>💳 طرق الدفع</h3>
+            <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e3c72' }}>
+              {(() => {
+                const totalAmount = analytics.paymentAmounts
+                  ? Object.values(analytics.paymentAmounts).reduce((a, b) => a + (b || 0), 0)
+                  : 0;
+                return `إجمالي ${totalAmount.toLocaleString()}₪`;
+              })()}
+            </span>
+          </div>
           {Object.entries(analytics.paymentStats).map(([method, count]) => {
             const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
             const percentage = (count / total * 100).toFixed(1);
+            const amount = (analytics.paymentAmounts && analytics.paymentAmounts[method]) || 0;
             const methodNames = {
               'cash': 'كاش',
+              'credit_card': 'بطاقة',
               'visa': 'فيزا',
               'apple_pay': 'Apple Pay',
+              'apple_google': 'Apple / Google Pay',
               'unknown': 'غير محدد'
             };
+            const methodLabel = methodNames[method] || method;
+            const orderWord = count === 1 ? 'طلب' : (count >= 2 && count <= 10 ? 'طلبات' : 'طلب');
             return (
               <div key={method} style={{ marginBottom: '15px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                  <span style={{ fontSize: '14px' }}>{methodNames[method] || method}</span>
-                  <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{count}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', flexWrap: 'wrap', gap: '4px' }}>
+                  <span style={{ fontSize: '14px' }}>{methodLabel}</span>
+                  <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                    {count} {orderWord}{amount > 0 ? ` (${amount.toLocaleString()}₪)` : ''}
+                  </span>
                 </div>
                 <div style={{
                   width: '100%',
@@ -2549,6 +2571,13 @@ const AnalyticsPage = () => {
       {/* Mobile-specific styles to override POS CSS */}
       <style>
         {`
+          /* Hide معدل الإلغاء and الإيرادات في الساعة on mobile and POS (show only on desktop) */
+          @media (max-width: 1023px) {
+            .analytics-desktop-only {
+              display: none !important;
+            }
+          }
+          
           @media (max-width: 767px) {
             /* Override POS styles for mobile phones */
             body {

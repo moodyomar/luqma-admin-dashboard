@@ -51,7 +51,7 @@ export default function SortableCategoryCard({ id, cat, onEdit, onHide, onDelete
                     ☰
                 </div>
 
-                {/* ✅ Category name */}
+                {/* ✅ Category name: Arabic first, Hebrew in parentheses if both */}
                 <div style={{
                     flex: 1,
                     minWidth: 0,
@@ -61,7 +61,10 @@ export default function SortableCategoryCard({ id, cat, onEdit, onHide, onDelete
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
                 }}>
-                    {cat.name.he}
+                    {cat.name?.ar || cat.name?.he}
+                    {cat.name?.ar && cat.name?.he && (
+                        <span style={{ marginRight: 6, color: '#666', fontSize: isMobile ? '11px' : '13px' }}>({cat.name.he})</span>
+                    )}
                     {cat.hidden && (
                         <span style={{ marginRight: 8, color: 'gray', fontSize: isMobile ? '10px' : '12px' }}>مخفي</span>
                     )}
@@ -87,7 +90,7 @@ export default function SortableCategoryCard({ id, cat, onEdit, onHide, onDelete
                         whiteSpace: 'nowrap'
                       }}
                     >
-                      עריכה
+                      تعديل
                     </button>
                     <button 
                       onClick={onHide} 
@@ -100,7 +103,7 @@ export default function SortableCategoryCard({ id, cat, onEdit, onHide, onDelete
                         whiteSpace: 'nowrap'
                       }}
                     >
-                        {cat.hidden ? 'הצג' : 'הסתר'}
+                        {cat.hidden ? 'إظهار' : 'إخفاء'}
                     </button>
                     <button 
                       onClick={onDelete} 
@@ -113,7 +116,7 @@ export default function SortableCategoryCard({ id, cat, onEdit, onHide, onDelete
                         whiteSpace: 'nowrap'
                       }}
                     >
-                      מחק
+                      حذف
                     </button>
                 </div>
             </div>

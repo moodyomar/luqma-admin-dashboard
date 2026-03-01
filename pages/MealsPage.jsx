@@ -381,10 +381,10 @@ const MealsPage = () => {
         <button
           onClick={() => setShowCategoryManager(prev => !prev)}
           style={{ marginBottom: 20 }}>
-          {showCategoryManager ? 'סגור ניהול קטגוריות' : 'פתח ניהול קטגוריות'}
+          {showCategoryManager ? 'إغلاق إدارة الأقسام' : 'إدارة الأقسام'}
         </button>
         <button onClick={() => setShowMeals(prev => !prev)} style={{ marginBottom: 20 }}>
-          {showMeals ? 'סגור ניהול מנות' : 'פתח ניהול מנות'}
+          {showMeals ? 'إغلاق إدارة المنتجات' : 'إدارة المنتجات'}
         </button>
       </div>
       {showCategoryManager && <CategoryManager
