@@ -26,7 +26,18 @@ const AnalyticsPage = () => {
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('7d'); // '1d', '7d', '30d', '90d'
+  const [timeRange, setTimeRange] = useState('7d'); // '1d', '7d', '30d', 'custom'
+  const [customDateStart, setCustomDateStart] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  });
+  const [customDateEnd, setCustomDateEnd] = useState(() => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d.toISOString().slice(0, 10);
+  });
   const [showUserAnalytics, setShowUserAnalytics] = useState(false); // Collapsed by default
   const [showLiveStatus, setShowLiveStatus] = useState(false); // Collapsed by default
   const navigate = useNavigate();
@@ -135,8 +146,7 @@ const AnalyticsPage = () => {
     const timeRanges = {
       '1d': 1,
       '7d': 7,
-      '30d': 30,
-      '90d': 90
+      '30d': 30
     };
     
     const days = timeRanges[timeRange];
@@ -160,17 +170,44 @@ const AnalyticsPage = () => {
       }
     };
 
-    // Current period
-    const startDate = timeRange === '1d' 
-      ? new Date(now.getTime())
-      : new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    const filteredOrders = filterOrdersByRange(orders, startDate);
+    let startDate;
+    let rangeEnd = new Date();
+    rangeEnd.setHours(23, 59, 59, 999);
+    if (timeRange === 'custom' && customDateStart && customDateEnd) {
+      startDate = new Date(customDateStart);
+      startDate.setHours(0, 0, 0, 0);
+      rangeEnd = new Date(customDateEnd);
+      rangeEnd.setHours(23, 59, 59, 999);
+    } else if (timeRange === '1d') {
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+      rangeEnd = new Date(now);
+      rangeEnd.setHours(23, 59, 59, 999);
+    } else {
+      const daysCount = days != null ? days : 30;
+      startDate = new Date(now.getTime() - daysCount * 24 * 60 * 60 * 1000);
+    }
 
-    // Previous period (same length as current period)
-    const previousStartDate = timeRange === '1d'
-      ? new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000)
-      : new Date(now.getTime() - (days * 2) * 24 * 60 * 60 * 1000);
-    const previousFilteredOrders = filterOrdersByRange(orders, previousStartDate, startDate);
+    const filteredOrders = filterOrdersByRange(orders, startDate, timeRange === '1d' ? rangeEnd : rangeEnd);
+
+    // Previous period (same length as current) for comparison
+    let previousStartDate, previousRangeEnd;
+    if (timeRange === '1d') {
+      previousRangeEnd = new Date(startDate);
+      previousRangeEnd.setDate(previousRangeEnd.getDate() - 1);
+      previousRangeEnd.setHours(23, 59, 59, 999);
+      previousStartDate = new Date(previousRangeEnd);
+      previousStartDate.setHours(0, 0, 0, 0);
+    } else if (timeRange === 'custom' && customDateStart && customDateEnd) {
+      const periodLengthMs = rangeEnd.getTime() - startDate.getTime();
+      previousRangeEnd = new Date(startDate.getTime() - 1);
+      previousStartDate = new Date(previousRangeEnd.getTime() - periodLengthMs);
+    } else {
+      const daysCount = days != null ? days : 30;
+      previousRangeEnd = new Date(startDate.getTime() - 1);
+      previousStartDate = new Date(previousRangeEnd.getTime() - daysCount * 24 * 60 * 60 * 1000);
+    }
+    const previousFilteredOrders = filterOrdersByRange(orders, previousStartDate, previousRangeEnd);
 
     // Current period calculations (revenue = cart only, excludes delivery fee)
     const totalSales = filteredOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
@@ -197,7 +234,11 @@ const AnalyticsPage = () => {
         }, 0) / ordersWithPrepTime.length
       : 0;
 
-    const hoursInPeriod = days * 24;
+    const periodDays = timeRange === 'custom' && customDateStart && customDateEnd
+      ? Math.max(1, Math.ceil((rangeEnd.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)))
+      : (timeRange === '1d' ? 1 : (days != null ? days : 30));
+
+    const hoursInPeriod = periodDays * 24;
     const revenuePerHour = totalSales / hoursInPeriod;
 
     // Previous period calculations (revenue = cart only, excludes delivery fee)
@@ -229,7 +270,7 @@ const AnalyticsPage = () => {
         }, 0) / previousOrdersWithPrepTime.length
       : 0;
 
-    const previousRevenuePerHour = previousTotalSales / hoursInPeriod;
+    const previousRevenuePerHour = previousTotalSales / (periodDays * 24);
 
     // Calculate percentage changes
     const calculatePercentageChange = (current, previous) => {
@@ -392,7 +433,7 @@ const AnalyticsPage = () => {
     // Sort daily sales by date and limit based on time range
     const sortedDailySales = Object.entries(dailySales)
       .sort(([a], [b]) => new Date(a) - new Date(b))
-      .slice(-days); // Show only the selected number of days
+      .slice(-periodDays); // Show only the selected number of days
 
     return {
       totalSales,
@@ -418,20 +459,30 @@ const AnalyticsPage = () => {
       cancellationRateChange,
       avgPrepTimeChange
     };
-  }, [orders, timeRange]);
+  }, [orders, timeRange, customDateStart, customDateEnd]);
 
   // Calculate user analytics
   const userAnalytics = useMemo(() => {
     const now = new Date();
-    const timeRanges = {
-      '1d': 1,
-      '7d': 7,
-      '30d': 30,
-      '90d': 90
-    };
-    const days = timeRanges[timeRange];
-    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    const previousStartDate = new Date(now.getTime() - (days * 2) * 24 * 60 * 60 * 1000);
+    const timeRanges = { '1d': 1, '7d': 7, '30d': 30 };
+    let startDate;
+    let rangeEnd = new Date(now);
+    rangeEnd.setHours(23, 59, 59, 999);
+    if (timeRange === 'custom' && customDateStart && customDateEnd) {
+      startDate = new Date(customDateStart);
+      startDate.setHours(0, 0, 0, 0);
+      rangeEnd = new Date(customDateEnd);
+      rangeEnd.setHours(23, 59, 59, 999);
+    } else if (timeRange === '1d') {
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      const days = timeRanges[timeRange] != null ? timeRanges[timeRange] : 30;
+      startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    }
+    const periodMs = rangeEnd.getTime() - startDate.getTime();
+    const previousRangeEnd = new Date(startDate.getTime() - 1);
+    const previousStartDate = new Date(previousRangeEnd.getTime() - periodMs);
 
     // Helper function to check if date is within time range
     const isInTimeRange = (date, rangeStart, rangeEnd = now) => {
@@ -458,7 +509,7 @@ const AnalyticsPage = () => {
 
     // Current period calculations
     const filteredOrders = orders.filter(order => {
-      return isInTimeRange(order.createdAt, startDate);
+      return isInTimeRange(order.createdAt, startDate, rangeEnd);
     });
 
     const usersWithOrders = new Set(
@@ -469,13 +520,13 @@ const AnalyticsPage = () => {
 
     const activeUsers = users.filter(user => {
       const hasOrder = usersWithOrders.has(user.phone);
-      const profileUpdated = isInTimeRange(user.updatedAt, startDate);
-      const pointsUpdated = isInTimeRange(user.lastPointsUpdate, startDate);
+      const profileUpdated = isInTimeRange(user.updatedAt, startDate, rangeEnd);
+      const pointsUpdated = isInTimeRange(user.lastPointsUpdate, startDate, rangeEnd);
       return hasOrder || profileUpdated || pointsUpdated;
     });
 
     const newUsers = users.filter(user => {
-      return isInTimeRange(user.createdAt, startDate);
+      return isInTimeRange(user.createdAt, startDate, rangeEnd);
     });
 
     // Previous period calculations (for comparison)
@@ -567,7 +618,7 @@ const AnalyticsPage = () => {
       averageOrdersPerUser: parseFloat(averageOrdersPerUser),
       totalOrdersInPeriod
     };
-  }, [users, orders, timeRange]);
+  }, [users, orders, timeRange, customDateStart, customDateEnd]);
 
   if (loading) {
     return (
@@ -852,7 +903,7 @@ const AnalyticsPage = () => {
         width: '100%',
         boxSizing: 'border-box'
       }}>
-        {['1d', '7d', '30d', '90d'].map(range => (
+        {['1d', '7d', '30d', 'custom'].map(range => (
           <button
             key={range}
             onClick={() => setTimeRange(range)}
@@ -873,9 +924,50 @@ const AnalyticsPage = () => {
           >
             {range === '1d' ? 'اليوم' : 
              range === '7d' ? '7 أيام' :
-             range === '30d' ? '30 يوم' : '90 يوم'}
+             range === '30d' ? '30 يوم' : 'فترة مخصصة'}
           </button>
         ))}
+        {/* Custom date range inputs */}
+        {timeRange === 'custom' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            width: '100%',
+            justifyContent: 'center',
+            marginTop: '10px',
+            padding: '10px',
+            background: '#f8f9fa',
+            borderRadius: '12px',
+            border: '1px solid #eee'
+          }}>
+            <label style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>من</label>
+            <input
+              type="date"
+              value={customDateStart}
+              onChange={(e) => setCustomDateStart(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                fontSize: '14px'
+              }}
+            />
+            <label style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>إلى</label>
+            <input
+              type="date"
+              value={customDateEnd}
+              onChange={(e) => setCustomDateEnd(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                fontSize: '14px'
+              }}
+            />
+          </div>
+        )}
         {/* Daily PDF Export Button */}
         {timeRange === '1d' && (
           <button
