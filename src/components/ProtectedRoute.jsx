@@ -14,7 +14,7 @@ const ProtectedRoute = ({
   const selectedRole = sessionStorage.getItem('selectedRole');
   
   // Admin-only routes that employees cannot access
-  const adminOnlyRoutes = ['/meals', '/settings', '/analytics', '/coupons'];
+  const adminOnlyRoutes = ['/meals', '/settings', '/analytics', '/coupons', '/advanced-settings'];
   const isAdminOnlyRoute = adminOnlyRoutes.includes(location.pathname);
 
   if (loading) {

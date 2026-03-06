@@ -52,3 +52,7 @@ pages/ReceiptTestPreview.html
 pages/ReceiptWordWrapPreview.html
 RECEIPT_VISUAL_PREVIEW.html
 # pages/ReceiptPreview.html - Optional: can commit or ignore (dev tool)
+# Keep project link so deploys always go to luqma-admin-dashboard (no duplicate projects)
+!.vercel/project.json
+.vercel
+.env*.local

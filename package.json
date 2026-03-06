@@ -11,6 +11,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:production": "npm run ensure:advanced-settings-env && vite build",
+    "ensure:advanced-settings-env": "node scripts/ensure-advanced-settings-env.js",
+    "verify:build": "node scripts/verify-build-advanced-settings.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },

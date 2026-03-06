@@ -74,7 +74,13 @@ const LoginPage = () => {
       alignItems: 'center',
     }}>
       <div className="logo">
-        <img src={brandConfig.logoUrl} alt={brandConfig.name} />
+        {brandConfig.logoUrl ? (
+          <img src={brandConfig.logoUrl} alt={brandConfig.name} />
+        ) : (
+          <span style={{ fontSize: 28, fontWeight: 'bold', color: brandConfig.themeColor || '#007aff' }}>
+            {brandConfig.name}
+          </span>
+        )}
       </div>
       <div style={{
         background: 'white',

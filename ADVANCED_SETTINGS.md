@@ -48,6 +48,35 @@ VITE_ADVANCED_SETTINGS_EMAILS=dev1@company.com,dev2@company.com
 
 Restart the dev server (`npm run dev` or `yarn dev`) so Vite picks up the variable.
 
+---
+
+## Production build (Advanced Settings must show)
+
+The allowlist is **inlined at build time**. If you build without `VITE_ADVANCED_SETTINGS_EMAILS` set (e.g. empty in `.env` or not set in your CI/hosting env), **no one** will see Advanced Settings or Debug Tools in production.
+
+**CLI fix (run from admin-dashboard):**
+
+1. **Ensure .env has at least one email** (editing `.env` or using the script):
+   ```bash
+   npm run ensure:advanced-settings-env
+   ```
+   If the script exits with an error, add your email(s) to `VITE_ADVANCED_SETTINGS_EMAILS` in `.env`, then run it again.
+
+2. **Build for production** (ensure + build in one step):
+   ```bash
+   npm run build:production
+   ```
+   Or run `npm run build` only after confirming `.env` has `VITE_ADVANCED_SETTINGS_EMAILS` set.
+
+3. **Optional: verify** that the built bundle contains the allowlist:
+   ```bash
+   npm run build && npm run verify:build
+   ```
+
+If you deploy via Vercel/Netlify/CI: add `VITE_ADVANCED_SETTINGS_EMAILS` to the **build** environment variables (same value as in `.env`), then trigger a new build and redeploy.
+
+---
+
 ### 3. Sign in and use
 
 Sign in to the dashboard with the developer email (and choose **Admin** role when prompted). You will see **إعدادات متقدمة** in the sidebar. Open it to manage payment toggles and API keys.

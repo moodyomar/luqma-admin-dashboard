@@ -70,6 +70,11 @@ public class MainActivity extends AppCompatActivity {
 
         webView = findViewById(R.id.webview);
         
+        // Enable remote debugging (Chrome chrome://inspect) when debugging build
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
+        
         // Try to bind to SENRAISE's proprietary printer service
         bindToSenraisePrinter();
         
@@ -269,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
      */
     private Bitmap createTextBitmap(String[] lines, boolean includeHeader) {
         int width = 384; // 58mm paper = 384 pixels
-        int lineHeight = 32;
+        int lineHeight = 38; // was 32; increased for larger font
         int padding = 15;
         int headerSpace = includeHeader ? 80 : 20; // Space for logo/brand
         
@@ -328,7 +333,7 @@ public class MainActivity extends AppCompatActivity {
                 // Brand name in English (large, centered)
                 Paint headerPaint = new Paint();
                 headerPaint.setColor(Color.BLACK);
-                headerPaint.setTextSize(36);
+                headerPaint.setTextSize(40); // was 36
                 headerPaint.setAntiAlias(true);
                 headerPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
                 headerPaint.setTextAlign(Paint.Align.CENTER);
@@ -340,7 +345,7 @@ public class MainActivity extends AppCompatActivity {
                 // Brand name in Arabic (centered, below English)
                 Paint arabicHeaderPaint = new Paint();
                 arabicHeaderPaint.setColor(Color.BLACK);
-                arabicHeaderPaint.setTextSize(28);
+                arabicHeaderPaint.setTextSize(32); // was 28
                 arabicHeaderPaint.setAntiAlias(true);
                 arabicHeaderPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
                 arabicHeaderPaint.setTextAlign(Paint.Align.CENTER);
@@ -375,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
         // Setup paint for regular text - BOLD, DARK, Cairo-style
         Paint textPaint = new Paint();
         textPaint.setColor(Color.BLACK);
-        textPaint.setTextSize(22);
+        textPaint.setTextSize(26); // was 22; slightly larger for readability
         textPaint.setAntiAlias(true);
         textPaint.setTypeface(Typeface.create(cairoFont, Typeface.BOLD));
         textPaint.setFakeBoldText(true); // Extra bold for darker ink
@@ -384,7 +389,7 @@ public class MainActivity extends AppCompatActivity {
         // Paint for section headers (slightly larger)
         Paint headerTextPaint = new Paint();
         headerTextPaint.setColor(Color.BLACK);
-        headerTextPaint.setTextSize(25);
+        headerTextPaint.setTextSize(29); // was 25
         headerTextPaint.setAntiAlias(true);
         headerTextPaint.setTypeface(Typeface.create(cairoFont, Typeface.BOLD));
         headerTextPaint.setFakeBoldText(true);
@@ -397,7 +402,7 @@ public class MainActivity extends AppCompatActivity {
             
             // Skip empty lines at start
             if (line.trim().isEmpty()) {
-                currentY += 12; // Small gap for empty lines
+                currentY += 14; // Small gap for empty lines (was 12)
                 continue;
             }
             
@@ -426,26 +431,26 @@ public class MainActivity extends AppCompatActivity {
                 Paint bgPaint = new Paint();
                 bgPaint.setColor(Color.rgb(245, 245, 245)); // Light gray background
                 bgPaint.setStyle(Paint.Style.FILL);
-                canvas.drawRect(padding, currentY - 25, width - padding, currentY + 12, bgPaint);
+                canvas.drawRect(padding, currentY - 28, width - padding, currentY + 14, bgPaint);
                 
                 // Draw border around total
                 Paint borderPaint = new Paint();
                 borderPaint.setColor(Color.BLACK);
                 borderPaint.setStyle(Paint.Style.STROKE);
                 borderPaint.setStrokeWidth(3);
-                canvas.drawRect(padding, currentY - 25, width - padding, currentY + 12, borderPaint);
+                canvas.drawRect(padding, currentY - 28, width - padding, currentY + 14, borderPaint);
                 
                 // Draw text in center (not right-aligned for total)
                 Paint totalPaint = new Paint();
                 totalPaint.setColor(Color.BLACK);
-                totalPaint.setTextSize(26);
+                totalPaint.setTextSize(30); // was 26
                 totalPaint.setAntiAlias(true);
                 totalPaint.setTypeface(Typeface.create(cairoFont, Typeface.BOLD));
                 totalPaint.setFakeBoldText(true);
                 totalPaint.setTextAlign(Paint.Align.CENTER);
                 
                 canvas.drawText(line, width / 2, currentY, totalPaint);
-                currentY += 40;
+                currentY += 46; // was 40; taller for larger total text
                 continue;
             }
             
