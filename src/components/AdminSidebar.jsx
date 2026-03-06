@@ -12,8 +12,10 @@ import {
   FiMenu,
   FiX,
   FiRefreshCw,
-  FiAlertTriangle
+  FiAlertTriangle,
+  FiLock
 } from 'react-icons/fi';
+import { canAccessAdvancedSettings } from '../utils/advancedSettingsAccess';
 
 const AdminSidebar = ({ onSwitchRole }) => {
   const navigate = useNavigate();
@@ -64,8 +66,13 @@ const AdminSidebar = ({ onSwitchRole }) => {
       path: '/settings',
       adminOnly: true
     },
-    // Debug tools - only in development mode
-    ...(import.meta.env.DEV ? [{
+    ...(canAccessAdvancedSettings(user) ? [{
+      id: 'advanced-settings',
+      label: 'إعدادات متقدمة',
+      icon: FiLock,
+      path: '/advanced-settings',
+      adminOnly: true
+    }, {
       id: 'debug',
       label: 'أدوات التطوير',
       icon: FiAlertTriangle,

@@ -4,8 +4,9 @@ Advanced Settings is a page in the admin dashboard where you can:
 
 - **Enable/disable** credit card (Tranzila) and Apple Pay
 - **Enter and update** Tranzila and Apple Pay API keys in a form (no manual Firestore editing)
+- **Edit theme colors** (primary, secondary, background, text, muted, border, etc.) — saved to `config.colors`; the menu app uses them at runtime so changes apply without rebuilding
 
-Changes are written to Firestore (`config.features`, `config.payment`) and apply to the menu app immediately without rebuilding.
+Changes are written to Firestore (`config.features`, `config.payment`, `config.colors`) and apply to the menu app immediately without rebuilding.
 
 ---
 

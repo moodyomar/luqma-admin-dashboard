@@ -4,7 +4,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import { useAuth } from '../src/contexts/AuthContext';
 import { canAccessAdvancedSettings } from '../src/utils/advancedSettingsAccess';
-import { FiLock, FiCreditCard, FiSmartphone, FiSave, FiArrowRight } from 'react-icons/fi';
+import { FiLock, FiCreditCard, FiSmartphone, FiSave, FiArrowRight, FiDroplet } from 'react-icons/fi';
 import { Toaster, toast } from 'react-hot-toast';
 import './styles.css';
 
@@ -26,6 +26,18 @@ const DEFAULT_APPLE_PAY = {
   countryCode: 'IL',
 };
 
+const COLOR_KEYS = [
+  { key: 'primary', label: 'Primary (أساسي)', hint: 'Buttons, headers' },
+  { key: 'secondary', label: 'Secondary (ثانوي)', hint: 'Accents' },
+  { key: 'background', label: 'Background (خلفية)', hint: 'Page background' },
+  { key: 'text', label: 'Text (نص)', hint: 'Body text' },
+  { key: 'buttonText', label: 'Button text (نص الزر)', hint: 'Text on buttons (e.g. pill)' },
+  { key: 'muted', label: 'Muted (باهت)', hint: 'Secondary text' },
+  { key: 'border', label: 'Border (حدود)', hint: 'Borders, dividers' },
+  { key: 'red', label: 'Red / Error', hint: 'Errors, delete' },
+  { key: 'white', label: 'White (أبيض)', hint: 'Button text on primary' },
+];
+
 const AdvancedSettingsPage = () => {
   const navigate = useNavigate();
   const { user, activeBusinessId } = useAuth();
@@ -35,6 +47,7 @@ const AdvancedSettingsPage = () => {
     enableVisa: false,
     tranzila: { ...DEFAULT_TRANZILA },
     applePay: { ...DEFAULT_APPLE_PAY },
+    colors: {},
   });
   const [showTranzilaSecrets, setShowTranzilaSecrets] = useState(false);
 
@@ -58,6 +71,7 @@ const AdvancedSettingsPage = () => {
           const data = snap.data();
           const features = data?.config?.features || {};
           const payment = data?.config?.payment || {};
+          const colors = data?.config?.colors && typeof data.config.colors === 'object' ? data.config.colors : {};
           const tranzila = { ...DEFAULT_TRANZILA, ...(payment.tranzila || {}) };
           const applePay = { ...DEFAULT_APPLE_PAY, ...(payment.applePay || {}) };
           setForm({
@@ -67,6 +81,7 @@ const AdvancedSettingsPage = () => {
               ...applePay,
               enabled: applePay.enabled === true || applePay.enabled === 'true',
             },
+            colors: { ...colors },
           });
         }
       } catch (err) {
@@ -82,6 +97,13 @@ const AdvancedSettingsPage = () => {
   const handleChange = (section, field, value) => {
     if (section === 'root') {
       setForm((prev) => ({ ...prev, [field]: value }));
+      return;
+    }
+    if (section === 'colors') {
+      setForm((prev) => ({
+        ...prev,
+        colors: { ...prev.colors, [field]: value },
+      }));
       return;
     }
     setForm((prev) => ({
@@ -103,7 +125,7 @@ const AdvancedSettingsPage = () => {
       const existingFeatures = snap.exists() ? snap.data()?.config?.features || {} : {};
       const mergedFeatures = { ...existingFeatures, enableVisa: form.enableVisa };
 
-      await updateDoc(ref, {
+      const updatePayload = {
         'config.features': mergedFeatures,
         'config.payment': {
           tranzila: {
@@ -123,7 +145,17 @@ const AdvancedSettingsPage = () => {
             countryCode: form.applePay.countryCode || DEFAULT_APPLE_PAY.countryCode,
           },
         },
-      });
+      };
+      // Only write config.colors if at least one color is set (avoid overwriting with empty)
+      const colorsToSave = form.colors && typeof form.colors === 'object'
+        ? Object.fromEntries(
+            Object.entries(form.colors).filter(([, v]) => v != null && String(v).trim() !== '')
+          )
+        : {};
+      if (Object.keys(colorsToSave).length > 0) {
+        updatePayload['config.colors'] = colorsToSave;
+      }
+      await updateDoc(ref, updatePayload);
       toast.success('تم حفظ الإعدادات المتقدمة');
     } catch (err) {
       console.error('AdvancedSettings save error:', err);
@@ -152,7 +184,7 @@ const AdvancedSettingsPage = () => {
         </h1>
       </div>
       <p style={{ color: '#666', marginBottom: '24px', fontSize: '14px' }}>
-        تفعيل/إيقاف طرق الدفع وإدخال مفاتيح API. التغييرات تُطبق فوراً على التطبيق دون إعادة نشر.
+        تفعيل/إيقاف طرق الدفع، إدخال مفاتيح API، وتعديل ألوان التطبيق. التغييرات تُطبق فوراً على التطبيق دون إعادة نشر.
       </p>
       <div style={{
         backgroundColor: '#e7f3ff',
@@ -164,7 +196,7 @@ const AdvancedSettingsPage = () => {
         color: '#004085'
       }}>
         <strong>كل الإعدادات من هذه الصفحة فقط — لا حاجة لإدخال شيء يدوياً في Firebase.</strong><br />
-        تفعيل/إيقاف الخانات وملء الحقول ثم «حفظ الإعدادات» يخزن تلقائياً: config.features.enableVisa (بطاقة ائتمان)، config.payment.tranzila، config.payment.applePay. التطبيق يقرأ من Firebase فوراً.
+        تفعيل/إيقاف الخانات وملء الحقول ثم «حفظ الإعدادات» يخزن تلقائياً: config.features.enableVisa (بطاقة ائتمان)، config.payment.tranzila، config.payment.applePay، config.colors (ألوان التطبيق). التطبيق يقرأ من Firebase فوراً.
         <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(0,122,255,0.3)' }}>
           <strong>لماذا الخانات غير مفعّلة والحقول فارغة؟</strong> هذه الصفحة تعرض فقط ما محفوظ في Firebase. إذا التطبيق يعمل حالياً بالدفع عبر ملف .env (في menu-app)، فـ Firebase لم يُحدَّث بعد — الخانات تبقى غير مفعّلة والحقول فارغة حتى تنسخ القيم من .env هنا، تفعّل الخانات، وتضغط «حفظ الإعدادات». بعد الحفظ، التطبيق سيقرأ من Firebase وستتزامن الإعدادات.
         </div>
@@ -330,6 +362,44 @@ const AdvancedSettingsPage = () => {
                 />
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Theme colors – saved to config.colors, app uses them at runtime */}
+        <section style={{
+          backgroundColor: '#fff',
+          border: '1px solid #e9ecef',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '20px',
+        }}>
+          <h2 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FiDroplet size={18} /> ألوان التطبيق | Theme colors
+          </h2>
+          <p style={{ color: '#666', fontSize: '13px', marginBottom: '16px' }}>
+            تغيير الألوان من هنا يظهر فوراً في التطبيق دون إعادة بناء. اترك الحقل فارغاً لاستخدام اللون الافتراضي من الكود.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+            {COLOR_KEYS.map(({ key, label, hint }) => (
+              <div key={key}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#555' }}>{label}</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="color"
+                    value={form.colors[key] && /^#[0-9A-Fa-f]{6}$/.test(form.colors[key]) ? form.colors[key] : '#999999'}
+                    onChange={(e) => handleChange('colors', key, e.target.value)}
+                    style={{ width: '36px', height: '36px', padding: 0, border: '1px solid #dee2e6', borderRadius: '6px', cursor: 'pointer' }}
+                  />
+                  <input
+                    type="text"
+                    value={form.colors[key] || ''}
+                    onChange={(e) => handleChange('colors', key, e.target.value)}
+                    placeholder={hint}
+                    style={{ flex: 1, padding: '8px 10px', border: '1px solid #dee2e6', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 

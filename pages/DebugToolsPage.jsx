@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../src/contexts/AuthContext';
+import { canAccessAdvancedSettings } from '../src/utils/advancedSettingsAccess';
 import { db, auth } from '../firebase/firebaseConfig';
 import { 
   collection, 
@@ -11,21 +13,67 @@ import {
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 import { firebaseApp } from '../firebase/firebaseConfig';
-import { FiAlertTriangle, FiTrash2, FiRefreshCw, FiDatabase, FiCheckCircle } from 'react-icons/fi';
+import { FiAlertTriangle, FiTrash2, FiRefreshCw, FiDatabase, FiCheckCircle, FiLock, FiUserPlus } from 'react-icons/fi';
 import './styles.css';
+
+const DEBUG_STORAGE_KEY = 'debugToolsUnlocked';
 
 const DebugToolsPage = () => {
   const { userRole, activeBusinessId, isAdmin, user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [unlocked, setUnlocked] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEBUG_STORAGE_KEY) === 'true');
+  const [debugPasswordInput, setDebugPasswordInput] = useState('');
+  const [debugPasswordError, setDebugPasswordError] = useState('');
   const [jeebFormData, setJeebFormData] = useState({
     email: '',
     password: '',
     name: '',
     phone: ''
   });
+  const [adminFormData, setAdminFormData] = useState({
+    email: '',
+    password: '',
+    name: ''
+  });
   const [creatingJeebDriver, setCreatingJeebDriver] = useState(false);
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+
+  const debugPassword = import.meta.env.VITE_DEBUG_TOOLS_PASSWORD || '';
+
+  // Restrict to developer allowlist (same as Advanced Settings) – not for normal users
+  const canAccess = canAccessAdvancedSettings(user);
+  useEffect(() => {
+    if (user && !canAccess) {
+      navigate('/settings', { replace: true });
+    }
+  }, [user, canAccess, navigate]);
+  if (user && !canAccess) {
+    return null;
+  }
+
+  const handleUnlockDebug = (e) => {
+    e.preventDefault();
+    setDebugPasswordError('');
+    if (!debugPassword) {
+      setDebugPasswordError('لم يتم تعيين كلمة مرور. أضف VITE_DEBUG_TOOLS_PASSWORD في ملف .env');
+      return;
+    }
+    if (debugPasswordInput.trim() !== debugPassword) {
+      setDebugPasswordError('كلمة المرور غير صحيحة');
+      return;
+    }
+    sessionStorage.setItem(DEBUG_STORAGE_KEY, 'true');
+    setUnlocked(true);
+    setDebugPasswordInput('');
+  };
+
+  const handleLockDebug = () => {
+    sessionStorage.removeItem(DEBUG_STORAGE_KEY);
+    setUnlocked(false);
+  };
 
   // Helper function to refresh auth token before operations
   const refreshAuthToken = async () => {
@@ -47,7 +95,7 @@ const DebugToolsPage = () => {
     return null;
   };
 
-  // Only show in development mode
+  // Only show in development mode (optional: remove to allow in production for allowlisted devs)
   const isDev = import.meta.env.DEV;
 
   if (!isDev) {
@@ -70,7 +118,7 @@ const DebugToolsPage = () => {
           <FiAlertTriangle size={48} style={{ color: '#ffc107', marginBottom: '16px' }} />
           <h2 style={{ color: '#495057', marginBottom: '12px' }}>أدوات التطوير</h2>
           <p style={{ color: '#6c757d', margin: 0 }}>
-            هذه الصفحة متاحة فقط في وضع التطوير
+            هذه الصفحة متاحة فقط في وضع التطوير (npm run dev)
           </p>
         </div>
       </div>
@@ -99,6 +147,83 @@ const DebugToolsPage = () => {
           <p style={{ color: '#6c757d', margin: 0 }}>
             يجب أن تكون مسؤولاً للوصول إلى أدوات التطوير
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Password lock: only who has VITE_DEBUG_TOOLS_PASSWORD can open tools
+  if (!unlocked) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '80vh',
+        padding: '24px',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '400px',
+          backgroundColor: 'white',
+          borderRadius: '16px',
+          padding: '32px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          border: '1px solid #dee2e6'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <FiLock size={28} style={{ color: '#6c757d' }} />
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '600', color: '#333' }}>
+              قفل أدوات التطوير
+            </h2>
+          </div>
+          <p style={{ color: '#666', fontSize: '14px', marginBottom: '24px' }}>
+            أدخل كلمة المرور للوصول إلى أدوات التطوير (إعادة تعيين البيانات، إضافة مسؤول، إلخ).
+          </p>
+          {!debugPassword && (
+            <p style={{ color: '#856404', backgroundColor: '#fff3cd', padding: '12px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>
+              أضف VITE_DEBUG_TOOLS_PASSWORD في ملف .env ثم أعد تشغيل السيرفر.
+            </p>
+          )}
+          <form onSubmit={handleUnlockDebug}>
+            <input
+              type="password"
+              value={debugPasswordInput}
+              onChange={(e) => { setDebugPasswordInput(e.target.value); setDebugPasswordError(''); }}
+              placeholder="كلمة المرور"
+              autoComplete="current-password"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                border: debugPasswordError ? '1px solid #dc3545' : '1px solid #ced4da',
+                fontSize: '16px',
+                marginBottom: '8px',
+                boxSizing: 'border-box'
+              }}
+            />
+            {debugPasswordError && (
+              <p style={{ color: '#dc3545', fontSize: '13px', margin: '0 0 12px' }}>{debugPasswordError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={!debugPassword}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: debugPassword ? '#007AFF' : '#adb5bd',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: debugPassword ? 'pointer' : 'not-allowed'
+              }}
+            >
+              فتح أدوات التطوير
+            </button>
+          </form>
         </div>
       </div>
     );
@@ -170,6 +295,39 @@ const DebugToolsPage = () => {
       setError(`❌ ${errorMessage}`);
     } finally {
       setCreatingJeebDriver(false);
+    }
+  };
+
+  const handleCreateAdmin = async (e) => {
+    e.preventDefault();
+    if (!activeBusinessId) {
+      setError('لا يوجد معرف عمل نشط');
+      return;
+    }
+    setCreatingAdmin(true);
+    setError(null);
+    setResult(null);
+    try {
+      const functions = getFunctions(firebaseApp, import.meta.env.VITE_FIREBASE_REGION || 'us-central1');
+      if (import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
+        connectFunctionsEmulator(functions, 'localhost', 5001);
+      }
+      const inviteUser = httpsCallable(functions, 'inviteUser');
+      const res = await inviteUser({
+        businessId: activeBusinessId,
+        email: adminFormData.email.trim(),
+        password: adminFormData.password,
+        role: 'admin',
+        displayName: adminFormData.name?.trim() || undefined,
+      });
+      console.log('✅ Admin invited:', res.data);
+      setAdminFormData({ email: '', password: '', name: '' });
+      setResult({ success: true, message: 'تم إنشاء/ربط المسؤول بنجاح! يمكنه تسجيل الدخول واختيار دور مسؤول.' });
+    } catch (err) {
+      console.error('Error inviting admin:', err);
+      setError(`❌ ${err?.message || 'حدث خطأ أثناء إنشاء المسؤول'}`);
+    } finally {
+      setCreatingAdmin(false);
     }
   };
 
@@ -1016,6 +1174,27 @@ const DebugToolsPage = () => {
           }}>
             أدوات التطوير
           </h1>
+          <button
+            type="button"
+            onClick={handleLockDebug}
+            style={{
+              marginRight: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              background: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              fontWeight: '500'
+            }}
+            title="قفل أدوات التطوير"
+          >
+            <FiLock size={16} /> قفل
+          </button>
         </div>
         <p style={{
           margin: '8px 0 0 0',
@@ -1024,6 +1203,102 @@ const DebugToolsPage = () => {
         }}>
           ⚠️ تحذير: هذه الأدوات تقوم بإجراءات لا يمكن التراجع عنها. استخدمها بحذر!
         </p>
+      </div>
+
+      {/* Invite Admin - developer only */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        padding: '32px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        marginBottom: '24px',
+        border: '1px solid #dee2e6'
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: '8px',
+          fontSize: '22px',
+          fontWeight: 'bold',
+          color: '#333',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <FiUserPlus size={24} /> إضافة مسؤول (Admin)
+        </h2>
+        <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px', lineHeight: 1.5 }}>
+          إنشاء حساب مسؤول لهذا العمل. استخدمه للمطور أو مالك العمل.
+        </p>
+        <form onSubmit={handleCreateAdmin}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: '16px',
+            marginBottom: '16px'
+          }}>
+            <input
+              type="email"
+              placeholder="البريد الإلكتروني *"
+              value={adminFormData.email}
+              onChange={(e) => setAdminFormData(prev => ({ ...prev, email: e.target.value }))}
+              required
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ced4da',
+                fontSize: '14px',
+                fontFamily: 'system-ui'
+              }}
+            />
+            <input
+              type="password"
+              placeholder="كلمة المرور * (6+ أحرف)"
+              value={adminFormData.password}
+              onChange={(e) => setAdminFormData(prev => ({ ...prev, password: e.target.value }))}
+              required
+              minLength={6}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ced4da',
+                fontSize: '14px',
+                fontFamily: 'system-ui'
+              }}
+            />
+            <input
+              type="text"
+              placeholder="الاسم (اختياري)"
+              value={adminFormData.name}
+              onChange={(e) => setAdminFormData(prev => ({ ...prev, name: e.target.value }))}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ced4da',
+                fontSize: '14px',
+                fontFamily: 'system-ui'
+              }}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={creatingAdmin}
+            style={{
+              padding: '12px 24px',
+              background: creatingAdmin ? '#adb5bd' : '#007AFF',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '15px',
+              fontWeight: '600',
+              cursor: creatingAdmin ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            {creatingAdmin ? 'جاري الإنشاء...' : 'إضافة مسؤول'}
+          </button>
+        </form>
       </div>
 
       {result && (

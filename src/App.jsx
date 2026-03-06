@@ -19,9 +19,11 @@ import SettingsPage from '../pages/SettingsPage';
 import AnalyticsPage from '../pages/AnalyticsPage';
 import CouponManagementPage from '../pages/CouponManagementPage';
 import DebugToolsPage from '../pages/DebugToolsPage';
+import AdvancedSettingsPage from '../pages/AdvancedSettingsPage';
 import { FiLogOut, FiRefreshCw } from 'react-icons/fi';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
+import { canAccessAdvancedSettings } from './utils/advancedSettingsAccess';
 import '../src/styles/admin.css'
 
 function App() {
@@ -57,7 +59,17 @@ function App() {
         // Check if role selection is needed
         const storedRole = sessionStorage.getItem('selectedRole');
         const isLoginPage = location.pathname === '/login';
-        
+        const isDeveloper = canAccessAdvancedSettings(user);
+
+        // Developer accounts (Advanced Settings allowlist): skip role modal, auto-set admin
+        if (!storedRole && !isLoginPage && isDeveloper) {
+          sessionStorage.setItem('selectedRole', 'admin');
+          sessionStorage.setItem('adminAuthenticated', 'true');
+          setSelectedRole('admin');
+          setShowRoleModal(false);
+          return;
+        }
+
         // Show role selection modal if user is authenticated but no role is selected
         if (!storedRole && !isLoginPage) {
           setShowRoleModal(true);
@@ -66,7 +78,7 @@ function App() {
         
         // Only redirect if not already on a valid page
         const currentPath = location.pathname;
-        const validAdminPaths = ['/orders', '/meals', '/settings', '/analytics', '/coupons', ...(import.meta.env.DEV ? ['/debug'] : [])];
+        const validAdminPaths = ['/orders', '/meals', '/settings', '/analytics', '/coupons', '/advanced-settings', ...(canAccessAdvancedSettings(user) ? ['/debug'] : [])];
         const validDriverPaths = ['/driver/orders', '/driver/profile'];
         
         // Handle role-based routing
@@ -217,6 +229,7 @@ function App() {
                 {location.pathname === '/settings' && 'الإعدادات'}
                 {location.pathname === '/analytics' && 'التقارير والإحصائيات'}
                 {location.pathname === '/coupons' && 'إدارة الكوبونات'}
+                {location.pathname === '/advanced-settings' && 'إعدادات متقدمة'}
                 {location.pathname === '/debug' && 'أدوات التطوير'}
               </h1>
             </div>
@@ -353,6 +366,7 @@ function App() {
                 {location.pathname === '/settings' && 'الإعدادات'}
                 {location.pathname === '/analytics' && 'التقارير والإحصائيات'}
                 {location.pathname === '/coupons' && 'إدارة الكوبونات'}
+                {location.pathname === '/advanced-settings' && 'إعدادات متقدمة'}
                 {location.pathname === '/debug' && 'أدوات التطوير'}
               </h1>
             </div>
@@ -421,6 +435,14 @@ function App() {
               <AuthGuard>
                 <ProtectedRoute>
                   <CouponManagementPage />
+                </ProtectedRoute>
+              </AuthGuard>
+            } />
+            
+            <Route path="/advanced-settings" element={
+              <AuthGuard>
+                <ProtectedRoute>
+                  <AdvancedSettingsPage />
                 </ProtectedRoute>
               </AuthGuard>
             } />
