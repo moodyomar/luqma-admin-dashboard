@@ -4,6 +4,15 @@
   font-family: "Cairo", sans-serif;
 }
 
+/* Receipt preview container - isolate from global font to use selected font */
+/* This ensures the preview uses the font selected in the dropdown, not the global Cairo font */
+.receipt-preview-container,
+.receipt-preview-container * {
+  /* Use CSS variable set via inline style, with !important to override global Cairo rule */
+  /* The CSS variable is set on the container element via React inline style */
+  font-family: var(--receipt-font-family, 'Tahoma', 'Arial', sans-serif) !important;
+}
+
 .loginButtons button {
   width: 150px;
 }

@@ -272,10 +272,101 @@ public class MainActivity extends AppCompatActivity {
      * Helper method to create beautiful receipt bitmap with logo and Arabic RTL support
      * Uses Android's text rendering (which supports Arabic) then converts to image
      */
-    private Bitmap createTextBitmap(String[] lines, boolean includeHeader) {
-        int width = 384; // 58mm paper = 384 pixels
-        int lineHeight = 38; // was 32; increased for larger font
+    /**
+     * Helper class to hold receipt style values
+     */
+    private static class ReceiptStyle {
+        int bodyFont = 22;
+        int lineHeight = 32;
         int padding = 15;
+        int headerFont = 25;
+        int totalFont = 26;
+        int footerFont = 20;
+        int sepMargin = 15;
+        int emptyGap = 12;
+        int logoMaxWidth = 150;
+        int logoSpacingAfter = 25;
+        String fontFamily = null;
+    }
+    
+    /**
+     * Parse receiptStyle JSON and extract all style values
+     */
+    private ReceiptStyle parseReceiptStyle(String receiptStyleJson) {
+        ReceiptStyle style = new ReceiptStyle();
+        
+        if (receiptStyleJson == null || receiptStyleJson.trim().isEmpty() || receiptStyleJson.equals("null")) {
+            return style; // Return defaults
+        }
+        
+        try {
+            // Parse numeric values using simple string matching (avoiding JSON library dependency)
+            style.bodyFont = parseIntFromJson(receiptStyleJson, "bodyFont", 22);
+            style.lineHeight = parseIntFromJson(receiptStyleJson, "lineHeight", 32);
+            style.padding = parseIntFromJson(receiptStyleJson, "padding", 15);
+            style.headerFont = parseIntFromJson(receiptStyleJson, "headerFont", 25);
+            style.totalFont = parseIntFromJson(receiptStyleJson, "totalFont", 26);
+            style.footerFont = parseIntFromJson(receiptStyleJson, "footerFont", 20);
+            style.sepMargin = parseIntFromJson(receiptStyleJson, "sepMargin", 15);
+            style.emptyGap = parseIntFromJson(receiptStyleJson, "emptyGap", 12);
+            style.logoMaxWidth = parseIntFromJson(receiptStyleJson, "logoMaxWidth", 150);
+            style.logoSpacingAfter = parseIntFromJson(receiptStyleJson, "logoSpacingAfter", 25);
+            
+            // Parse fontFamily string
+            int fontFamilyIndex = receiptStyleJson.indexOf("\"fontFamily\"");
+            if (fontFamilyIndex >= 0) {
+                int colonIndex = receiptStyleJson.indexOf(":", fontFamilyIndex);
+                int startQuote = receiptStyleJson.indexOf("\"", colonIndex) + 1;
+                int endQuote = receiptStyleJson.indexOf("\"", startQuote);
+                if (startQuote > 0 && endQuote > startQuote) {
+                    style.fontFamily = receiptStyleJson.substring(startQuote, endQuote);
+                }
+            }
+            
+            android.util.Log.i("POS", "✅ Parsed receiptStyle: bodyFont=" + style.bodyFont + 
+                ", lineHeight=" + style.lineHeight + ", padding=" + style.padding);
+        } catch (Exception e) {
+            android.util.Log.w("POS", "⚠️ Failed to parse receiptStyle: " + e.getMessage());
+        }
+        
+        return style;
+    }
+    
+    /**
+     * Extract integer value from JSON string
+     */
+    private int parseIntFromJson(String json, String key, int defaultValue) {
+        try {
+            String searchKey = "\"" + key + "\"";
+            int keyIndex = json.indexOf(searchKey);
+            if (keyIndex >= 0) {
+                int colonIndex = json.indexOf(":", keyIndex);
+                int valueStart = colonIndex + 1;
+                // Skip whitespace
+                while (valueStart < json.length() && Character.isWhitespace(json.charAt(valueStart))) {
+                    valueStart++;
+                }
+                // Find end of number (comma, }, or whitespace)
+                int valueEnd = valueStart;
+                while (valueEnd < json.length() && 
+                       (Character.isDigit(json.charAt(valueEnd)) || json.charAt(valueEnd) == '-')) {
+                    valueEnd++;
+                }
+                if (valueEnd > valueStart) {
+                    String valueStr = json.substring(valueStart, valueEnd).trim();
+                    return Integer.parseInt(valueStr);
+                }
+            }
+        } catch (Exception e) {
+            // Return default on any error
+        }
+        return defaultValue;
+    }
+    
+    private Bitmap createTextBitmap(String[] lines, boolean includeHeader, ReceiptStyle style) {
+        int width = 384; // 58mm paper = 384 pixels
+        int lineHeight = style.lineHeight;
+        int padding = style.padding;
         int headerSpace = includeHeader ? 80 : 20; // Space for logo/brand
         
         // Calculate height
@@ -303,8 +394,8 @@ public class MainActivity extends AppCompatActivity {
                     Bitmap logoBitmap = BitmapFactory.decodeResource(getResources(), logoResId);
                     
                     if (logoBitmap != null) {
-                        // Scale logo to fit (max 150px wide for better quality)
-                        int maxLogoWidth = 150;
+                        // Scale logo to fit (use logoMaxWidth from style)
+                        int maxLogoWidth = style.logoMaxWidth;
                         float scale = Math.min(1.0f, (float)maxLogoWidth / logoBitmap.getWidth());
                         int scaledWidth = (int)(logoBitmap.getWidth() * scale);
                         int scaledHeight = (int)(logoBitmap.getHeight() * scale);
@@ -317,7 +408,7 @@ public class MainActivity extends AppCompatActivity {
                         // Draw logo centered
                         int logoX = (width - scaledWidth) / 2;
                         canvas.drawBitmap(scaledLogo, logoX, currentY, null);
-                        currentY += scaledHeight + 25; // More space under logo
+                        currentY += scaledHeight + style.logoSpacingAfter; // Use logoSpacingAfter from style
                         
                         android.util.Log.i("POS", "✅ Logo drawn: " + scaledWidth + "x" + scaledHeight);
                     }
@@ -333,7 +424,7 @@ public class MainActivity extends AppCompatActivity {
                 // Brand name in English (large, centered)
                 Paint headerPaint = new Paint();
                 headerPaint.setColor(Color.BLACK);
-                headerPaint.setTextSize(40); // was 36
+                headerPaint.setTextSize(46); // brand name (English)
                 headerPaint.setAntiAlias(true);
                 headerPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
                 headerPaint.setTextAlign(Paint.Align.CENTER);
@@ -345,7 +436,7 @@ public class MainActivity extends AppCompatActivity {
                 // Brand name in Arabic (centered, below English)
                 Paint arabicHeaderPaint = new Paint();
                 arabicHeaderPaint.setColor(Color.BLACK);
-                arabicHeaderPaint.setTextSize(32); // was 28
+                arabicHeaderPaint.setTextSize(38); // brand name (Arabic)
                 arabicHeaderPaint.setAntiAlias(true);
                 arabicHeaderPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
                 arabicHeaderPaint.setTextAlign(Paint.Align.CENTER);
@@ -365,31 +456,66 @@ public class MainActivity extends AppCompatActivity {
             currentY += 25;
         }
         
-        // ============ BODY TEXT (RTL with Cairo-style font) ============
-        // Try to load Cairo font, fallback to sans-serif (similar look)
-        Typeface cairoFont = Typeface.SANS_SERIF; // Sans-serif is closest to Cairo
-        try {
-            // Try to load custom Cairo font if available
-            Typeface customFont = Typeface.createFromAsset(getAssets(), "fonts/Cairo-Bold.ttf");
-            cairoFont = customFont;
-            android.util.Log.i("POS", "✅ Using Cairo font from assets");
-        } catch (Exception e) {
-            android.util.Log.i("POS", "ℹ️ Cairo font not found, using sans-serif");
+        // ============ BODY TEXT (RTL with selected font) ============
+        // Map CSS font-family to Android Typeface
+        Typeface selectedFont = Typeface.SANS_SERIF; // Default fallback
+        
+        String fontFamily = style.fontFamily;
+        if (fontFamily != null && !fontFamily.isEmpty()) {
+            // Parse font-family string (may contain multiple fonts like "'Cairo', 'Tahoma', sans-serif")
+            String fontFamilyLower = fontFamily.toLowerCase();
+            
+            if (fontFamilyLower.contains("cairo")) {
+                // Try to load Cairo font from assets
+                try {
+                    Typeface customFont = Typeface.createFromAsset(getAssets(), "fonts/Cairo-Bold.ttf");
+                    selectedFont = customFont;
+                    android.util.Log.i("POS", "✅ Using Cairo font from assets");
+                } catch (Exception e) {
+                    android.util.Log.i("POS", "ℹ️ Cairo font not found in assets, using sans-serif");
+                    selectedFont = Typeface.SANS_SERIF;
+                }
+            } else if (fontFamilyLower.contains("arial")) {
+                selectedFont = Typeface.create("Arial", Typeface.BOLD);
+                android.util.Log.i("POS", "✅ Using Arial font");
+            } else if (fontFamilyLower.contains("tahoma")) {
+                selectedFont = Typeface.create("Tahoma", Typeface.BOLD);
+                android.util.Log.i("POS", "✅ Using Tahoma font");
+            } else if (fontFamilyLower.contains("system-ui") || fontFamilyLower.contains("system")) {
+                selectedFont = Typeface.DEFAULT;
+                android.util.Log.i("POS", "✅ Using system default font");
+            } else {
+                // Default to sans-serif
+                selectedFont = Typeface.SANS_SERIF;
+                android.util.Log.i("POS", "ℹ️ Using default sans-serif font");
+            }
+        } else {
+            // No fontFamily specified, try Cairo as default (backward compatibility)
+            try {
+                Typeface customFont = Typeface.createFromAsset(getAssets(), "fonts/Cairo-Bold.ttf");
+                selectedFont = customFont;
+                android.util.Log.i("POS", "✅ Using Cairo font from assets (default)");
+            } catch (Exception e) {
+                android.util.Log.i("POS", "ℹ️ Cairo font not found, using sans-serif");
+                selectedFont = Typeface.SANS_SERIF;
+            }
         }
         
-        // Setup paint for regular text - BOLD, DARK, Cairo-style
+        Typeface cairoFont = selectedFont; // Keep variable name for compatibility
+        
+        // Setup paint for regular text - use bodyFont from style
         Paint textPaint = new Paint();
         textPaint.setColor(Color.BLACK);
-        textPaint.setTextSize(26); // was 22; slightly larger for readability
+        textPaint.setTextSize(style.bodyFont); // Use bodyFont from style
         textPaint.setAntiAlias(true);
         textPaint.setTypeface(Typeface.create(cairoFont, Typeface.BOLD));
         textPaint.setFakeBoldText(true); // Extra bold for darker ink
         textPaint.setTextAlign(Paint.Align.RIGHT); // RTL
         
-        // Paint for section headers (slightly larger)
+        // Paint for section headers - use headerFont from style
         Paint headerTextPaint = new Paint();
         headerTextPaint.setColor(Color.BLACK);
-        headerTextPaint.setTextSize(29); // was 25
+        headerTextPaint.setTextSize(style.headerFont); // Use headerFont from style
         headerTextPaint.setAntiAlias(true);
         headerTextPaint.setTypeface(Typeface.create(cairoFont, Typeface.BOLD));
         headerTextPaint.setFakeBoldText(true);
@@ -402,7 +528,7 @@ public class MainActivity extends AppCompatActivity {
             
             // Skip empty lines at start
             if (line.trim().isEmpty()) {
-                currentY += 14; // Small gap for empty lines (was 12)
+                currentY += style.emptyGap; // Use emptyGap from style
                 continue;
             }
             
@@ -412,16 +538,16 @@ public class MainActivity extends AppCompatActivity {
                 Paint separatorPaint = new Paint();
                 separatorPaint.setColor(Color.BLACK);
                 separatorPaint.setStrokeWidth(2);
-                canvas.drawLine(padding + 10, currentY + 10, width - padding - 10, currentY + 10, separatorPaint);
-                currentY += 20;
+                canvas.drawLine(padding, currentY + 5, width - padding, currentY + 5, separatorPaint);
+                currentY += style.sepMargin; // Use sepMargin from style
                 continue;
             } else if (line.trim().startsWith("---") || line.trim().startsWith("- - -")) {
                 // Thin dashed line
                 Paint separatorPaint = new Paint();
                 separatorPaint.setColor(Color.GRAY);
                 separatorPaint.setStrokeWidth(1);
-                canvas.drawLine(padding + 10, currentY + 10, width - padding - 10, currentY + 10, separatorPaint);
-                currentY += 20;
+                canvas.drawLine(padding, currentY + 5, width - padding, currentY + 5, separatorPaint);
+                currentY += style.sepMargin; // Use sepMargin from style
                 continue;
             }
             
@@ -431,26 +557,26 @@ public class MainActivity extends AppCompatActivity {
                 Paint bgPaint = new Paint();
                 bgPaint.setColor(Color.rgb(245, 245, 245)); // Light gray background
                 bgPaint.setStyle(Paint.Style.FILL);
-                canvas.drawRect(padding, currentY - 28, width - padding, currentY + 14, bgPaint);
+                canvas.drawRect(padding, currentY - 32, width - padding, currentY + 18, bgPaint);
                 
                 // Draw border around total
                 Paint borderPaint = new Paint();
                 borderPaint.setColor(Color.BLACK);
                 borderPaint.setStyle(Paint.Style.STROKE);
                 borderPaint.setStrokeWidth(3);
-                canvas.drawRect(padding, currentY - 28, width - padding, currentY + 14, borderPaint);
+                canvas.drawRect(padding, currentY - 32, width - padding, currentY + 18, borderPaint);
                 
                 // Draw text in center (not right-aligned for total)
                 Paint totalPaint = new Paint();
                 totalPaint.setColor(Color.BLACK);
-                totalPaint.setTextSize(30); // was 26
+                totalPaint.setTextSize(style.totalFont); // Use totalFont from style
                 totalPaint.setAntiAlias(true);
                 totalPaint.setTypeface(Typeface.create(cairoFont, Typeface.BOLD));
                 totalPaint.setFakeBoldText(true);
                 totalPaint.setTextAlign(Paint.Align.CENTER);
                 
                 canvas.drawText(line, width / 2, currentY, totalPaint);
-                currentY += 46; // was 40; taller for larger total text
+                currentY += style.lineHeight + 10; // Use lineHeight from style
                 continue;
             }
             
@@ -482,10 +608,15 @@ public class MainActivity extends AppCompatActivity {
         /**
          * Print text receipt silently (no dialog)
          * @param text Receipt text content
+         * @param receiptStyleJson Optional JSON string with receipt style (fontFamily, etc.)
          * @return "success" or error message
          */
         @JavascriptInterface
-        public String printText(String text) {
+        public String printText(String text, String receiptStyleJson) {
+            // Handle backward compatibility: if receiptStyleJson is null or empty, treat as no style
+            if (receiptStyleJson == null) {
+                receiptStyleJson = "";
+            }
             try {
                 if (printer == null || printerHandle == null || Pointer.nativeValue(printerHandle) == 0) {
                     return "error: printer not initialized";
@@ -493,20 +624,32 @@ public class MainActivity extends AppCompatActivity {
                 
                 android.util.Log.i("POS", "📝 Printing order SILENTLY...");
                 
+                // Parse receiptStyle JSON to get all style values
+                ReceiptStyle receiptStyle = parseReceiptStyle(receiptStyleJson);
+                
                 // Build full receipt with Windows-1256 for Arabic
                 android.util.Log.i("POS", "🖼️ Printing beautiful order receipt with logo & Arabic");
                 
-                // Build clean receipt without manual separators (handled by createTextBitmap)
-                String fullText = text + 
-                        "\n\n" +
-                        getString(R.string.receipt_thank_you_en) + " " + getBrandName() + "\n" +
-                        getString(R.string.receipt_thank_you_ar) + " " + getString(R.string.brand_name_ar_short);
+                // Check if footer is already in the text (added by JavaScript from receiptStyle)
+                // Footer typically contains "Thank you" or "شكراً"
+                boolean hasFooter = text.contains("Thank you") || text.contains("شكراً") || 
+                                   text.contains("شكرا") || text.trim().endsWith("App");
+                
+                // Build clean receipt - add footer only if not already present
+                String fullText = text;
+                if (!hasFooter) {
+                    // Fallback: add footer from strings.xml if JavaScript didn't add it
+                    fullText = text + 
+                            "\n\n" +
+                            getString(R.string.receipt_thank_you_en) + " " + getBrandName() + "\n" +
+                            getString(R.string.receipt_thank_you_ar) + " " + getString(R.string.brand_name_ar_short);
+                }
                 
                 android.util.Log.i("POS", "📝 Receipt length: " + fullText.length() + " chars");
                 
                 // Create beautiful bitmap with header/logo
                 String[] lines = fullText.split("\n");
-                Bitmap receiptBitmap = createTextBitmap(lines, true);
+                Bitmap receiptBitmap = createTextBitmap(lines, true, receiptStyle);
                 
                 android.util.Log.i("POS", "🖼️ Beautiful receipt bitmap: " + receiptBitmap.getWidth() + "x" + receiptBitmap.getHeight());
                 
@@ -610,7 +753,8 @@ public class MainActivity extends AppCompatActivity {
                 android.util.Log.i("POS", "🖼️ Split into " + lines.length + " lines");
                 
                 // Create beautiful bitmap with header/logo (Android renders Arabic correctly!)
-                Bitmap textBitmap = createTextBitmap(lines, true);
+                ReceiptStyle defaultStyle = new ReceiptStyle(); // Use defaults for test print
+                Bitmap textBitmap = createTextBitmap(lines, true, defaultStyle);
                 
                 android.util.Log.i("POS", "🖼️ Bitmap size: " + textBitmap.getWidth() + "x" + textBitmap.getHeight());
                 

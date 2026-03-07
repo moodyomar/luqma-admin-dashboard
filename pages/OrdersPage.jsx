@@ -97,7 +97,7 @@ const formatFutureOrderMeta = (deliveryDateTime) => {
   return { dateStr, timeStr, relativeLabel, scheduled };
 };
 
-const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId }) => {
+const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId, receiptStyle }) => {
 
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
                         order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل'
@@ -284,13 +284,127 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 `;
   };
 
-  const buildReceiptText = (order) => {
+  const canUseNativePrinter = () =>
+    typeof window !== 'undefined' &&
+    window.PosPrinter &&
+    typeof window.PosPrinter.printText === 'function';
+
+  const handlePrint = async (order) => {
+    console.log('🖨️ Print requested for order:', order.id);
+    
+    const receiptText = buildReceiptText(order, receiptStyle);
+    const receiptStyleJson = receiptStyle ? JSON.stringify(receiptStyle) : null;
+    
+    // Try native POS printer first (silent printing)
+    if (canUseNativePrinter()) {
+      try {
+        console.log('✅ Using native POS printer (H10)');
+        const result = await window.PosPrinter.printText(receiptText, receiptStyleJson || '');
+        console.log('Print result:', result);
+        
+        if (result && result.includes('success')) {
+          toast.success('✅ تمت الطباعة بنجاح', {
+            duration: 2000,
+            position: 'top-center',
+            style: {
+              fontSize: '18px',
+              fontWeight: '700',
+              padding: '16px 24px',
+            },
+          });
+          return;
+        } else if (result && result.includes('error')) {
+          console.error('Native print error:', result);
+          toast.error('❌ خطأ في الطباعة: ' + result, {
+            duration: 3000,
+            position: 'top-center',
+          });
+          return;
+        }
+      } catch (err) {
+        console.error('Native POS print failed:', err);
+        toast.error('❌ فشل الاتصال بالطابعة', {
+          duration: 3000,
+          position: 'top-center',
+        });
+        // Continue to fallback
+      }
+    }
+
+    // Fallback to browser print dialog
+    console.log('⚠️ Using fallback browser print');
+    const receiptHtml = buildReceiptHtml(order);
+    const printWindow = window.open('', '_blank', 'width=600,height=800');
+    if (!printWindow) {
+      toast.error('الرجاء السماح بفتح النوافذ المنبثقة للطباعة.', {
+        duration: 4000,
+        position: 'top-center',
+      });
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(receiptHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    const triggerPrint = () => {
+      try {
+        printWindow.print();
+      } catch (err) {
+        console.error('Print error', err);
+        toast.error('تعذر إرسال أمر الطباعة. الرجاء إعادة المحاولة.', {
+          duration: 3000,
+          position: 'top-center',
+        });
+      }
+    };
+    if (printWindow.document.readyState === 'complete') {
+      triggerPrint();
+    } else {
+      printWindow.onload = triggerPrint;
+    }
+    printWindow.onafterprint = () => {
+      printWindow.close();
+    };
+  };
+
+  // Silent print function - only uses native POS printer (no browser dialog)
+  const silentPrint = async (orderData) => {
+    if (!canUseNativePrinter()) {
+      console.log('⚠️ Native printer not available, skipping silent print');
+      return;
+    }
+
+    try {
+      console.log('🖨️ Silent print for order:', orderData.id);
+      const receiptText = buildReceiptText(orderData, receiptStyle);
+      const receiptStyleJson = receiptStyle ? JSON.stringify(receiptStyle) : null;
+      const result = await window.PosPrinter.printText(receiptText, receiptStyleJson || '');
+      
+      if (result && result.includes('success')) {
+        console.log('✅ Silent print successful');
+      } else if (result && result.includes('error')) {
+        console.error('❌ Silent print error:', result);
+        // Don't show toast for silent print to avoid interruption
+      }
+    } catch (err) {
+      console.error('❌ Silent print failed:', err);
+      // Don't show toast for silent print errors
+    }
+  };
+
+  const buildReceiptText = (order, receiptStyle = null) => {
     const shortId = (order.uid || order.id || '').toString().slice(0, 6);
     const lines = [];
     const money = (value) => {
       const num = Number(value);
       if (!Number.isFinite(num)) return '₪0.00';
       return `₪${num.toFixed(2)}`;
+    };
+    
+    // Helper to replace {brandName} placeholder
+    const replaceBrandName = (text) => {
+      if (!text) return '';
+      return text.replace(/{brandName}/g, brandConfig.name || 'Luqma');
     };
     
     // Word wrap function for receipt (384px width, ~32 chars per line for Arabic - very conservative)
@@ -510,120 +624,22 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     lines.push(`المبلغ الإجمالي: ${money(receiptTotal)}`);
     lines.push('================================');
     
-    // Footer will be added by Java/Android from strings.xml
+    // Footer text from receiptStyle (if available)
+    if (receiptStyle) {
+      const footerEn = receiptStyle.footerTextEn || 'Thank you for using {brandName} App';
+      const footerAr = receiptStyle.footerTextAr || 'شكراً لاستخدامكم تطبيق {brandName}';
+      lines.push('');
+      lines.push(replaceBrandName(footerEn));
+      lines.push(replaceBrandName(footerAr));
+    }
+    // If no receiptStyle provided, Java/Android will add footer from strings.xml
 
     return lines.join('\n');
-  };
-
-  const canUseNativePrinter = () =>
-    typeof window !== 'undefined' &&
-    window.PosPrinter &&
-    typeof window.PosPrinter.printText === 'function';
-
-  const handlePrint = async (order) => {
-    console.log('🖨️ Print requested for order:', order.id);
-    
-    const receiptText = buildReceiptText(order);
-    
-    // Try native POS printer first (silent printing)
-    if (canUseNativePrinter()) {
-      try {
-        console.log('✅ Using native POS printer (H10)');
-        const result = await window.PosPrinter.printText(receiptText);
-        console.log('Print result:', result);
-        
-        if (result && result.includes('success')) {
-          toast.success('✅ تمت الطباعة بنجاح', {
-            duration: 2000,
-            position: 'top-center',
-            style: {
-              fontSize: '18px',
-              fontWeight: '700',
-              padding: '16px 24px',
-            },
-          });
-          return;
-        } else if (result && result.includes('error')) {
-          console.error('Native print error:', result);
-          toast.error('❌ خطأ في الطباعة: ' + result, {
-            duration: 3000,
-            position: 'top-center',
-          });
-          return;
-        }
-      } catch (err) {
-        console.error('Native POS print failed:', err);
-        toast.error('❌ فشل الاتصال بالطابعة', {
-          duration: 3000,
-          position: 'top-center',
-        });
-        // Continue to fallback
-      }
-    }
-
-    // Fallback to browser print dialog
-    console.log('⚠️ Using fallback browser print');
-    const receiptHtml = buildReceiptHtml(order);
-    const printWindow = window.open('', '_blank', 'width=600,height=800');
-    if (!printWindow) {
-      toast.error('الرجاء السماح بفتح النوافذ المنبثقة للطباعة.', {
-        duration: 4000,
-        position: 'top-center',
-      });
-      return;
-    }
-    printWindow.document.open();
-    printWindow.document.write(receiptHtml);
-    printWindow.document.close();
-    printWindow.focus();
-    const triggerPrint = () => {
-      try {
-        printWindow.print();
-      } catch (err) {
-        console.error('Print error', err);
-        toast.error('تعذر إرسال أمر الطباعة. الرجاء إعادة المحاولة.', {
-          duration: 3000,
-          position: 'top-center',
-        });
-      }
-    };
-    if (printWindow.document.readyState === 'complete') {
-      triggerPrint();
-    } else {
-      printWindow.onload = triggerPrint;
-    }
-    printWindow.onafterprint = () => {
-      printWindow.close();
-    };
   };
 
   // Accept order and set prep time
   const handleAcceptOrder = () => {
     setShowPrepTime(true);
-  };
-
-  // Silent print function - only uses native POS printer (no browser dialog)
-  const silentPrint = async (orderData) => {
-    if (!canUseNativePrinter()) {
-      console.log('⚠️ Native printer not available, skipping silent print');
-      return;
-    }
-
-    try {
-      console.log('🖨️ Silent print for order:', orderData.id);
-      const receiptText = buildReceiptText(orderData);
-      const result = await window.PosPrinter.printText(receiptText);
-      
-      if (result && result.includes('success')) {
-        console.log('✅ Silent print successful');
-      } else if (result && result.includes('error')) {
-        console.error('❌ Silent print error:', result);
-        // Don't show toast for silent print to avoid interruption
-      }
-    } catch (err) {
-      console.error('❌ Silent print failed:', err);
-      // Don't show toast for silent print errors
-    }
   };
 
   const handleSetTimeAndAccept = async () => {
@@ -1641,6 +1657,7 @@ const OrdersPage = () => {
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
   const [orderTimers, setOrderTimers] = useState({}); // Track countdown timers for each order
   const [showQuickMealsManager, setShowQuickMealsManager] = useState(false);
+  const [receiptStyle, setReceiptStyle] = useState(null); // Receipt style from Firebase config
   const { activeBusinessId } = useAuth();
 
   // Function to start a timer for an order
@@ -1682,6 +1699,25 @@ const OrdersPage = () => {
     };
   }, [orders]);
 
+
+  // Fetch receipt style from Firebase config
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    const loadReceiptStyle = async () => {
+      try {
+        const ref = doc(db, 'menus', activeBusinessId);
+        const snap = await getDoc(ref);
+        const data = snap.data();
+        const saved = data?.config?.receiptStyle;
+        if (saved && typeof saved === 'object') {
+          setReceiptStyle(saved);
+        }
+      } catch (e) {
+        console.error('Failed to load receipt style:', e);
+      }
+    };
+    loadReceiptStyle();
+  }, [activeBusinessId]);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -2301,7 +2337,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {newOrders.map((order, index) => (
-              <OrderCard key={`new-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} />
+              <OrderCard key={`new-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} />
             ))}
           </div>
         )
@@ -2311,7 +2347,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {activeOrders.map((order, index) => (
-              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} />
+              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} />
             ))}
           </div>
         )
@@ -2321,7 +2357,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {sortedFutureOrders.map((order, index) => (
-              <OrderCard key={`future-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} />
+              <OrderCard key={`future-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} />
             ))}
           </div>
         )
@@ -2331,7 +2367,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {pastOrders.map((order, index) => (
-              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} />
+              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} />
             ))}
           </div>
         )

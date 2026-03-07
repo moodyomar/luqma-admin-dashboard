@@ -1725,7 +1725,7 @@ const BusinessManagePage = () => {
               {form.contact.coordinates ? (
                 <>✅ קואורדינטות מוגדרות: {form.contact.coordinates} - זה יעזור להצגת המיקום במפה</>
               ) : (
-                <>💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה נדרש להצגת המיקום במפה. ניתן למצוא ב-Google Maps > לחץ על המיקום > העתק קואורדינטות</>
+                <>💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה נדרש להצגת המיקום במפה. ניתן למצוא ב-Google Maps {'>'} לחץ על המיקום {'>'} העתק קואורדינטות</>
               )}
             </div>
           </label>
@@ -1740,7 +1740,7 @@ const BusinessManagePage = () => {
               style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
             />
             <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-              💡 הזן קישור Google Maps של העסק שלך. ניתן למצוא אותו ב-Google Maps > שתף > העתק קישור
+              💡 הזן קישור Google Maps של העסק שלך. ניתן למצוא אותו ב-Google Maps {'>'} שתף {'>'} העתק קישור
             </div>
           </label>
           <label style={{ fontWeight: 500, color: '#444' }}>

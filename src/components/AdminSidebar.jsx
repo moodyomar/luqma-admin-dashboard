@@ -13,7 +13,8 @@ import {
   FiX,
   FiRefreshCw,
   FiAlertTriangle,
-  FiLock
+  FiLock,
+  FiFileText
 } from 'react-icons/fi';
 import { canAccessAdvancedSettings } from '../utils/advancedSettingsAccess';
 
@@ -71,6 +72,12 @@ const AdminSidebar = ({ onSwitchRole }) => {
       label: 'إعدادات متقدمة',
       icon: FiLock,
       path: '/advanced-settings',
+      adminOnly: true
+    }, {
+      id: 'receipt-style',
+      label: '🧾 شكل الإيصال',
+      icon: FiFileText,
+      path: '/receipt-style',
       adminOnly: true
     }, {
       id: 'debug',

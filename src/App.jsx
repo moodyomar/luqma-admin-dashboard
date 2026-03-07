@@ -20,6 +20,7 @@ import AnalyticsPage from '../pages/AnalyticsPage';
 import CouponManagementPage from '../pages/CouponManagementPage';
 import DebugToolsPage from '../pages/DebugToolsPage';
 import AdvancedSettingsPage from '../pages/AdvancedSettingsPage';
+import ReceiptStylePage from '../pages/ReceiptStylePage';
 import { FiLogOut, FiRefreshCw } from 'react-icons/fi';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
@@ -78,7 +79,7 @@ function App() {
         
         // Only redirect if not already on a valid page
         const currentPath = location.pathname;
-        const validAdminPaths = ['/orders', '/meals', '/settings', '/analytics', '/coupons', '/advanced-settings', ...(canAccessAdvancedSettings(user) ? ['/debug'] : [])];
+        const validAdminPaths = ['/orders', '/meals', '/settings', '/analytics', '/coupons', '/advanced-settings', ...(canAccessAdvancedSettings(user) ? ['/debug', '/receipt-style'] : [])];
         const validDriverPaths = ['/driver/orders', '/driver/profile'];
         
         // Handle role-based routing
@@ -230,6 +231,7 @@ function App() {
                 {location.pathname === '/analytics' && 'التقارير والإحصائيات'}
                 {location.pathname === '/coupons' && 'إدارة الكوبونات'}
                 {location.pathname === '/advanced-settings' && 'إعدادات متقدمة'}
+                {location.pathname === '/receipt-style' && '🧾 شكل الإيصال'}
                 {location.pathname === '/debug' && 'أدوات التطوير'}
               </h1>
             </div>
@@ -367,6 +369,7 @@ function App() {
                 {location.pathname === '/analytics' && 'التقارير والإحصائيات'}
                 {location.pathname === '/coupons' && 'إدارة الكوبونات'}
                 {location.pathname === '/advanced-settings' && 'إعدادات متقدمة'}
+                {location.pathname === '/receipt-style' && '🧾 شكل الإيصال'}
                 {location.pathname === '/debug' && 'أدوات التطوير'}
               </h1>
             </div>
@@ -443,6 +446,14 @@ function App() {
               <AuthGuard>
                 <ProtectedRoute>
                   <AdvancedSettingsPage />
+                </ProtectedRoute>
+              </AuthGuard>
+            } />
+            
+            <Route path="/receipt-style" element={
+              <AuthGuard>
+                <ProtectedRoute>
+                  <ReceiptStylePage />
                 </ProtectedRoute>
               </AuthGuard>
             } />
