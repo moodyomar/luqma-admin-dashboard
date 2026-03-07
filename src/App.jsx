@@ -391,6 +391,15 @@ function App() {
           minHeight: '100vh'
         }}>
           <Routes>
+            {/* Redirect root path to /analytics for authenticated users, /login for unauthenticated */}
+            <Route path="/" element={
+              <AuthGuard>
+                <ProtectedRoute>
+                  <Navigate to="/analytics" replace />
+                </ProtectedRoute>
+              </AuthGuard>
+            } />
+            
             <Route path="/login" element={<LoginPage />} />
             
             {/* Redirect /dashboard to /analytics */}

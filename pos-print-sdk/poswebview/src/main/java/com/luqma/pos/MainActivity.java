@@ -533,22 +533,34 @@ public class MainActivity extends AppCompatActivity {
             }
             
             // Detect separator lines (====, ---, - - -)
-            if (line.trim().startsWith("===")) {
-                // Thick solid line
-                Paint separatorPaint = new Paint();
-                separatorPaint.setColor(Color.BLACK);
-                separatorPaint.setStrokeWidth(2);
-                canvas.drawLine(padding, currentY + 5, width - padding, currentY + 5, separatorPaint);
-                currentY += style.sepMargin; // Use sepMargin from style
-                continue;
-            } else if (line.trim().startsWith("---") || line.trim().startsWith("- - -")) {
-                // Thin dashed line
-                Paint separatorPaint = new Paint();
-                separatorPaint.setColor(Color.GRAY);
-                separatorPaint.setStrokeWidth(1);
-                canvas.drawLine(padding, currentY + 5, width - padding, currentY + 5, separatorPaint);
-                currentY += style.sepMargin; // Use sepMargin from style
-                continue;
+            // Only treat lines that are PURE separators (no text content) as separator lines
+            String trimmedLine = line.trim();
+            if (trimmedLine.startsWith("===")) {
+                // Check if it's a pure separator (only contains =, -, or spaces)
+                String withoutEquals = trimmedLine.replace("=", "").replace("-", "").replace(" ", "");
+                if (withoutEquals.isEmpty()) {
+                    // Thick solid line
+                    Paint separatorPaint = new Paint();
+                    separatorPaint.setColor(Color.BLACK);
+                    separatorPaint.setStrokeWidth(2);
+                    canvas.drawLine(padding, currentY + 5, width - padding, currentY + 5, separatorPaint);
+                    currentY += style.sepMargin; // Use sepMargin from style
+                    continue;
+                }
+            } else if (trimmedLine.startsWith("---") || trimmedLine.startsWith("- - -")) {
+                // Check if it's a pure separator (only contains dashes, spaces, or dots)
+                // If it contains actual text (like "--- معلومات العميل ---"), render as text
+                String withoutSeparators = trimmedLine.replace("-", "").replace(" ", "").replace(".", "");
+                if (withoutSeparators.isEmpty()) {
+                    // Thin dashed line - pure separator
+                    Paint separatorPaint = new Paint();
+                    separatorPaint.setColor(Color.GRAY);
+                    separatorPaint.setStrokeWidth(1);
+                    canvas.drawLine(padding, currentY + 5, width - padding, currentY + 5, separatorPaint);
+                    currentY += style.sepMargin; // Use sepMargin from style
+                    continue;
+                }
+                // If it contains text (like "--- معلومات العميل ---"), fall through to render as text
             }
             
             // **SPECIAL: Draw border around total amount**
