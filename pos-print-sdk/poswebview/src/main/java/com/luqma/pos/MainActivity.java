@@ -606,7 +606,18 @@ public class MainActivity extends AppCompatActivity {
         }
 
         /**
-         * Print text receipt silently (no dialog)
+         * Print text receipt silently (no dialog) - backward compatible overload
+         * @param text Receipt text content
+         * @return "success" or error message
+         */
+        @JavascriptInterface
+        public String printText(String text) {
+            // Call the main method with empty receiptStyleJson for backward compatibility
+            return printText(text, "");
+        }
+
+        /**
+         * Print text receipt silently (no dialog) - with receipt style
          * @param text Receipt text content
          * @param receiptStyleJson Optional JSON string with receipt style (fontFamily, etc.)
          * @return "success" or error message
