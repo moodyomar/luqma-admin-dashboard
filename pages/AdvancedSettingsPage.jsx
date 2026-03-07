@@ -29,9 +29,12 @@ const DEFAULT_APPLE_PAY = {
 const COLOR_KEYS = [
   { key: 'primary', label: 'Primary (أساسي)', hint: 'Buttons, headers' },
   { key: 'secondary', label: 'Secondary (ثانوي)', hint: 'Accents' },
+  { key: 'activeCategory', label: 'Active category (التصنيف النشط)', hint: 'Rounded background behind selected category' },
   { key: 'background', label: 'Background (خلفية)', hint: 'Page background' },
   { key: 'text', label: 'Text (نص)', hint: 'Body text' },
   { key: 'buttonText', label: 'Button text (نص الزر)', hint: 'Text on buttons (e.g. pill)' },
+  { key: 'productModalButtonText', label: 'P Modal – actions (نص أزرار المنتج)', hint: 'Add to cart, Choose extras, Back' },
+  { key: 'productModalOptionText', label: 'P Modal – options (نص خيارات المنتج)', hint: 'Size pills, extras list text' },
   { key: 'muted', label: 'Muted (باهت)', hint: 'Secondary text' },
   { key: 'border', label: 'Border (حدود)', hint: 'Borders, dividers' },
   { key: 'red', label: 'Red / Error', hint: 'Errors, delete' },
@@ -44,6 +47,7 @@ const AdvancedSettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
+    accessBlocked: false,
     enableVisa: false,
     tranzila: { ...DEFAULT_TRANZILA },
     applePay: { ...DEFAULT_APPLE_PAY },
@@ -75,6 +79,7 @@ const AdvancedSettingsPage = () => {
           const tranzila = { ...DEFAULT_TRANZILA, ...(payment.tranzila || {}) };
           const applePay = { ...DEFAULT_APPLE_PAY, ...(payment.applePay || {}) };
           setForm({
+            accessBlocked: data?.config?.accessBlocked === true,
             enableVisa: features.enableVisa === true,
             tranzila,
             applePay: {
@@ -126,6 +131,7 @@ const AdvancedSettingsPage = () => {
       const mergedFeatures = { ...existingFeatures, enableVisa: form.enableVisa };
 
       const updatePayload = {
+        'config.accessBlocked': form.accessBlocked === true,
         'config.features': mergedFeatures,
         'config.payment': {
           tranzila: {
@@ -196,13 +202,37 @@ const AdvancedSettingsPage = () => {
         color: '#004085'
       }}>
         <strong>كل الإعدادات من هذه الصفحة فقط — لا حاجة لإدخال شيء يدوياً في Firebase.</strong><br />
-        تفعيل/إيقاف الخانات وملء الحقول ثم «حفظ الإعدادات» يخزن تلقائياً: config.features.enableVisa (بطاقة ائتمان)، config.payment.tranzila، config.payment.applePay، config.colors (ألوان التطبيق). التطبيق يقرأ من Firebase فوراً.
+        تفعيل/إيقاف الخانات وملء الحقول ثم «حفظ الإعدادات» يخزن تلقائياً: config.accessBlocked (إيقاف الوصول للتطبيق)، config.features.enableVisa (بطاقة ائتمان)، config.payment.tranzila، config.payment.applePay، config.colors (ألوان التطبيق). التطبيق يقرأ من Firebase فوراً.
         <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(0,122,255,0.3)' }}>
           <strong>لماذا الخانات غير مفعّلة والحقول فارغة؟</strong> هذه الصفحة تعرض فقط ما محفوظ في Firebase. إذا التطبيق يعمل حالياً بالدفع عبر ملف .env (في menu-app)، فـ Firebase لم يُحدَّث بعد — الخانات تبقى غير مفعّلة والحقول فارغة حتى تنسخ القيم من .env هنا، تفعّل الخانات، وتضغط «حفظ الإعدادات». بعد الحفظ، التطبيق سيقرأ من Firebase وستتزامن الإعدادات.
         </div>
       </div>
 
       <form onSubmit={handleSave}>
+        {/* App access block – like Spotify/Netflix when subscription lapses */}
+        <section style={{
+          backgroundColor: '#fff',
+          border: '1px solid #e9ecef',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '20px',
+        }}>
+          <h2 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FiLock size={18} /> وصول التطبيق | App access
+          </h2>
+          <p style={{ color: '#666', fontSize: '13px', marginBottom: '12px' }}>
+            عند التفعيل، يرى المستخدمون شاشة واحدة فقط تمنع استخدام التطبيق (مثل انتهاء الاشتراك). عند الإيقاف، يعود الوصول فوراً.
+          </p>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.accessBlocked}
+              onChange={(e) => handleChange('root', 'accessBlocked', e.target.checked)}
+            />
+            <span style={{ fontWeight: '500', color: '#333' }}>إيقاف الوصول للتطبيق بالكامل | Block app access entirely</span>
+          </label>
+        </section>
+
         {/* Feature toggles */}
         <section style={{
           backgroundColor: '#fff',
