@@ -24,6 +24,7 @@ const DEFAULT_APPLE_PAY = {
   merchantId: '',
   currencyCode: 'ILS',
   countryCode: 'IL',
+  hostingUrl: '', // Firebase Hosting URL for tranzila-applepay.html (e.g., https://{projectId}.web.app)
 };
 
 const COLOR_KEYS = [
@@ -149,6 +150,7 @@ const AdvancedSettingsPage = () => {
             merchantId: form.applePay.merchantId || null,
             currencyCode: form.applePay.currencyCode || DEFAULT_APPLE_PAY.currencyCode,
             countryCode: form.applePay.countryCode || DEFAULT_APPLE_PAY.countryCode,
+            hostingUrl: form.applePay.hostingUrl || null,
           },
         },
       };
@@ -391,6 +393,24 @@ const AdvancedSettingsPage = () => {
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid #dee2e6', borderRadius: '8px', fontSize: '14px' }}
                 />
               </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#555' }}>
+                Hosting URL (Firebase Hosting)
+                <span style={{ color: '#999', fontSize: '11px', marginLeft: '4px' }}>
+                  (e.g., https://{'{projectId}'}.web.app)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={form.applePay.hostingUrl}
+                onChange={(e) => handleChange('applePay', 'hostingUrl', e.target.value)}
+                placeholder="https://qbmenu-7963c.web.app"
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #dee2e6', borderRadius: '8px', fontSize: '14px' }}
+              />
+              <p style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                Leave empty to auto-generate from Firebase project ID. This URL hosts the tranzila-applepay.html file.
+              </p>
             </div>
           </div>
         </section>
