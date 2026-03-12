@@ -660,7 +660,7 @@ const DashboardPage = () => {
                       color: '#1d1d1f',
                       marginBottom: '2px'
                     }}>
-                      {formatCurrency(order.totalAmount || order.total || 0)}
+                      {formatCurrency(Number((order.totalAmount || order.total || 0)).toFixed(2))}
                     </div>
                     <div style={{
                       fontSize: '12px',

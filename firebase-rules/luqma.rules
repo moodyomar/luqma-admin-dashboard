@@ -1,0 +1,318 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+
+    // Check if user is authenticated
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    // Check if user belongs to a specific business
+    function hasBiz(bid) {
+      return isAuthed() && 
+             request.auth.token.businessIds != null &&
+             request.auth.token.businessIds.hasAny([bid]);
+    }
+
+    // Check if user has admin role
+    function isAdmin() {
+      return isAuthed() && 
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['admin']);
+    }
+
+    // Check if user has driver role
+    function isDriver() {
+      return isAuthed() && 
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['driver']);
+    }
+
+    // Check if user is a Jeeb driver (works across all businesses)
+    function isJeebDriver() {
+      return isAuthed() && 
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['jeeb_driver']);
+    }
+
+    // Check if user is admin for specific business
+    function isBusinessAdmin(bid) {
+      return hasBiz(bid) && isAdmin();
+    }
+
+    // ========================================
+    // JEEB BUSINESSES COLLECTION (Admin Dashboard)
+    // ========================================
+    match /businesses/{businessId} {
+      allow read: if isAuthed();
+      allow write: if isAdmin();
+    }
+
+    // ========================================
+    // GLOBAL DRIVERS COLLECTION (for Jeeb drivers)
+    // ========================================
+    match /drivers/{driverId} {
+      allow read: if isAuthed() && (
+        request.auth.uid == driverId || isAdmin()
+      );
+
+      allow create, update: if isAuthed() && (
+        request.auth.uid == driverId || isAdmin()
+      );
+
+      allow delete: if isAdmin();
+    }
+    // ========================================
+    // CLIENT REQUESTS (Jeeb client delivery requests)
+    // ========================================
+    match /client_requests/{requestId} {
+      // Clients can create requests (anonymous or authed)
+      allow create: if isAuthed();
+
+      // Request owner, drivers, and admins can read
+      allow read: if isAuthed() && (
+        request.auth.uid == resource.data.requesterId ||
+        isAdmin() || isJeebDriver() || isDriver()
+      );
+
+      // Drivers and admins can update quotes; client can accept/decline
+      allow update: if isAuthed() && (
+        isAdmin() || isJeebDriver() || isDriver() || request.auth.uid == resource.data.requesterId
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ========================================
+    // JEEB CLIENTS (client profiles)
+    // ========================================
+    match /jeeb_clients/{clientId} {
+      allow read, write: if isAuthed() && (
+        request.auth.uid == clientId || isAdmin()
+      );
+    }
+
+    // ========================================
+    // GLOBAL USERS COLLECTION (for push notifications & mobile app)
+    // ========================================
+    match /users/{uid} {
+      // CRITICAL: Allow any authenticated user to read user documents
+      // Mobile app and admin dashboard both need this access
+      allow read: if isAuthed();
+      
+      // CRITICAL: Allow users to create their own document (first-time registration with push token)
+      allow create: if isAuthed() && 
+                      (request.auth.uid == uid || 
+                       (request.resource.data.phone != null && 
+                        request.resource.data.phone is string));
+      
+      // Allow users to update their own document (push token updates)
+      allow update: if isAuthed() && (request.auth.uid == uid || isAdmin());
+      
+      // Only allow users to delete their own document
+      allow delete: if isAuthed() && request.auth.uid == uid;
+
+      // ========================================
+      // REFERRAL TRANSACTIONS SUBCOLLECTION
+      // ========================================
+      match /referralTransactions/{transactionId} {
+        // Users can read their own referral transaction history
+        // Admins can read all referral transactions (for debug/cleanup tools)
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+        // Only admins can create/update referral transactions (via Cloud Functions)
+        allow create, update: if isAdmin();
+        // Only admins can delete referral transactions (for debug/cleanup tools)
+        allow delete: if isAdmin();
+      }
+
+      // ========================================
+      // REFERRAL STATS SUBCOLLECTION
+      // ========================================
+      match /referralStats/{statId} {
+        // Users can read their own referral stats
+        // Admins can read all referral stats (for debug/cleanup tools)
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+        // Only admins can create/update referral stats (via Cloud Functions)
+        allow create, update: if isAdmin();
+        // Only admins can delete referral stats (for debug/cleanup tools)
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ========================================
+    // NOTIFICATION LOGS COLLECTION (used for split bill sessions)
+    // ========================================
+    match /notificationLogs/{logId} {
+      // Allow authenticated users to read split sessions
+      // (users need session ID/invite code to access, providing security)
+      allow read: if isAuthed();
+      
+      // Allow authenticated users to create split sessions (as host)
+      allow create: if isAuthed() && 
+                     request.resource.data.docType == 'split-session' &&
+                     request.resource.data.hostId == request.auth.uid;
+      
+      // Allow users to update split sessions they are part of
+      // Host can update any field, participants can update (to add claims, etc.)
+      allow update: if isAuthed() && (
+        resource.data.hostId == request.auth.uid ||
+        resource.data.participants[request.auth.uid] != null
+      );
+      
+      // Prevent deletion (sessions should expire, not be deleted)
+      allow delete: if false;
+    }
+
+    // ========================================
+    // TENANT-SCOPED COLLECTIONS
+    // ========================================
+    match /menus/{businessId} {
+      
+      // Business settings document (read by anyone with access, write by admins only)
+      allow read: if hasBiz(businessId) || true; // Public read for menu display
+      allow write: if isBusinessAdmin(businessId);
+
+      // ========================================
+      // USERS SUBCOLLECTION (per-business membership)
+      // ========================================
+      match /users/{uid} {
+        // Users can read all members of their business
+        allow read: if hasBiz(businessId);
+        // Only admins can create/update user memberships
+        allow create, update: if isBusinessAdmin(businessId);
+        // Prevent deletion (soft delete via status field instead)
+        allow delete: if false;
+      }
+
+      // ========================================
+      // ORDERS SUBCOLLECTION
+      // ========================================
+      match /orders/{orderId} {
+        // Read access:
+        // - All authenticated users can read orders
+        // - Customers: query filters by phone (where('phone', '==', userPhone)) - they only see their own
+        // - Drivers: client-side filtering by assignedDriverId - they see unassigned + their assigned
+        // - Admins: see all orders (no filtering needed)
+        // Security: Query-level filtering ensures users only see relevant orders
+        // Jeeb drivers authenticate in qbmenu-7963c, not this project
+        // so allow unauthenticated reads for Jeeb visibility
+        allow read: if true;
+        
+        // Update access:
+        // - Admins: can update all orders
+        // - Drivers: can update orders assigned to them OR unassigned orders (to accept them)
+        // - Customers: cannot update orders (only admins/drivers can)
+        // This prevents drivers from updating other drivers' assigned orders
+        allow update: if hasBiz(businessId) && (
+          isAdmin() || 
+          (isDriver() && (
+            // Driver can update if:
+            // 1. Order is assigned to them, OR
+            // 2. Order is unassigned (field doesn't exist, is null, or is empty string)
+            resource.data.assignedDriverId == request.auth.uid ||
+            !('assignedDriverId' in resource.data) ||
+            resource.data.assignedDriverId == null ||
+            resource.data.assignedDriverId == ''
+          ))
+        );
+        
+        // Create access:
+        // - Admins: can create orders from dashboard
+        // - Customers: can create orders (via menu app) - any authenticated user
+        allow create: if isAuthed();
+        
+        // Delete access:
+        // - Admins: can delete any order
+        // - Users: can delete their own orders, but only if status is 'pending' (not yet processed)
+        //   Security: Users can only delete orders where userId matches their auth.uid
+        //   Note: We use userId field for ownership verification (more secure than phone)
+        allow delete: if isBusinessAdmin(businessId) || 
+                      (isAuthed() && 
+                       resource.data.status == 'pending' &&
+                       resource.data.userId == request.auth.uid);
+      }
+
+      // ========================================
+      // PRODUCTS/MEALS SUBCOLLECTION
+      // ========================================
+      match /products/{productId} {
+        // Public read for menu display (or restrict to hasBiz if needed)
+        allow read: if true;
+        // Only admins can manage products
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // CATEGORIES SUBCOLLECTION
+      // ========================================
+      match /categories/{categoryId} {
+        // Public read for menu display
+        allow read: if true;
+        // Only admins can manage categories
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // COUPONS SUBCOLLECTION
+      // ========================================
+      match /coupons/{couponId} {
+        // Business members can read coupons (for validation)
+        allow read: if hasBiz(businessId) || true; // Public read for customer validation
+        
+        // Allow business admins OR global admins to manage coupons
+        // This provides flexibility and prevents permission issues
+        allow write: if isBusinessAdmin(businessId) || isAdmin();
+      }
+
+      // ========================================
+      // MEDIA SUBCOLLECTION
+      // ========================================
+      match /media/{mediaId} {
+        // Public read for displaying images
+        allow read: if true;
+        // Only admins can manage media
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // DRIVERS SUBCOLLECTION (if separate from users)
+      // ========================================
+      match /drivers/{driverId} {
+        // Business members can read drivers
+        allow read: if hasBiz(businessId);
+        // Only admins can manage drivers
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // ANALYTICS/STATS SUBCOLLECTION
+      // ========================================
+      match /analytics/{docId} {
+        // Only business members can read analytics
+        allow read: if hasBiz(businessId);
+        // Only admins can write analytics
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // NOTIFICATIONS SUBCOLLECTION
+      // ========================================
+      match /notifications/{notificationId} {
+        // Business members can read notifications
+        allow read: if hasBiz(businessId);
+        // System/admins can write notifications
+        allow write: if isBusinessAdmin(businessId);
+      }
+    }
+
+    // ========================================
+    // DENY ALL OTHER PATHS
+    // ========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

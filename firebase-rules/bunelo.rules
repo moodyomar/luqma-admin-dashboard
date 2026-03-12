@@ -1,0 +1,169 @@
+// Same as firebase-template.rules (all non-Luqma clients)
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function hasBiz(bid) {
+      return isAuthed() &&
+             request.auth.token.businessIds != null &&
+             request.auth.token.businessIds.hasAny([bid]);
+    }
+
+    function isAdmin() {
+      return isAuthed() &&
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['admin']);
+    }
+
+    function isDriver() {
+      return isAuthed() &&
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['driver']);
+    }
+
+    function isJeebDriver() {
+      return isAuthed() &&
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['jeeb_driver']);
+    }
+
+    function isBusinessAdmin(bid) {
+      return hasBiz(bid) && isAdmin();
+    }
+
+    // ========================================
+    // GLOBAL USERS (push notifications, loyalty/redeem points, profile)
+    // ========================================
+    match /users/{uid} {
+      allow read: if isAuthed();
+      allow create: if isAuthed() &&
+        (request.auth.uid == uid ||
+         (request.resource.data.phone != null && request.resource.data.phone is string));
+      allow update: if isAuthed() && (request.auth.uid == uid || isAdmin());
+      allow delete: if isAuthed() && request.auth.uid == uid;
+
+      match /referralTransactions/{transactionId} {
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+        allow create, update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      match /referralStats/{statId} {
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+        allow create, update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ========================================
+    // GLOBAL DRIVERS (Jeeb drivers)
+    // ========================================
+    match /drivers/{driverId} {
+      allow read: if isAuthed() && (
+        (isJeebDriver() && request.auth.uid == driverId) || isAdmin()
+      );
+      allow create, update: if isAuthed() && (
+        (isJeebDriver() && request.auth.uid == driverId) || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ========================================
+    // NOTIFICATION LOGS (split-bill sessions)
+    // ========================================
+    match /notificationLogs/{logId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed() &&
+        request.resource.data.docType == 'split-session' &&
+        request.resource.data.hostId == request.auth.uid;
+      allow update: if isAuthed() && (
+        resource.data.hostId == request.auth.uid ||
+        resource.data.participants[request.auth.uid] != null
+      );
+      allow delete: if false;
+    }
+
+    // ========================================
+    // TENANT-SCOPED: menus/{businessId}
+    // ========================================
+    match /menus/{businessId} {
+      allow read: if hasBiz(businessId) || true;
+      allow write: if isBusinessAdmin(businessId);
+
+      match /users/{uid} {
+        allow read: if hasBiz(businessId);
+        allow create, update: if isBusinessAdmin(businessId);
+        allow delete: if false;
+      }
+
+      // Orders: read open so Jeeb (other project) can read; update by admin/drivers/jeeb_driver
+      match /orders/{orderId} {
+        allow read: if true;
+        allow update: if hasBiz(businessId) && (
+          isAdmin() ||
+          ((isDriver() || isJeebDriver()) && (
+            resource.data.assignedDriverId == request.auth.uid ||
+            !('assignedDriverId' in resource.data) ||
+            resource.data.assignedDriverId == null ||
+            resource.data.assignedDriverId == ''
+          ))
+        );
+        allow create: if isAuthed();
+        allow delete: if isBusinessAdmin(businessId) ||
+          (isAuthed() &&
+           resource.data.status == 'pending' &&
+           resource.data.userId == request.auth.uid);
+      }
+
+      match /products/{productId} {
+        allow read: if true;
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /categories/{categoryId} {
+        allow read: if true;
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /coupons/{couponId} {
+        allow read: if hasBiz(businessId) || true;
+        allow write: if isBusinessAdmin(businessId) || isAdmin();
+      }
+
+      match /media/{mediaId} {
+        allow read: if true;
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /drivers/{driverId} {
+        allow read: if hasBiz(businessId);
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /analytics/{docId} {
+        allow read: if hasBiz(businessId);
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if hasBiz(businessId);
+        allow write: if isBusinessAdmin(businessId);
+      }
+    }
+
+    // ========================================
+    // DENY ALL OTHER PATHS
+    // ========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

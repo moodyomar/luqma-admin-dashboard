@@ -1,6 +1,7 @@
 // pages/OrdersPage.jsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import brandConfig from '../constants/brandConfig';
+import { formatPrice } from '../utils/formatPrice';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { Toaster, toast } from 'react-hot-toast';
@@ -1123,7 +1124,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         </div>
         <div>
           <span className="label">💰 السعر:</span>
-          <span className="value order-price">₪{order.total || order.price}</span>
+          <span className="value order-price">₪{formatPrice(order.total ?? order.price ?? 0)}</span>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase/firebaseConfig';
+import { formatPrice } from '../../utils/formatPrice';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { FiBell, FiX, FiCheck, FiClock, FiShoppingBag } from 'react-icons/fi';
@@ -38,7 +39,7 @@ const NotificationSystem = () => {
             // Create clean, modern notification messages like popular apps
             const customerName = order.customerName || order.customer?.name || order.name || 'عميل';
             const orderTotal = order.totalAmount || order.total || order.amount || 0;
-            
+
             // Extract first meal name from order
             let firstMealName = '';
             if (order.cart && Array.isArray(order.cart) && order.cart.length > 0) {
@@ -75,8 +76,8 @@ const NotificationSystem = () => {
               message = `${customerName} - ${firstMealName}`;
             } else {
               // Fallback if no meal name found
-              message = orderTotal > 0 
-                ? `${customerName} - ${orderTotal}₪`
+              message = Number(orderTotal) > 0
+                ? `${customerName} - ${formatPrice(orderTotal)}₪`
                 : customerName;
             }
             

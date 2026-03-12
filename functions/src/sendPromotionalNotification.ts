@@ -1,35 +1,31 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
 
 /**
  * Cloud Function to send promotional notifications to users
  * Requires admin role to execute
- * Using Gen 2 functions (v2) to match other functions in the project
+ * Uses 1st Gen so existing deployments (e.g. Risto) can update without 1st→2nd Gen upgrade errors
  */
-export const sendPromotionalNotification = onCall(
-  { enforceAppCheck: false },
-  async (request) => {
-    const data = request.data as {
-      title: string;
-      body: string;
-      targetUsers: "all" | string[];
-      businessId?: string;
-    };
-    const context = request.auth;
-    
+export const sendPromotionalNotification = functions.https.onCall(
+  async (data: {
+    title: string;
+    body: string;
+    targetUsers: "all" | string[];
+    businessId?: string;
+  }, context) => {
     // Authentication check
-    if (!context) {
-      throw new HttpsError(
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
         "unauthenticated",
         "You must be authenticated to send notifications"
       );
     }
 
     // Authorization check - ensure user has admin role
-    const userRoles = context.token.roles || [];
+    const userRoles = (context.auth.token as { roles?: string[] })?.roles || [];
     if (!userRoles.includes("admin")) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "permission-denied",
         "Only admins can send promotional notifications"
       );
@@ -37,21 +33,21 @@ export const sendPromotionalNotification = onCall(
 
     // Validate input
     if (!data.title || !data.body) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "invalid-argument",
         "Title and body are required"
       );
     }
 
     if (data.title.length > 65) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "invalid-argument",
         "Title must be 65 characters or less"
       );
     }
 
     if (data.body.length > 240) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "invalid-argument",
         "Body must be 240 characters or less"
       );
@@ -119,7 +115,7 @@ export const sendPromotionalNotification = onCall(
           userDocs.push(...batchDocs.docs);
         }
       } else {
-        throw new HttpsError(
+        throw new functions.https.HttpsError(
           "invalid-argument",
           "targetUsers must be 'all' or an array of user IDs"
         );
@@ -353,7 +349,7 @@ export const sendPromotionalNotification = onCall(
       };
     } catch (error) {
       logger.error("Error sending promotional notification:", error);
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "internal",
         "Failed to send notification",
         error instanceof Error ? error.message : String(error)

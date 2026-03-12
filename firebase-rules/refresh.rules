@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ==========================================
+    // USERS COLLECTION - FOR PUSH NOTIFICATIONS
+    // ==========================================
+    match /users/{userId} {
+      // Any authenticated user can read/write to users collection
+      // Needed for push token registration on first login
+      allow read, write: if isAuthenticated();
+      
+      // Referral transactions subcollection - users can only read their own
+      match /referralTransactions/{transactionId} {
+        // Allow read (both get and list) if user is authenticated and matches the userId from path
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow write: if false; // Only Cloud Functions can write
+      }
+      
+      // Referral stats subcollection - users can only read their own
+      match /referralStats/{statsId} {
+        // Allow read (both get and list) if user is authenticated and matches the userId from path
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow write: if false; // Only Cloud Functions can write
+      }
+    }
+    
+    // ==========================================
+    // MENUS COLLECTION - REFRESH APP + JEEB INTEGRATION
+    // ==========================================
+    match /menus/{menuId} {
+      // Anyone can read menu (needed before login for refresh app)
+      // Also needed for Jeeb to get business metadata
+      allow read: if true;
+      
+      // Any authenticated user can write (for refresh app admin/testing)
+      allow write: if request.auth != null;
+      
+      // Orders subcollection - CRITICAL FOR JEEB INTEGRATION
+      match /orders/{orderId} {
+        // ⚠️ CRITICAL: Must be "if true" for Jeeb integration
+        // This allows:
+        // 1. Refresh app customers to read their orders (authenticated)
+        // 2. Jeeb drivers to read orders (authenticated in qbmenu-7963c, not this project)
+        //    Since drivers authenticate in a DIFFERENT project, this project won't recognize their auth
+        //    So we must allow unauthenticated reads for Jeeb to work
+        allow read: if true;
+        
+        // Allow create if authenticated (for refresh app customers placing orders)
+        allow create: if isAuthenticated();
+        
+        // Allow update for:
+        // 1. Refresh app to update order status
+        // 2. Jeeb drivers to update order status (accept/deliver) even from other projects
+        //    Since drivers authenticate in qbmenu-7963c, we allow all updates
+        //    You can restrict this further if needed (e.g., only allow status updates)
+        allow update: if true;
+        
+        // Users can delete their own pending orders (for refresh app)
+        // Allow deletion if:
+        // 1. User is authenticated
+        // 2. Order status is "pending" (only pending orders can be canceled)
+        allow delete: if request.auth != null && resource.data.status == 'pending';
+      }
+    }
+    
+    // ==========================================
+    // NOTIFICATION LOGS - PERMISSIVE FOR NOW
+    // ==========================================
+    match /notificationLogs/{logId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // ============================================
+    // CITIES COLLECTION (if using dynamic cities)
+    // ============================================
+    match /cities/{cityId} {
+      // Anyone authenticated can read cities
+      allow read: if isAuthenticated();
+      // Only admins can write (adjust as needed)
+      allow write: if false; // Set to admin check if needed
+    }
+    
+    // ==========================================
+    // ALLOW ALL OTHER AUTHENTICATED READS
+    // ==========================================
+    // This catches any other collections your refresh app might use
+    // (products, categories, settings, etc.)
+    match /{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}
+
