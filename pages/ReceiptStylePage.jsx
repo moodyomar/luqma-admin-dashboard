@@ -109,27 +109,30 @@ const ReceiptStylePage = () => {
     fontSize: px(style.bodyFont),
     lineHeight: px(style.lineHeight),
     color: '#000',
-    fontWeight: 700,
+    fontWeight: style.titlesBoldOnly ? 400 : 700,
     textAlign: 'right',
     background: '#fff',
   };
   
-  // Styles matching Java rendering exactly - font-family handled by CSS variable
+  // When titlesBoldOnly: only headers and item titles are bold; body/quantity/extras normal (matches Java)
+  const bodyWeight = style.titlesBoldOnly ? 400 : 700;
+  const titleWeight = 700;
   const lineStyle = { 
     fontSize: px(style.bodyFont), 
-    fontWeight: 700, 
+    fontWeight: bodyWeight, 
     margin: 0, 
     lineHeight: px(style.lineHeight), 
     textAlign: 'right'
   };
   const headerStyle = { 
     fontSize: px(style.headerFont), 
-    fontWeight: 800, 
+    fontWeight: titleWeight, 
     margin: 0, 
     color: '#000', 
     lineHeight: px(style.lineHeight), 
     textAlign: 'right'
   };
+  const itemTitleLineStyle = { ...lineStyle, fontWeight: style.titlesBoldOnly ? titleWeight : bodyWeight };
   // Separator styles matching Java: 2px solid black, sepMargin spacing
   const sepStyle = { 
     borderTop: '2px solid #000', 
@@ -174,7 +177,7 @@ const ReceiptStylePage = () => {
             <div style={sepStyle} />
             
             {/* Order header - matching buildReceiptText structure exactly */}
-            <div style={lineStyle}>طلب رقم #a1b2c3</div>
+            <div style={itemTitleLineStyle}>طلب رقم #a1b2c3</div>
             <div style={lineStyle}>06.03.2025, 14:35:22</div>
             
             {/* Dashed separator matching Java (matches "- - - - - - - - - - - - - - - -") */}
@@ -204,7 +207,7 @@ const ReceiptStylePage = () => {
             <div style={emptyStyle} />
             <div style={headerStyle}>--- تفاصيل المنتجات ---</div>
             <div style={emptyStyle} />
-            <div style={lineStyle}>1. سلطة الجزر (M)</div>
+            <div style={itemTitleLineStyle}>1. سلطة الجزر (M)</div>
             <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   الكمية: 1 × ₪48.00</div>
             <div style={emptyStyle} />
             
@@ -271,6 +274,20 @@ const ReceiptStylePage = () => {
               </div>
             </div>
           ))}
+
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#495057' }}>
+              <input
+                type="checkbox"
+                checked={!!style.titlesBoldOnly}
+                onChange={(e) => updateStyle('titlesBoldOnly', e.target.checked)}
+              />
+              <span>عناوين فقط بولد (Titles bold only) — اسم الوجبة بولد، الوصف والكمية عادي</span>
+            </label>
+            <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6c757d' }}>
+              عند التفعيل: العناوين وأسماء المنتجات بولد، وباقي النص (الكمية، الإضافات، الملاحظات) بخط عادي.
+            </p>
+          </div>
 
           <div style={{ marginBottom: 18 }}>
             <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600, color: '#495057' }}>الخط</label>

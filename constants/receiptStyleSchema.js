@@ -21,6 +21,7 @@ export const RECEIPT_STYLE_KEYS = [
   'fontFamily',
   'footerTextEn',
   'footerTextAr',
+  'titlesBoldOnly',
 ];
 
 /** Default values — must match Java defaults in MainActivity.applyReceiptStyleFromJson */
@@ -40,6 +41,8 @@ export const DEFAULT_RECEIPT_STYLE = Object.freeze({
   fontFamily: "'Tahoma', 'Arial', sans-serif",
   footerTextEn: 'Thank you for using {brandName} App',
   footerTextAr: 'شكراً لاستخدامكم تطبيق {brandName}',
+  /** When true, only section headers and item titles are bold; body/quantity/extras use normal weight. */
+  titlesBoldOnly: false,
 });
 
 /** Min/max for numeric fields (clamped in Java too) — used for sliders and validation */

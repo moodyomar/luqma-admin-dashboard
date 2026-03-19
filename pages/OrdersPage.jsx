@@ -54,6 +54,14 @@ const isReservationFullyComplete = (order) =>
 const pluralizeAr = (value, singular, plural) => (value === 1 ? singular : plural);
 const formatNumber = (value) => new Intl.NumberFormat('en-US').format(value ?? 0);
 
+/** Display phone as 05xxx (replace +972 with 0) in UI and printed receipt */
+const formatPhoneDisplay = (phone) => {
+  if (!phone || typeof phone !== 'string') return phone || '';
+  const trimmed = phone.trim();
+  if (trimmed.startsWith('+972')) return '0' + trimmed.slice(4);
+  return trimmed;
+};
+
 const formatFutureOrderMeta = (deliveryDateTime) => {
   const scheduled = getScheduledDate(deliveryDateTime);
   if (!scheduled) return null;
@@ -196,7 +204,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       </div>
       <div class="section">
         <div>الاسم: ${order.name || 'غير محدد'}</div>
-        <div>الهاتف: ${order.phone || 'غير محدد'}</div>
+        <div>الهاتف: ${formatPhoneDisplay(order.phone) || 'غير محدد'}</div>
         <div>${driver || ''}</div>
         <div>${addressBlock}</div>
         ${order.extraNotes ? `<div>ملاحظات الموقع: ${order.extraNotes}</div>` : ''}
@@ -484,7 +492,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     lines.push('');
     lines.push('--- معلومات العميل ---');
     if (order.name) lines.push(`الاسم: ${order.name}`);
-    if (order.phone) lines.push(`الهاتف: ${order.phone}`);
+    if (order.phone) lines.push(`الهاتف: ${formatPhoneDisplay(order.phone)}`);
     lines.push('- - - - - - - - - - - - - - - -');
     
     // Delivery Details
@@ -634,6 +642,26 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       lines.push(replaceBrandName(footerAr));
     }
     // If no receiptStyle provided, Java/Android will add footer from strings.xml
+
+    // When titlesBoldOnly: prefix non-title lines with \u200B so Java draws them with normal weight
+    if (receiptStyle && receiptStyle.titlesBoldOnly) {
+      const isTitleLine = (line, index) => {
+        const t = (line || '').trim();
+        if (t.length === 0) return false; // empty stays as-is (Java uses emptyGap)
+        if (/^=+$/.test(t.replace(/\s/g, ''))) return true;
+        if (/^-+$/.test(t.replace(/\s/g, '')) || t.startsWith('- - -')) return true;
+        if (/^--- .+ ---$/.test(t)) return true;
+        if (line.includes('طلب رقم')) return true;
+        if (index === 1 && lines[0] && lines[0].includes('طلب رقم')) return true;
+        if (/^\d+\.\s/.test(t)) return true;
+        if (line.includes('المبلغ الإجمالي') || line.includes('Total Amount')) return true;
+        if (index >= lines.length - 2) return true; // footer
+        return false;
+      };
+      for (let i = 0; i < lines.length; i++) {
+        if (!isTitleLine(lines[i], i)) lines[i] = '\u200B' + lines[i];
+      }
+    }
 
     return lines.join('\n');
   };
@@ -1090,7 +1118,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             {order.phone ? (
               <a href={`tel:${order.phone}`} style={{ color: '#007aff', textDecoration: 'none', fontWeight: 'inherit', display: 'flex', alignItems: 'center' }}>
                 <span style={{ marginLeft: 8 }}>📞</span>
-                {order.phone.replace(/^\+/, '')}
+                {formatPhoneDisplay(order.phone)}
               </a>
             ) : (
               <>

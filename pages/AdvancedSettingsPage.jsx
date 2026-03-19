@@ -368,7 +368,7 @@ const AdvancedSettingsPage = () => {
                 type="text"
                 value={form.applePay.merchantId}
                 onChange={(e) => handleChange('applePay', 'merchantId', e.target.value)}
-                placeholder="e.g. merchant.com.luqma"
+                placeholder="e.g. merchant.com.yourbrand"
                 style={{ width: '100%', padding: '10px 12px', border: '1px solid #dee2e6', borderRadius: '8px', fontSize: '14px' }}
               />
             </div>
@@ -405,7 +405,7 @@ const AdvancedSettingsPage = () => {
                 type="text"
                 value={form.applePay.hostingUrl}
                 onChange={(e) => handleChange('applePay', 'hostingUrl', e.target.value)}
-                placeholder="https://qbmenu-7963c.web.app"
+                placeholder="https://YOUR_PROJECT_ID.web.app"
                 style={{ width: '100%', padding: '10px 12px', border: '1px solid #dee2e6', borderRadius: '8px', fontSize: '14px' }}
               />
               <p style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>

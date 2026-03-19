@@ -1,6 +1,7 @@
 // Luqma Admin Dashboard - fixed to Luqma only (no env/host overrides).
 // Sound paths and delay are from env so sync/update scripts don't overwrite per-app voices.
-const DEFAULT_NEW_ORDER_SOUND = '/luqma.mp3';
+// Use same file names in all apps so sync/update never overwrite: new-order-arrived.mp3, order-not-accepted-yet.mp3, future-order-due.mp3.
+const DEFAULT_NEW_ORDER_SOUND = '/new-order-arrived.mp3';
 const DEFAULT_NOT_ACCEPTED_SOUND = '/order-not-accepted-yet.mp3';
 const DEFAULT_FUTURE_DUE_SOUND = '/future-order-due.mp3';
 const DEFAULT_NOT_ACCEPTED_AFTER_MS = 2 * 60 * 1000; // 2 minutes

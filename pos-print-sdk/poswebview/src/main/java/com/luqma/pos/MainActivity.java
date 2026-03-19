@@ -287,7 +287,12 @@ public class MainActivity extends AppCompatActivity {
         int logoMaxWidth = 150;
         int logoSpacingAfter = 25;
         String fontFamily = null;
+        /** When true, only section headers and item titles are bold; body lines use normal weight (prefix \u200B in text). */
+        boolean titlesBoldOnly = false;
     }
+
+    /** Zero-width space: when titlesBoldOnly is true, lines starting with this are drawn with normal weight. */
+    private static final String NORMAL_WEIGHT_PREFIX = "\u200B";
     
     /**
      * Parse receiptStyle JSON and extract all style values
@@ -322,7 +327,8 @@ public class MainActivity extends AppCompatActivity {
                     style.fontFamily = receiptStyleJson.substring(startQuote, endQuote);
                 }
             }
-            
+            style.titlesBoldOnly = parseBooleanFromJson(receiptStyleJson, "titlesBoldOnly", false);
+
             android.util.Log.i("POS", "✅ Parsed receiptStyle: bodyFont=" + style.bodyFont + 
                 ", lineHeight=" + style.lineHeight + ", padding=" + style.padding);
         } catch (Exception e) {
@@ -359,6 +365,22 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             // Return default on any error
+        }
+        return defaultValue;
+    }
+
+    private boolean parseBooleanFromJson(String json, String key, boolean defaultValue) {
+        if (json == null) return defaultValue;
+        String searchKey = "\"" + key + "\"";
+        int keyIndex = json.indexOf(searchKey);
+        if (keyIndex >= 0) {
+            int colonIndex = json.indexOf(":", keyIndex);
+            int valueStart = colonIndex + 1;
+            while (valueStart < json.length() && Character.isWhitespace(json.charAt(valueStart))) valueStart++;
+            if (valueStart < json.length()) {
+                if (json.substring(valueStart).startsWith("true")) return true;
+                if (json.substring(valueStart).startsWith("false")) return false;
+            }
         }
         return defaultValue;
     }
@@ -511,6 +533,14 @@ public class MainActivity extends AppCompatActivity {
         textPaint.setTypeface(Typeface.create(cairoFont, Typeface.BOLD));
         textPaint.setFakeBoldText(true); // Extra bold for darker ink
         textPaint.setTextAlign(Paint.Align.RIGHT); // RTL
+
+        // When titlesBoldOnly: body lines are prefixed with \u200B and drawn with normal weight
+        Paint textPaintNormal = new Paint();
+        textPaintNormal.setColor(Color.BLACK);
+        textPaintNormal.setTextSize(style.bodyFont);
+        textPaintNormal.setAntiAlias(true);
+        textPaintNormal.setTypeface(Typeface.create(cairoFont, Typeface.NORMAL));
+        textPaintNormal.setTextAlign(Paint.Align.RIGHT);
         
         // Paint for section headers - use headerFont from style
         Paint headerTextPaint = new Paint();
@@ -525,16 +555,20 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
             if (line == null) continue;
+
+            // When titlesBoldOnly, lines starting with \u200B are drawn with normal weight
+            boolean useNormalWeight = style.titlesBoldOnly && line.startsWith(NORMAL_WEIGHT_PREFIX);
+            String displayLine = useNormalWeight ? line.substring(NORMAL_WEIGHT_PREFIX.length()) : line;
             
             // Skip empty lines at start
-            if (line.trim().isEmpty()) {
+            if (displayLine.trim().isEmpty()) {
                 currentY += style.emptyGap; // Use emptyGap from style
                 continue;
             }
             
             // Detect separator lines (====, ---, - - -)
             // Only treat lines that are PURE separators (no text content) as separator lines
-            String trimmedLine = line.trim();
+            String trimmedLine = displayLine.trim();
             if (trimmedLine.startsWith("===")) {
                 // Check if it's a pure separator (only contains =, -, or spaces)
                 String withoutEquals = trimmedLine.replace("=", "").replace("-", "").replace(" ", "");
@@ -563,8 +597,8 @@ public class MainActivity extends AppCompatActivity {
                 // If it contains text (like "--- معلومات العميل ---"), fall through to render as text
             }
             
-            // **SPECIAL: Draw border around total amount**
-            if (line.contains("المبلغ الإجمالي") || line.contains("Total Amount")) {
+            // **SPECIAL: Draw border around total amount** (check displayLine so \u200B prefix doesn't break detection)
+            if (displayLine.contains("المبلغ الإجمالي") || displayLine.contains("Total Amount")) {
                 // Draw filled background
                 Paint bgPaint = new Paint();
                 bgPaint.setColor(Color.rgb(245, 245, 245)); // Light gray background
@@ -587,17 +621,23 @@ public class MainActivity extends AppCompatActivity {
                 totalPaint.setFakeBoldText(true);
                 totalPaint.setTextAlign(Paint.Align.CENTER);
                 
-                canvas.drawText(line, width / 2, currentY, totalPaint);
+                canvas.drawText(displayLine, width / 2, currentY, totalPaint);
                 currentY += style.lineHeight + 10; // Use lineHeight from style
                 continue;
             }
             
-            // Use header paint for section titles (contains "معلومات" or "تفاصيل")
-            Paint activePaint = (line.contains("معلومات") || line.contains("تفاصيل") || line.contains("رقم"))
-                ? headerTextPaint : textPaint;
+            // Use header paint for section titles (contains "معلومات" or "تفاصيل"); when titlesBoldOnly use normal paint for body
+            Paint activePaint;
+            if (useNormalWeight) {
+                activePaint = textPaintNormal;
+            } else if (displayLine.contains("معلومات") || displayLine.contains("تفاصيل") || displayLine.contains("رقم")) {
+                activePaint = headerTextPaint;
+            } else {
+                activePaint = textPaint;
+            }
             
             // Draw text from right edge (RTL)
-            canvas.drawText(line, width - padding, currentY, activePaint);
+            canvas.drawText(displayLine, width - padding, currentY, activePaint);
             currentY += lineHeight;
         }
         

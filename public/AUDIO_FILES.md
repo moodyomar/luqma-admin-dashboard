@@ -6,7 +6,7 @@ Place your audio files in this folder (`public/`) so they are served at the root
 
 | File | When it plays |
 |------|----------------|
-| **luqma.mp3** | New order arrived (plays immediately). |
+| **new-order-arrived.mp3** | New order arrived (plays immediately). |
 | **order-not-accepted-yet.mp3** | New order still not accepted after 2 minutes – reminder. |
 | **future-order-due.mp3** | A scheduled (future) order’s time has just become due – “time to prepare”. |
 
@@ -23,7 +23,7 @@ Place your audio files in this folder (`public/`) so they are served at the root
 
 ```env
 # Optional – override per app (paths relative to public, e.g. /my-new-order.mp3)
-VITE_NEW_ORDER_SOUND=/luqma.mp3
+VITE_NEW_ORDER_SOUND=/new-order-arrived.mp3
 VITE_ORDER_NOT_ACCEPTED_SOUND=/order-not-accepted-yet.mp3
 VITE_FUTURE_ORDER_DUE_SOUND=/future-order-due.mp3
 # Optional – delay before “not accepted” reminder (milliseconds, default 120000 = 2 min)

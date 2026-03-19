@@ -6,6 +6,58 @@ This guide explains how to set up Firebase Hosting for the Apple Pay payment pag
 
 Each client app needs its own Firebase Hosting deployment of the `tranzila-applepay.html` file. This file hosts the Tranzila Apple Pay iframe integration and must be accessible via HTTPS.
 
+**For each new white-label app:** you only need to deploy this same webpage (and optionally the domain verification file) to that app’s Firebase Hosting. The app already gets the hosting URL from Firestore (`config.payment.applePay.hostingUrl`) or from the Firebase project ID, and the terminal name from `config.payment.tranzila.terminalName` — no app rebuild. No Luqma or client-specific values are hardcoded in the app or the HTML.
+
+---
+
+## Per-client deployment checklist (same as Visa / payment config)
+
+Do this once per white-label app so Apple Pay works like the rest of payment (Tranzila/Visa):
+
+1. **Source files (in luqma repo, synced to template)**  
+   - `menu-app/public/tranzila-applepay.html`  
+   - `menu-app/public/.well-known/apple-developer-merchantid-domain-association`  
+   These are generic; they get `terminal`, `sum`, `currency` from the URL the app sends. No client name inside.
+
+2. **For each client**  
+   - Copy the two files above into that client’s **menu-app** `public/` (e.g. in MenuAppTemplate: `Clients/{client}/{client}-mobile/public/`).  
+   - In that client’s directory, run `firebase use <client-firebase-project-id>` and `firebase deploy --only hosting`.  
+   - In **Advanced Settings** in the admin dashboard for that client: enable Apple Pay, set Tranzila terminal name, and either leave **Hosting URL** empty (app will use `https://<client-project-id>.web.app`) or set it explicitly.  
+   - Optionally add the domain in Apple Pay (Tranzila/Apple) and ensure the `.well-known` file is reachable at `https://<client-project-id>.web.app/.well-known/apple-developer-merchantid-domain-association`.
+
+3. **Scripts (scalable)**  
+   - **sync-template.sh** (luqma → MenuAppTemplate): syncs `menu-app/public/tranzila-applepay.html` and `menu-app/public/.well-known/` into the template, so all clients get the same generic page.  
+   - **update-client.sh** (in MenuAppTemplate): when updating a client’s **mobile** app, automatically patches `firebase.json` if it has `hosting.ignore` containing `"**/.*"` (which would exclude `.well-known` and cause "Payment Not Completed"). The script sets a safe ignore list so `.well-known` is always deployed. No manual firebase.json edit per client.  
+   - After update, deploy hosting from the client’s menu-app: `firebase use <projectId>` then `firebase deploy --only hosting`.
+
+4. **Tranzila: allow the domain per terminal**  
+   For each client, ask Tranzila to **allow the domain** for that terminal (e.g. `https://safaa-menu-app.web.app` for Safaa). Without this, Apple Pay can show "Payment Not Completed" even when the page and `.well-known` are deployed. Iframe and Apple Pay must be enabled for that terminal in [my.tranzila.com](https://my.tranzila.com) (e.g. Settings → iframe; Payment options).
+
+5. **Admin dashboard**  
+   - **Advanced Settings → Apple Pay**: Hosting URL (optional; leave empty to use Firebase project ID), Merchant ID, Country, Currency. All values are per client; no Luqma defaults in the UI.
+
+---
+
+## What Luqma has (100% working reference)
+
+Luqma is the reference setup. Here’s what’s in place:
+
+| Item | Luqma setup |
+|------|-------------|
+| **Firebase project** | `qbmenu-7963c` (QBMenu) |
+| **Hosting domains** | `qbmenu-7963c.web.app`, `qbmenu-7963c.firebaseapp.com` |
+| **Apple Pay page** | `https://qbmenu-7963c.web.app/tranzila-applepay.html` — same file as `menu-app/public/tranzila-applepay.html` |
+| **Tranzila terminal** | `fxpluqma` (shown in Apple Pay sheet as “Pay fxpluqma”) |
+| **Hosting URL in app** | From Firestore `config.payment.applePay.hostingUrl` or auto from `firebaseConfig.projectId` → `https://qbmenu-7963c.web.app` |
+| **Domain verification** | `menu-app/public/.well-known/apple-developer-merchantid-domain-association` deployed so Apple can verify the domain; URL: `https://qbmenu-7963c.web.app/.well-known/apple-developer-merchantid-domain-association` |
+
+**Files deployed to Firebase Hosting for Luqma:**
+
+- `menu-app/public/tranzila-applepay.html` — loads Tranzila script, reads `sum`, `currency`, `terminal` from URL (terminal is always passed by the app from config; no hardcoded client), embeds Tranzila iframe, posts success/failure back to the app.
+- `menu-app/public/.well-known/apple-developer-merchantid-domain-association` — Apple Pay domain verification (required for the domain used in the payment sheet).
+
+**App side (no client-specific code):** `TranzilaApplePayIframe.js` and `tranzilaApplePaySafari.js` build the URL from `config.applePay.hostingUrl` (or `https://${projectId}.web.app`) and `config.tranila.terminalName`. Each brand only needs the correct Firestore config (Advanced Settings) and its own hosted page.
+
 ## Prerequisites
 
 - Firebase CLI installed: `npm install -g firebase-tools`
@@ -51,7 +103,7 @@ For each client (e.g., "safaa", "luqma", etc.):
 
 ### Step 3: Verify Firebase Configuration
 
-Check that `firebase.json` includes hosting configuration:
+Check that `firebase.json` includes hosting configuration. **Important:** Do **not** use `"**/.*"` in `ignore` — that excludes the `.well-known` folder, so the Apple Pay domain verification file is never deployed and you get "Payment Not Completed". Use explicit ignores instead:
 
 ```json
 {
@@ -59,7 +111,7 @@ Check that `firebase.json` includes hosting configuration:
     "public": "public",
     "ignore": [
       "firebase.json",
-      "**/.*",
+      ".DS_Store",
       "**/node_modules/**"
     ]
   }
