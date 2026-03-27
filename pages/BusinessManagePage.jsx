@@ -57,7 +57,7 @@ const BusinessManagePage = () => {
     deliveryFee: '',
     isOpen: true,
     workingHours: { open: '', close: '' },
-    contact: { instagram: '', phone: '', website: '', waze: '', googleMapsUrl: '', coordinates: '' },
+    contact: { instagram: '', phone: '', website: '', waze: '', googleMapsUrl: '', coordinates: '', businessAddress: '', pickupNote: '' },
     prepTimeOptions: [], // new field
     deliveryCities: [], // NEW FIELD for delivery cities
     storeStatusMode: 'auto', // NEW FIELD
@@ -138,6 +138,8 @@ const BusinessManagePage = () => {
           waze: data.config?.contact?.waze || data.contact?.waze || '',
           googleMapsUrl: data.config?.contact?.googleMapsUrl || data.contact?.googleMapsUrl || '',
           coordinates: data.config?.contact?.coordinates || data.contact?.coordinates || '',
+          businessAddress: data.config?.contact?.businessAddress || data.config?.pickupAddress || data.contact?.businessAddress || '',
+          pickupNote: data.config?.contact?.pickupNote || data.config?.pickupNote || data.contact?.pickupNote || '',
         };
         // Get prepTimeOptions from config if available
         const prepTimeOptions = data.config?.prepTimeOptions || [];
@@ -248,7 +250,7 @@ const BusinessManagePage = () => {
         ...prev,
         workingHours: { ...prev.workingHours, [name]: value },
       }));
-    } else if (["email", "instagram", "phone", "website", "waze", "googleMapsUrl", "coordinates"].includes(name)) {
+    } else if (["email", "instagram", "phone", "website", "waze", "googleMapsUrl", "coordinates", "businessAddress", "pickupNote"].includes(name)) {
       setForm((prev) => ({
         ...prev,
         contact: { ...prev.contact, [name]: value },
@@ -1727,6 +1729,34 @@ const BusinessManagePage = () => {
               ) : (
                 <>💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה נדרש להצגת המיקום במפה. ניתן למצוא ב-Google Maps {'>'} לחץ על המיקום {'>'} העתק קואורדינטות</>
               )}
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            כתובת לאיסוף (Pickup Address):
+            <input
+              type="text"
+              name="businessAddress"
+              value={form.contact.businessAddress || ''}
+              onChange={handleChange}
+              placeholder="بير الكسور شارع البير 10"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              הכתובת שמוצגת במסך התשלום באפשרות איסוף
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            הערת איסוף (Pickup Note):
+            <input
+              type="text"
+              name="pickupNote"
+              value={form.contact.pickupNote || ''}
+              onChange={handleChange}
+              placeholder="جاهز للاستلام خلال 30 دقيقة."
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              טקסט משני שמוצג מתחת לכתובת האיסוף
             </div>
           </label>
           <label style={{ fontWeight: 500, color: '#444' }}>
