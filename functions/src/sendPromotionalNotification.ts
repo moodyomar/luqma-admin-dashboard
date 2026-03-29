@@ -1,57 +1,58 @@
-import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 
 /**
  * Cloud Function to send promotional notifications to users
  * Requires admin role to execute
- * Uses 1st Gen so existing deployments (e.g. Risto) can update without 1st→2nd Gen upgrade errors
+ * 2nd gen callable (matches other v2 triggers in this codebase; avoids GCF gen1 + CPU deploy errors)
  */
-export const sendPromotionalNotification = functions.https.onCall(
-  async (data: {
+export const sendPromotionalNotification = onCall(async (request) => {
+  const data = request.data as {
     title: string;
     body: string;
     targetUsers: "all" | string[];
     businessId?: string;
-  }, context) => {
-    // Authentication check
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "You must be authenticated to send notifications"
-      );
-    }
+  };
 
-    // Authorization check - ensure user has admin role
-    const userRoles = (context.auth.token as { roles?: string[] })?.roles || [];
-    if (!userRoles.includes("admin")) {
-      throw new functions.https.HttpsError(
-        "permission-denied",
-        "Only admins can send promotional notifications"
-      );
-    }
+  // Authentication check
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be authenticated to send notifications"
+    );
+  }
 
-    // Validate input
-    if (!data.title || !data.body) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Title and body are required"
-      );
-    }
+  // Authorization check - ensure user has admin role
+  const userRoles = (request.auth.token as { roles?: string[] })?.roles || [];
+  if (!userRoles.includes("admin")) {
+    throw new HttpsError(
+      "permission-denied",
+      "Only admins can send promotional notifications"
+    );
+  }
 
-    if (data.title.length > 65) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Title must be 65 characters or less"
-      );
-    }
+  // Validate input
+  if (!data.title || !data.body) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Title and body are required"
+    );
+  }
 
-    if (data.body.length > 240) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Body must be 240 characters or less"
-      );
-    }
+  if (data.title.length > 65) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Title must be 65 characters or less"
+    );
+  }
+
+  if (data.body.length > 240) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Body must be 240 characters or less"
+    );
+  }
 
     try {
       const db = admin.firestore();
@@ -115,7 +116,7 @@ export const sendPromotionalNotification = functions.https.onCall(
           userDocs.push(...batchDocs.docs);
         }
       } else {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
           "invalid-argument",
           "targetUsers must be 'all' or an array of user IDs"
         );
@@ -347,14 +348,13 @@ export const sendPromotionalNotification = functions.https.onCall(
           chunksSent: chunks.length
         }
       };
-    } catch (error) {
-      logger.error("Error sending promotional notification:", error);
-      throw new functions.https.HttpsError(
-        "internal",
-        "Failed to send notification",
-        error instanceof Error ? error.message : String(error)
-      );
-    }
+  } catch (error) {
+    logger.error("Error sending promotional notification:", error);
+    throw new HttpsError(
+      "internal",
+      "Failed to send notification",
+      error instanceof Error ? error.message : String(error)
+    );
   }
-);
+});
 

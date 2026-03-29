@@ -27,6 +27,9 @@ export { updateDriverProfile } from "./updateDriverProfile";
 // Jeeb driver management
 export { createJeebDriver } from "./createJeebDriver";
 
+// Analytics: new users from Auth creation time (matches Firebase console "Created")
+export { getAuthNewUserCounts } from "./getAuthNewUserCounts";
+
 
 
 

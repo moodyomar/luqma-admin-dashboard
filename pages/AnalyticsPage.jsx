@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../firebase/firebaseConfig';
+import { db, firebaseApp } from '../firebase/firebaseConfig';
 import brandConfig from '../constants/brandConfig';
 import { useAuth } from '../src/contexts/AuthContext';
 import { Toaster, toast } from 'react-hot-toast';
@@ -22,6 +23,22 @@ function getOrderRevenue(order) {
   return parseFloat(order.total || order.price || 0);
 }
 
+/** Normalize Firestore Timestamp, ISO string, or Auth-style date string → Date, or null */
+function getUserRegistrationDate(user) {
+  if (!user || typeof user !== 'object') return null;
+  const raw = user.createdAt ?? user.authCreatedAt ?? user.registeredAt;
+  if (raw == null || raw === '') return null;
+  if (typeof raw.toDate === 'function') {
+    const d = raw.toDate();
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof raw === 'object' && typeof raw.seconds === 'number') {
+    return new Date(raw.seconds * 1000 + (raw.nanoseconds || 0) / 1e6);
+  }
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 const AnalyticsPage = () => {
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
@@ -40,8 +57,49 @@ const AnalyticsPage = () => {
   });
   const [showUserAnalytics, setShowUserAnalytics] = useState(false); // Collapsed by default
   const [showLiveStatus, setShowLiveStatus] = useState(false); // Collapsed by default
+  /** From Cloud Function: Auth metadata.creationTime, scoped to users/{uid} docs (same as total users). */
+  const [authNewUserCounts, setAuthNewUserCounts] = useState(null);
   const navigate = useNavigate();
   const { activeBusinessId } = useAuth();
+
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    setAuthNewUserCounts(null);
+    let cancelled = false;
+    const region = import.meta.env.VITE_FIREBASE_REGION || 'us-central1';
+    const run = async () => {
+      try {
+        const functions = getFunctions(firebaseApp, region);
+        const getCounts = httpsCallable(functions, 'getAuthNewUserCounts');
+        const result = await getCounts({
+          businessId: activeBusinessId,
+          timeRange,
+          ...(timeRange === 'custom'
+            ? { customDateStart, customDateEnd }
+            : {}),
+        });
+        const data = result.data;
+        if (
+          !cancelled &&
+          data &&
+          typeof data.newUsers === 'number' &&
+          typeof data.previousNewUsers === 'number'
+        ) {
+          setAuthNewUserCounts({
+            newUsers: data.newUsers,
+            previousNewUsers: data.previousNewUsers,
+          });
+        }
+      } catch (e) {
+        console.warn('[Analytics] getAuthNewUserCounts failed (deploy functions or check login):', e);
+        if (!cancelled) setAuthNewUserCounts(null);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBusinessId, timeRange, customDateStart, customDateEnd]);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -526,7 +584,8 @@ const AnalyticsPage = () => {
     });
 
     const newUsers = users.filter(user => {
-      return isInTimeRange(user.createdAt, startDate, rangeEnd);
+      const reg = getUserRegistrationDate(user);
+      return reg != null && isInTimeRange(reg, startDate, rangeEnd);
     });
 
     // Previous period calculations (for comparison)
@@ -548,13 +607,14 @@ const AnalyticsPage = () => {
     });
 
     const previousNewUsers = users.filter(user => {
-      return isInTimeRange(user.createdAt, previousStartDate, startDate);
+      const reg = getUserRegistrationDate(user);
+      return reg != null && isInTimeRange(reg, previousStartDate, startDate);
     });
 
     // Calculate total users at the end of previous period (users created before current period start)
     const previousTotalUsers = users.filter(user => {
-      if (!user.createdAt) return false;
-      const userCreatedAt = new Date(user.createdAt);
+      const userCreatedAt = getUserRegistrationDate(user);
+      if (!userCreatedAt) return false;
       if (timeRange === '1d') {
         const today = new Date(now);
         today.setHours(0, 0, 0, 0);
@@ -594,7 +654,16 @@ const AnalyticsPage = () => {
 
     const totalUsersChange = calculatePercentageChange(users.length, previousTotalUsers);
     const activeUsersChange = calculatePercentageChange(activeUsers.length, previousActiveUsers.length);
-    const newUsersChange = calculatePercentageChange(newUsers.length, previousNewUsers.length);
+    const newUsersForCard =
+      authNewUserCounts != null ? authNewUserCounts.newUsers : newUsers.length;
+    const previousNewUsersForCard =
+      authNewUserCounts != null
+        ? authNewUserCounts.previousNewUsers
+        : previousNewUsers.length;
+    const newUsersChange = calculatePercentageChange(
+      newUsersForCard,
+      previousNewUsersForCard
+    );
     const totalActiveUsersChange = calculatePercentageChange(allOrderUserPhones.size, previousAllOrderUserPhones.size);
 
     // Calculate average orders per user (for active users in current period)
@@ -606,7 +675,7 @@ const AnalyticsPage = () => {
     return {
       totalUsers: users.length,
       activeUsers: activeUsers.length,
-      newUsers: newUsers.length,
+      newUsers: newUsersForCard,
       totalActiveUsers: allOrderUserPhones.size,
       newUsersList: newUsers.slice(0, 10),
       // Percentage changes
@@ -618,7 +687,7 @@ const AnalyticsPage = () => {
       averageOrdersPerUser: parseFloat(averageOrdersPerUser),
       totalOrdersInPeriod
     };
-  }, [users, orders, timeRange, customDateStart, customDateEnd]);
+  }, [users, orders, timeRange, customDateStart, customDateEnd, authNewUserCounts]);
 
   if (loading) {
     return (
