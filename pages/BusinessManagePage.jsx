@@ -49,6 +49,17 @@ const DEFAULT_HERO_TAGLINE = {
   he: 'מה בא לך לאכול היום ؟',
 };
 
+// Matches JS Date.getDay(): 0 = Sunday … 6 = Saturday
+const OFF_DAY_WEEKDAYS = [
+  { key: 0, label: 'الأحد' },
+  { key: 1, label: 'الاثنين' },
+  { key: 2, label: 'الثلاثاء' },
+  { key: 3, label: 'الأربعاء' },
+  { key: 4, label: 'الخميس' },
+  { key: 5, label: 'الجمعة' },
+  { key: 6, label: 'السبت' },
+];
+
 const BusinessManagePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,12 +67,11 @@ const BusinessManagePage = () => {
   const [form, setForm] = useState({
     deliveryFee: '',
     isOpen: true,
-    workingHours: { open: '', close: '' },
+    workingHours: { open: '', close: '', offDays: [] },
     contact: { instagram: '', phone: '', website: '', waze: '', googleMapsUrl: '', coordinates: '', businessAddress: '', pickupNote: '' },
     prepTimeOptions: [], // new field
     deliveryCities: [], // NEW FIELD for delivery cities
     storeStatusMode: 'auto', // NEW FIELD
-    tablesCapacity: 0, // NEW FIELD for restaurant tables capacity
     features: { // NEW FIELD for delivery methods
       enablePickup: false,
       enableDelivery: false,
@@ -125,9 +135,16 @@ const BusinessManagePage = () => {
         // Try to get working hours from config if available
         let open = data.workingHours?.open || '';
         let close = data.workingHours?.close || '';
+        let offDays = [];
         if (data.config?.workingHours) {
           open = data.config.workingHours.open || open;
           close = data.config.workingHours.close || close;
+          const rawOff = data.config.workingHours.offDays;
+          if (Array.isArray(rawOff)) {
+            offDays = [...new Set(rawOff.map(Number).filter((d) => d >= 0 && d <= 6 && !Number.isNaN(d)))].sort(
+              (a, b) => a - b
+            );
+          }
         }
         // Get contact from config if available
         const contact = {
@@ -149,9 +166,7 @@ const BusinessManagePage = () => {
         const deliveryFee = data.config?.deliveryFee ?? '';
         // Get storeStatusMode from config if available
         const storeStatusMode = data.config?.storeStatusMode || 'auto';
-        // Get tablesCapacity from config if available
-        const tablesCapacity = Number(data.config?.tablesCapacity) || 0;
-        
+
         // Get features from config.features - preserve existing values, default to false if not exists
         const existingFeatures = data.config?.features || {};
         console.log('Raw features from Firebase:', data.config?.features);
@@ -207,12 +222,11 @@ const BusinessManagePage = () => {
         setForm({
           deliveryFee,
           isOpen: typeof data.isOpen === 'boolean' ? data.isOpen : true,
-          workingHours: { open, close },
+          workingHours: { open, close, offDays },
           contact,
           prepTimeOptions,
           deliveryCities,
           storeStatusMode,
-          tablesCapacity,
           features,
           loyalty: loyaltyConfig,
           referral: referralConfig,
@@ -259,8 +273,6 @@ const BusinessManagePage = () => {
       setForm((prev) => ({ ...prev, deliveryFee: value }));
     } else if (name === 'storeStatusMode') {
       setForm((prev) => ({ ...prev, storeStatusMode: value }));
-    } else if (name === 'tablesCapacity') {
-      setForm((prev) => ({ ...prev, tablesCapacity: Number(value) || 0 }));
     } else if (name.startsWith('feature_')) {
       const featureName = name.replace('feature_', '');
       console.log('Feature changed:', featureName, 'to:', checked); // Debug log
@@ -278,6 +290,17 @@ const BusinessManagePage = () => {
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
+  };
+
+  const toggleOffDay = (dayKey) => {
+    setForm((prev) => {
+      const current = prev.workingHours.offDays || [];
+      const next = new Set(current);
+      if (next.has(dayKey)) next.delete(dayKey);
+      else next.add(dayKey);
+      const offDays = [...next].sort((a, b) => a - b);
+      return { ...prev, workingHours: { ...prev.workingHours, offDays } };
+    });
   };
 
   const handleLoyaltyChange = (key, value) => {
@@ -487,7 +510,8 @@ const BusinessManagePage = () => {
         'config.prepTimeOptions': form.prepTimeOptions,
         'config.deliveryCities': form.deliveryCities,
         'config.storeStatusMode': form.storeStatusMode,
-        'config.tablesCapacity': Number(form.tablesCapacity) || 0,
+        // Capacity UI removed; keep 0 so menu-app dine-in logic does not block on stale values
+        'config.tablesCapacity': 0,
         'config.features': form.features,
         'config.heroTagline': form.heroTagline,
         'config.loyalty': {
@@ -839,7 +863,7 @@ const BusinessManagePage = () => {
           direction: 'rtl',
         }}
       >
-        {/* Row 1: Store status and table capacity (2 columns on mobile) */}
+        {/* Row 1: Store status + weekly off days (multi-select dropdown) */}
         <div className="business-settings-row" style={{ marginBottom: 12 }}>
           <div style={{ flex: '1 1 calc(50% - 6px)', minWidth: 'calc(50% - 6px)', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {/* Store Status */}
@@ -868,27 +892,44 @@ const BusinessManagePage = () => {
               </select>
             </div>
           </div>
-          <div className="business-settings-field" style={{ flex: '1 1 calc(50% - 6px)', minWidth: 'calc(50% - 6px)' }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>عدد طاولات المطعم</label>
-            <input
-              type="number"
-              name="tablesCapacity"
-              value={form.tablesCapacity}
-              onChange={handleChange}
-              min={0}
-              placeholder="0"
-              style={{
-                height: 44,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: '1px solid #e0e0e0',
-                fontSize: 16,
-                background: '#fff',
-                textAlign: 'right',
-                boxSizing: 'border-box',
-                width: '100%',
-              }}
-            />
+          <div className="business-settings-field off-days-dropdown-wrap" style={{ flex: '1 1 calc(50% - 6px)', minWidth: 'calc(50% - 6px)', position: 'relative' }}>
+            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+              <span>أيام الإجازة</span>
+            </label>
+            <details className="off-days-dropdown">
+              <summary>
+                {(form.workingHours.offDays || []).length === 0
+                  ? 'مفتوح كل الأسبوع'
+                  : (form.workingHours.offDays || [])
+                      .map((k) => OFF_DAY_WEEKDAYS.find((d) => d.key === k))
+                      .filter(Boolean)
+                      .map((d) => d.label)
+                      .join('، ')}
+              </summary>
+              <div className="off-days-dropdown-panel">
+                <span style={{ fontSize: 12, color: '#777', display: 'block', marginBottom: 8, lineHeight: 1.45 }}>
+                  <span style={{ display: 'block' }} dir="rtl">
+                    اختر أيام العطلة للمحل.
+                  </span>
+                </span>
+                {OFF_DAY_WEEKDAYS.map(({ key, label }) => {
+                  const checked = (form.workingHours.offDays || []).includes(key);
+                  return (
+                    <label
+                      key={key}
+                      className="off-days-dropdown-row"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleOffDay(key)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </details>
           </div>
         </div>
 
@@ -968,7 +1009,7 @@ const BusinessManagePage = () => {
           {showHeroTagline && (
             <div style={{ marginTop: 12, padding: '12px 14px', background: '#fff', borderRadius: 12, border: '1px solid #eee', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <span style={{ fontSize: 12, color: '#777', lineHeight: 1.4 }}>
-                הטקסט שיופיע מעל הקטגוריות במסך הבית באפליקציה. ניתן להגדיר בנפרד לעברית ולערבית.
+                המשפט שיופיע מעל הקטגוריות בתחילת מסך הבית באפליקציה.
               </span>
               <div style={{ display: 'flex', gap: 10, flexDirection: 'column' }}>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500, color: '#444' }}>
