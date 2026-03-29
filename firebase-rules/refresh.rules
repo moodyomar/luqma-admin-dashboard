@@ -1,108 +1,230 @@
+// =============================================================================
+// FIREBASE RULES TEMPLATE — SOURCE OF TRUTH FOR NEW PROJECTS (NON-LUQMA)
+// =============================================================================
+//
+// Use this file as the reference when creating or updating Firestore rules for
+// any client project except Luqma. Luqma has extra Jeeb-specific collections
+// (businesses, client_requests, jeeb_clients) and different order read rules.
+//
+// This template includes:
+// - Permissions: isAuthed, hasBiz, isAdmin, isDriver, isJeebDriver, isBusinessAdmin
+// - Notifications: notificationLogs (split-bill sessions), menus/{businessId}/notifications
+// - Redeem points: users/{uid} readable/updatable by owner (loyalty points in users doc)
+// - Jeeb app: orders read allowed for all (so Jeeb drivers in another Firebase project can read)
+// - Order updates: admins + drivers (incl. jeeb_driver) for assigned/unassigned orders
+// - Referral: referralTransactions & referralStats under users (read own, admin write)
+// - New order / status change / refer-code notifications: handled by Cloud Functions;
+//   rules allow admins to write to menus/{businessId}/notifications and users to be read
+//
+// Do not add: /businesses, /client_requests, /jeeb_clients (Luqma-only).
+// =============================================================================
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if user is authenticated
-    function isAuthenticated() {
+
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+
+    function isAuthed() {
       return request.auth != null;
     }
-    
-    // Helper function to check if user owns the document
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+
+    function hasBiz(bid) {
+      return isAuthed() &&
+             request.auth.token.businessIds != null &&
+             request.auth.token.businessIds.hasAny([bid]);
     }
-    
-    // ==========================================
-    // USERS COLLECTION - FOR PUSH NOTIFICATIONS
-    // ==========================================
-    match /users/{userId} {
-      // Any authenticated user can read/write to users collection
-      // Needed for push token registration on first login
-      allow read, write: if isAuthenticated();
-      
-      // Referral transactions subcollection - users can only read their own
+
+    function isAdmin() {
+      return isAuthed() &&
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['admin']);
+    }
+
+    function isDriver() {
+      return isAuthed() &&
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['driver']);
+    }
+
+    function isJeebDriver() {
+      return isAuthed() &&
+             request.auth.token.roles != null &&
+             request.auth.token.roles.hasAny(['jeeb_driver']);
+    }
+
+    function isBusinessAdmin(bid) {
+      return hasBiz(bid) && isAdmin();
+    }
+
+    function isOwnCouponUsageId(usageId) {
+      let parts = usageId.split('_');
+      return isAuthed() &&
+        parts.size() >= 2 &&
+        parts[0] == request.auth.uid;
+    }
+
+    // ========================================
+    // GLOBAL USERS (push notifications, loyalty/redeem points, profile)
+    // ========================================
+    match /users/{uid} {
+      allow read: if isAuthed();
+      allow create: if isAuthed() &&
+        (request.auth.uid == uid ||
+         (request.resource.data.phone != null && request.resource.data.phone is string));
+      allow update: if isAuthed() && (request.auth.uid == uid || isAdmin());
+      allow delete: if isAuthed() && request.auth.uid == uid;
+
       match /referralTransactions/{transactionId} {
-        // Allow read (both get and list) if user is authenticated and matches the userId from path
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow write: if false; // Only Cloud Functions can write
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+        allow create, update: if isAdmin();
+        allow delete: if isAdmin();
       }
-      
-      // Referral stats subcollection - users can only read their own
-      match /referralStats/{statsId} {
-        // Allow read (both get and list) if user is authenticated and matches the userId from path
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow write: if false; // Only Cloud Functions can write
+
+      match /referralStats/{statId} {
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+        allow create, update: if isAdmin();
+        allow delete: if isAdmin();
       }
     }
-    
-    // ==========================================
-    // MENUS COLLECTION - REFRESH APP + JEEB INTEGRATION
-    // ==========================================
-    match /menus/{menuId} {
-      // Anyone can read menu (needed before login for refresh app)
-      // Also needed for Jeeb to get business metadata
-      allow read: if true;
-      
-      // Any authenticated user can write (for refresh app admin/testing)
-      allow write: if request.auth != null;
-      
-      // Orders subcollection - CRITICAL FOR JEEB INTEGRATION
-      match /orders/{orderId} {
-        // ⚠️ CRITICAL: Must be "if true" for Jeeb integration
-        // This allows:
-        // 1. Refresh app customers to read their orders (authenticated)
-        // 2. Jeeb drivers to read orders (authenticated in qbmenu-7963c, not this project)
-        //    Since drivers authenticate in a DIFFERENT project, this project won't recognize their auth
-        //    So we must allow unauthenticated reads for Jeeb to work
-        allow read: if true;
-        
-        // Allow create if authenticated (for refresh app customers placing orders)
-        allow create: if isAuthenticated();
-        
-        // Allow update for:
-        // 1. Refresh app to update order status
-        // 2. Jeeb drivers to update order status (accept/deliver) even from other projects
-        //    Since drivers authenticate in qbmenu-7963c, we allow all updates
-        //    You can restrict this further if needed (e.g., only allow status updates)
-        allow update: if true;
-        
-        // Users can delete their own pending orders (for refresh app)
-        // Allow deletion if:
-        // 1. User is authenticated
-        // 2. Order status is "pending" (only pending orders can be canceled)
-        allow delete: if request.auth != null && resource.data.status == 'pending';
-      }
+
+    // ========================================
+    // GLOBAL DRIVERS (Jeeb drivers)
+    // ========================================
+    match /drivers/{driverId} {
+      allow read: if isAuthed() && (
+        (isJeebDriver() && request.auth.uid == driverId) || isAdmin()
+      );
+      allow create, update: if isAuthed() && (
+        (isJeebDriver() && request.auth.uid == driverId) || isAdmin()
+      );
+      allow delete: if isAdmin();
     }
-    
-    // ==========================================
-    // NOTIFICATION LOGS - PERMISSIVE FOR NOW
-    // ==========================================
+
+    // ========================================
+    // NOTIFICATION LOGS (split-bill sessions)
+    // ========================================
     match /notificationLogs/{logId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if isAuthed();
+      allow create: if isAuthed() &&
+        request.resource.data.docType == 'split-session' &&
+        request.resource.data.hostId == request.auth.uid;
+      allow update: if isAuthed() && (
+        resource.data.hostId == request.auth.uid ||
+        resource.data.participants[request.auth.uid] != null
+      );
+      allow delete: if false;
     }
-    
-    // ============================================
-    // CITIES COLLECTION (if using dynamic cities)
-    // ============================================
-    match /cities/{cityId} {
-      // Anyone authenticated can read cities
-      allow read: if isAuthenticated();
-      // Only admins can write (adjust as needed)
-      allow write: if false; // Set to admin check if needed
+
+    // ========================================
+    // TENANT-SCOPED: menus/{businessId}
+    // ========================================
+    match /menus/{businessId} {
+      allow read: if hasBiz(businessId) || true;
+      allow write: if isBusinessAdmin(businessId);
+
+      match /users/{uid} {
+        allow read: if hasBiz(businessId);
+        allow create, update: if isBusinessAdmin(businessId);
+        allow delete: if false;
+      }
+
+      // Orders: read open so Jeeb (other project) can read; update by admin/drivers/jeeb_driver
+      match /orders/{orderId} {
+        allow read: if true;
+        allow update: if hasBiz(businessId) && (
+          isAdmin() ||
+          ((isDriver() || isJeebDriver()) && (
+            resource.data.assignedDriverId == request.auth.uid ||
+            !('assignedDriverId' in resource.data) ||
+            resource.data.assignedDriverId == null ||
+            resource.data.assignedDriverId == ''
+          ))
+        );
+        allow create: if isAuthed();
+        allow delete: if isBusinessAdmin(businessId) ||
+          (isAuthed() &&
+           resource.data.status == 'pending' &&
+           resource.data.userId == request.auth.uid);
+      }
+
+      match /products/{productId} {
+        allow read: if true;
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /categories/{categoryId} {
+        allow read: if true;
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /coupons/{couponId} {
+        allow read: if hasBiz(businessId) || true;
+
+        allow create, delete: if isBusinessAdmin(businessId) || isAdmin();
+
+        allow update: if isBusinessAdmin(businessId) || isAdmin();
+
+        // Menu app: increment usageCount only (+1) after checkout
+        allow update: if isAuthed() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usageCount', 'updatedAt']) &&
+          request.resource.data.usageCount is int &&
+          request.resource.data.usageCount ==
+            (resource.data.usageCount == null ? 0 : resource.data.usageCount) + 1;
+      }
+
+      match /couponUserUsage/{usageId} {
+        allow read: if isAuthed() && (
+          isBusinessAdmin(businessId) ||
+          isAdmin() ||
+          isOwnCouponUsageId(usageId)
+        );
+
+        allow create: if isAuthed() &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.couponId is string &&
+          usageId == request.auth.uid + '_' + request.resource.data.couponId &&
+          request.resource.data.useCount is int &&
+          request.resource.data.useCount == 1;
+
+        allow update: if isAuthed() &&
+          resource.data.userId == request.auth.uid &&
+          usageId == request.auth.uid + '_' + resource.data.couponId &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.couponId == resource.data.couponId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['useCount', 'updatedAt']) &&
+          request.resource.data.useCount is int &&
+          request.resource.data.useCount == resource.data.useCount + 1;
+      }
+
+      match /media/{mediaId} {
+        allow read: if true;
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /drivers/{driverId} {
+        allow read: if hasBiz(businessId);
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /analytics/{docId} {
+        allow read: if hasBiz(businessId);
+        allow write: if isBusinessAdmin(businessId);
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if hasBiz(businessId);
+        allow write: if isBusinessAdmin(businessId);
+      }
     }
-    
-    // ==========================================
-    // ALLOW ALL OTHER AUTHENTICATED READS
-    // ==========================================
-    // This catches any other collections your refresh app might use
-    // (products, categories, settings, etc.)
+
+    // ========================================
+    // DENY ALL OTHER PATHS
+    // ========================================
     match /{document=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
-

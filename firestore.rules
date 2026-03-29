@@ -44,6 +44,15 @@ service cloud.firestore {
       return hasBiz(bid) && isAdmin();
     }
 
+    // menus/.../couponUserUsage/{usageId} id is {auth.uid}_{couponDocId}. Do not use regex with uid:
+    // Firebase Auth uids can contain characters that are RE2 metacharacters (e.g. "."), which breaks matches().
+    function isOwnCouponUsageId(usageId) {
+      let parts = usageId.split('_');
+      return isAuthed() &&
+        parts.size() >= 2 &&
+        parts[0] == request.auth.uid;
+    }
+
     // ========================================
     // GLOBAL USERS COLLECTION (for push notifications & mobile app)
     // ========================================
@@ -242,10 +251,12 @@ service cloud.firestore {
       }
 
       match /couponUserUsage/{usageId} {
+        // GET on missing doc has no resource.data — must not require userId on resource.
+        // Doc id is {auth.uid}_{couponId}; only that user can read their usage rows.
         allow read: if isAuthed() && (
-          resource.data.userId == request.auth.uid ||
           isBusinessAdmin(businessId) ||
-          isAdmin()
+          isAdmin() ||
+          isOwnCouponUsageId(usageId)
         );
 
         allow create: if isAuthed() &&

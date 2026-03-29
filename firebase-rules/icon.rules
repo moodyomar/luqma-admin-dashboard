@@ -1,4 +1,24 @@
-// Same as firebase-template.rules (all non-Luqma clients)
+// =============================================================================
+// FIREBASE RULES TEMPLATE — SOURCE OF TRUTH FOR NEW PROJECTS (NON-LUQMA)
+// =============================================================================
+//
+// Use this file as the reference when creating or updating Firestore rules for
+// any client project except Luqma. Luqma has extra Jeeb-specific collections
+// (businesses, client_requests, jeeb_clients) and different order read rules.
+//
+// This template includes:
+// - Permissions: isAuthed, hasBiz, isAdmin, isDriver, isJeebDriver, isBusinessAdmin
+// - Notifications: notificationLogs (split-bill sessions), menus/{businessId}/notifications
+// - Redeem points: users/{uid} readable/updatable by owner (loyalty points in users doc)
+// - Jeeb app: orders read allowed for all (so Jeeb drivers in another Firebase project can read)
+// - Order updates: admins + drivers (incl. jeeb_driver) for assigned/unassigned orders
+// - Referral: referralTransactions & referralStats under users (read own, admin write)
+// - New order / status change / refer-code notifications: handled by Cloud Functions;
+//   rules allow admins to write to menus/{businessId}/notifications and users to be read
+//
+// Do not add: /businesses, /client_requests, /jeeb_clients (Luqma-only).
+// =============================================================================
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -37,6 +57,13 @@ service cloud.firestore {
 
     function isBusinessAdmin(bid) {
       return hasBiz(bid) && isAdmin();
+    }
+
+    function isOwnCouponUsageId(usageId) {
+      let parts = usageId.split('_');
+      return isAuthed() &&
+        parts.size() >= 2 &&
+        parts[0] == request.auth.uid;
     }
 
     // ========================================
@@ -140,6 +167,7 @@ service cloud.firestore {
 
         allow update: if isBusinessAdmin(businessId) || isAdmin();
 
+        // Menu app: increment usageCount only (+1) after checkout
         allow update: if isAuthed() &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usageCount', 'updatedAt']) &&
           request.resource.data.usageCount is int &&
@@ -149,9 +177,9 @@ service cloud.firestore {
 
       match /couponUserUsage/{usageId} {
         allow read: if isAuthed() && (
-          resource.data.userId == request.auth.uid ||
           isBusinessAdmin(businessId) ||
-          isAdmin()
+          isAdmin() ||
+          isOwnCouponUsageId(usageId)
         );
 
         allow create: if isAuthed() &&

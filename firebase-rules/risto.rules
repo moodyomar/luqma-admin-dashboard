@@ -59,6 +59,13 @@ service cloud.firestore {
       return hasBiz(bid) && isAdmin();
     }
 
+    function isOwnCouponUsageId(usageId) {
+      let parts = usageId.split('_');
+      return isAuthed() &&
+        parts.size() >= 2 &&
+        parts[0] == request.auth.uid;
+    }
+
     // ========================================
     // GLOBAL USERS (push notifications, loyalty/redeem points, profile)
     // ========================================
@@ -160,6 +167,7 @@ service cloud.firestore {
 
         allow update: if isBusinessAdmin(businessId) || isAdmin();
 
+        // Menu app: increment usageCount only (+1) after checkout
         allow update: if isAuthed() &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usageCount', 'updatedAt']) &&
           request.resource.data.usageCount is int &&
@@ -169,9 +177,9 @@ service cloud.firestore {
 
       match /couponUserUsage/{usageId} {
         allow read: if isAuthed() && (
-          resource.data.userId == request.auth.uid ||
           isBusinessAdmin(businessId) ||
-          isAdmin()
+          isAdmin() ||
+          isOwnCouponUsageId(usageId)
         );
 
         allow create: if isAuthed() &&
