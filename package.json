@@ -9,6 +9,9 @@
     "npm": ">=8.0.0"
   },
   "scripts": {
+    "sync:firestore-tenant-rules": "bash scripts/sync-firebase-tenant-rules.sh",
+    "sync:firestore-tenant-rules:dry": "bash scripts/sync-firebase-tenant-rules.sh --dry-run",
+    "rules:copy-luqma-to-deploy": "cp firebase-rules/luqma.rules firestore.rules && echo 'firestore.rules ← luqma.rules (review then: firebase deploy --only firestore:rules)'",
     "dev": "vite",
     "build": "vite build",
     "build:production": "npm run ensure:advanced-settings-env && vite build",
