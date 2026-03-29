@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, deleteField } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from '../src/contexts/AuthContext';
@@ -65,7 +65,6 @@ const BusinessManagePage = () => {
   const [saving, setSaving] = useState(false);
   const { activeBusinessId } = useAuth();
   const [form, setForm] = useState({
-    deliveryFee: '',
     isOpen: true,
     workingHours: { open: '', close: '', offDays: [] },
     contact: { instagram: '', phone: '', website: '', waze: '', googleMapsUrl: '', coordinates: '', businessAddress: '', pickupNote: '' },
@@ -162,8 +161,6 @@ const BusinessManagePage = () => {
         const prepTimeOptions = data.config?.prepTimeOptions || [];
         // Get deliveryCities from config if available
         const deliveryCities = data.config?.deliveryCities || [];
-        // Get deliveryFee from config if available
-        const deliveryFee = data.config?.deliveryFee ?? '';
         // Get storeStatusMode from config if available
         const storeStatusMode = data.config?.storeStatusMode || 'auto';
 
@@ -220,7 +217,6 @@ const BusinessManagePage = () => {
         
         // Set the form with all the loaded data
         setForm({
-          deliveryFee,
           isOpen: typeof data.isOpen === 'boolean' ? data.isOpen : true,
           workingHours: { open, close, offDays },
           contact,
@@ -269,8 +265,6 @@ const BusinessManagePage = () => {
         ...prev,
         contact: { ...prev.contact, [name]: value },
       }));
-    } else if (name === 'deliveryFee') {
-      setForm((prev) => ({ ...prev, deliveryFee: value }));
     } else if (name === 'storeStatusMode') {
       setForm((prev) => ({ ...prev, storeStatusMode: value }));
     } else if (name.startsWith('feature_')) {
@@ -362,9 +356,8 @@ const BusinessManagePage = () => {
       return;
     }
     
-    // Validate delivery fee if provided
-    if (deliveryFee && (isNaN(Number(deliveryFee)) || Number(deliveryFee) < 0)) {
-      alert('דמי משלוח חייבים להיות מספר חיובי');
+    if (deliveryFee === '' || isNaN(Number(deliveryFee)) || Number(deliveryFee) < 0) {
+      alert('יש להזין דמי משלוח לעיר (מספר ≥ 0)');
       return;
     }
     
@@ -383,10 +376,10 @@ const BusinessManagePage = () => {
       return;
     }
     
-    const cityData = { 
-      he: trimmedHe, 
+    const cityData = {
+      he: trimmedHe,
       ar: trimmedAr,
-      ...(deliveryFee && { deliveryFee: Number(deliveryFee) })
+      deliveryFee: Number(deliveryFee),
     };
     
     setForm(prev => ({
@@ -433,9 +426,8 @@ const BusinessManagePage = () => {
       return;
     }
     
-    // Validate delivery fee if provided
-    if (deliveryFee && (isNaN(Number(deliveryFee)) || Number(deliveryFee) < 0)) {
-      alert('דמי משלוח חייבים להיות מספר חיובי');
+    if (deliveryFee === '' || isNaN(Number(deliveryFee)) || Number(deliveryFee) < 0) {
+      alert('יש להזין דמי משלוח לעיר (מספר ≥ 0)');
       return;
     }
     
@@ -455,10 +447,10 @@ const BusinessManagePage = () => {
       return;
     }
     
-    const cityData = { 
-      he: trimmedHe, 
+    const cityData = {
+      he: trimmedHe,
       ar: trimmedAr,
-      ...(deliveryFee && { deliveryFee: Number(deliveryFee) })
+      deliveryFee: Number(deliveryFee),
     };
     
     setForm(prev => ({
@@ -503,7 +495,7 @@ const BusinessManagePage = () => {
       console.log('About to save to Firebase path: menus/' + activeBusinessId);
       
       const updateData = {
-        'config.deliveryFee': Number(form.deliveryFee),
+        'config.deliveryFee': deleteField(),
         'config.isOpen': form.isOpen,
         'config.workingHours': form.workingHours,
         'config.contact': form.contact,
@@ -1078,7 +1070,7 @@ const BusinessManagePage = () => {
           {showDeliveryCities && (
             <>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
-            הוסף ערים שאליהן אתה יכול לבצע משלוח בעברית ובערבית. ניתן להגדיר דמי משלוח שונים לכל עיר (אופציונלי - אם לא מוגדר, ישתמש בדמי המשלוח ברירת מחדל).
+            הוסף ערים שאליהן ניתן לשלוח. לכל עיר חובה להגדיר דמי משלוח (לכל עיר בנפרד — אין עוד דמי ברירת מחדל גלובליים).
           </div>
           <div style={{
             display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0', width: '100%', justifyContent: 'flex-start', alignItems: 'center', rowGap: 10, minHeight: 40
@@ -1284,7 +1276,7 @@ const BusinessManagePage = () => {
                     }
                   }
                 }}
-                placeholder="דמי משלוח (אופציונלי - ₪)"
+                placeholder="דמי משלוח לעיר (חובה, ₪)"
                 min="0"
                 step="0.5"
                 style={{ 
@@ -1301,9 +1293,6 @@ const BusinessManagePage = () => {
                 }}
               />
               <span style={{ fontSize: 12, color: '#888', fontWeight: 600, minWidth: 20 }}>🚚</span>
-            </div>
-            <div style={{ fontSize: 11, color: '#666', marginTop: -4, marginBottom: 4, textAlign: 'right' }}>
-              💡 אם לא מוגדר דמי משלוח לעיר, ישתמש בדמי המשלוח ברירת מחדל (₪{form.deliveryFee || 0})
             </div>
             {editingCityIndex !== null && (
               <div style={{ 
@@ -1323,25 +1312,25 @@ const BusinessManagePage = () => {
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={editingCityIndex !== null ? updateDeliveryCity : addDeliveryCity}
-                disabled={!newCity.he.trim() || !newCity.ar.trim() || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)}
+                disabled={!newCity.he.trim() || !newCity.ar.trim() || newCity.deliveryFee.trim() === '' || isNaN(Number(newCity.deliveryFee)) || Number(newCity.deliveryFee) < 0 || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)}
                 style={{ 
                   flex: editingCityIndex !== null ? 1 : 'auto',
                   width: editingCityIndex !== null ? 'auto' : '100%',
                   height: 44, 
                   borderRadius: 10, 
-                  background: (!newCity.he.trim() || !newCity.ar.trim() || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)) 
+                  background: (!newCity.he.trim() || !newCity.ar.trim() || newCity.deliveryFee.trim() === '' || isNaN(Number(newCity.deliveryFee)) || Number(newCity.deliveryFee) < 0 || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)) 
                     ? '#ccc' 
                     : (editingCityIndex !== null ? '#f5576c' : '#667eea'), 
                   color: '#fff', 
                   border: 'none', 
                   fontWeight: 600, 
                   fontSize: 16, 
-                  cursor: (!newCity.he.trim() || !newCity.ar.trim() || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)) ? 'not-allowed' : 'pointer', 
+                  cursor: (!newCity.he.trim() || !newCity.ar.trim() || newCity.deliveryFee.trim() === '' || isNaN(Number(newCity.deliveryFee)) || Number(newCity.deliveryFee) < 0 || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)) ? 'not-allowed' : 'pointer', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
                   transition: 'all 0.2s ease',
-                  boxShadow: (!newCity.he.trim() || !newCity.ar.trim() || (editingCityIndex === null && (form.deliveryCities || []).length >= 20)) 
+                  boxShadow: (!newCity.he.trim() || !newCity.ar.trim() || newCity.deliveryFee.trim() === '' || isNaN(Number(newCity.deliveryFee)) || Number(newCity.deliveryFee) < 0 || (editingCityIndex === null && (form.deliveryCities || []).length >= 20))
                     ? 'none' 
                     : (editingCityIndex !== null ? '0 2px 8px rgba(245, 87, 108, 0.3)' : '0 2px 8px rgba(102, 126, 234, 0.3)')
                 }}
@@ -1610,31 +1599,6 @@ const BusinessManagePage = () => {
           )}
         </div>
         
-        {/* Row 2: Delivery fee (alone, full width) */}
-        <div style={{ marginBottom: 2 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>דמי משלוח ברירת מחדל (₪)</label>
-            <input
-              type="number"
-              name="deliveryFee"
-              value={form.deliveryFee}
-              onChange={handleChange}
-              min={0}
-              placeholder="0"
-              style={{
-                height: 44,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: '1px solid #e0e0e0',
-                fontSize: 16,
-                background: '#fff',
-                textAlign: 'right',
-                boxSizing: 'border-box',
-                width: '100%',
-              }}
-            />
-          </div>
-        </div>
         {/* Prep time options row - moved to last row, styled */}
         <div style={{ marginTop: 18, width: '100%' }}>
           <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
