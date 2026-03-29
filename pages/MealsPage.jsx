@@ -135,9 +135,7 @@ const MealsPage = () => {
     setSaving(true);
     const ref = doc(db, 'menus', activeBusinessId);
 
-    const cleanedMealsData = {
-      ...mealsData,
-      items: Object.fromEntries(
+    const cleanedItems = Object.fromEntries(
         Object.entries(mealsData.items).map(([catId, meals]) => [
           catId,
           meals.map((meal) => {
@@ -217,12 +215,20 @@ const MealsPage = () => {
             return cleanedMeal;
           }),
         ])
-      ),
-    };
+      );
 
 
     try {
-      await setDoc(ref, cleanedMealsData);
+      // Save only menu structures from this page. Avoid overwriting
+      // config.* fields (e.g. config.media.heroImages) with stale local data.
+      await setDoc(
+        ref,
+        {
+          items: cleanedItems,
+          categories: mealsData.categories || [],
+        },
+        { merge: true }
+      );
       alert('✅ كل الشيفات انبسطوا، تم الحفظ بنجاح!');
     } catch (err) {
       console.error('❌ Firebase Save Error:', err);
