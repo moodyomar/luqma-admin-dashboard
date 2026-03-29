@@ -128,6 +128,12 @@
   margin-right: 10px;
 }
 
+/* Driver chip: strip UA extras so height matches status badge pill */
+.order-driver-chip-btn::-moz-focus-inner {
+  border: 0;
+  padding: 0;
+}
+
 .dateCol {
   display: flex;
   flex-direction: column;

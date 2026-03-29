@@ -107,7 +107,7 @@ const CouponCard = ({ coupon, onEdit, onDelete, onToggleStatus }) => {
               {getStatusText()}
             </span>
             <span style={{
-              background: coupon.type === COUPON_TYPES.PERCENTAGE ? '#007aff' : '#34C759',
+              background: (coupon.discountType || coupon.type) === COUPON_TYPES.PERCENTAGE ? '#007aff' : '#34C759',
               color: '#fff',
               padding: '4px 12px',
               borderRadius: 12,
@@ -132,10 +132,17 @@ const CouponCard = ({ coupon, onEdit, onDelete, onToggleStatus }) => {
               </div>
             )}
             
-            {coupon.usageLimit && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <IoMdPeople size={14} />
+              <span>
+                الاستخدام الكلي: {coupon.usageCount ?? 0}
+                {coupon.maxUsage != null ? ` / ${coupon.maxUsage}` : (coupon.usageLimit != null ? ` / ${coupon.usageLimit}` : '')}
+              </span>
+            </div>
+            {(coupon.maxUsagePerUser != null) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <IoMdPeople size={14} />
-                <span>الاستخدام: {coupon.usageCount || 0}/{coupon.usageLimit}</span>
+                <span>حد أقصى {coupon.maxUsagePerUser} لكل مستخدم</span>
               </div>
             )}
             
@@ -228,6 +235,7 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen }) => {
     description: '',
     expiresAt: '',
     usageLimit: '',
+    maxUsagePerUser: '',
     minOrderAmount: '',
     maxDiscountAmount: '',
     status: COUPON_STATUS.ACTIVE
@@ -237,14 +245,21 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen }) => {
     if (coupon) {
       setFormData({
         code: coupon.code || '',
-        type: coupon.type || COUPON_TYPES.PERCENTAGE,
-        value: coupon.value || '',
+        type: coupon.discountType || coupon.type || COUPON_TYPES.PERCENTAGE,
+        value: coupon.discountValue ?? coupon.value ?? '',
         description: coupon.description || '',
-        expiresAt: coupon.expiresAt ? coupon.expiresAt.split('T')[0] : '',
-        usageLimit: coupon.usageLimit || '',
-        minOrderAmount: coupon.minOrderAmount || '',
+        expiresAt: coupon.expiryDate
+          ? (typeof coupon.expiryDate.toDate === 'function'
+              ? coupon.expiryDate.toDate().toISOString().split('T')[0]
+              : String(coupon.expiresAt).split('T')[0])
+          : '',
+        usageLimit: coupon.maxUsage ?? coupon.usageLimit ?? '',
+        maxUsagePerUser: coupon.maxUsagePerUser ?? '',
+        minOrderAmount: coupon.minimumOrder ?? coupon.minOrderAmount ?? '',
         maxDiscountAmount: coupon.maxDiscountAmount || '',
-        status: coupon.status || COUPON_STATUS.ACTIVE
+        status: coupon.isActive !== undefined
+          ? (coupon.isActive ? COUPON_STATUS.ACTIVE : COUPON_STATUS.INACTIVE)
+          : (coupon.status || COUPON_STATUS.ACTIVE)
       });
     } else {
       setFormData({
@@ -254,6 +269,7 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen }) => {
         description: '',
         expiresAt: '',
         usageLimit: '',
+        maxUsagePerUser: '',
         minOrderAmount: '',
         maxDiscountAmount: '',
         status: COUPON_STATUS.ACTIVE
@@ -277,6 +293,7 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen }) => {
         description: formData.description,
         expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : null,
         usageLimit: formData.usageLimit ? parseInt(formData.usageLimit) : null,
+        maxUsagePerUser: formData.maxUsagePerUser ? parseInt(formData.maxUsagePerUser, 10) : null,
         minOrderAmount: formData.minOrderAmount ? parseFloat(formData.minOrderAmount) : null,
         maxDiscountAmount: formData.maxDiscountAmount ? parseFloat(formData.maxDiscountAmount) : null,
         status: formData.status
@@ -490,6 +507,26 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen }) => {
                   placeholder="لا محدود"
                 />
               </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
+                الحد الأقصى لكل مستخدم (مثال: 1 للطلب الأول)
+              </label>
+              <input
+                type="number"
+                value={formData.maxUsagePerUser}
+                onChange={(e) => setFormData({ ...formData, maxUsagePerUser: e.target.value })}
+                min="1"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: '1px solid #ddd',
+                  borderRadius: 8,
+                  fontSize: 16
+                }}
+                placeholder="لا محدود لكل مستخدم"
+              />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

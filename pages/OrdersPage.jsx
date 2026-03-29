@@ -62,6 +62,52 @@ const formatPhoneDisplay = (phone) => {
   return trimmed;
 };
 
+/** Same as receipt: sum of line items (excludes delivery, app fee, discounts). */
+const sumOrderCartSubtotal = (order) => {
+  if (!order?.cart || !Array.isArray(order.cart)) return 0;
+  return order.cart.reduce((sum, item) => {
+    const itemPrice = parseFloat(item.totalPrice || item.price || 0);
+    const quantity = parseInt(item.quantity || 1, 10);
+    return sum + itemPrice * quantity;
+  }, 0);
+};
+
+/**
+ * Card: السعر uses subtotalExDelivery (excludes customer delivery).
+ * deliveryFee when non-null is the customer delivery charge (stored or inferred); for driver popover only.
+ */
+const getOrderCardPriceParts = (order) => {
+  const paid = parseFloat(order.total ?? order.price ?? 0);
+  const safePaid = Number.isFinite(paid) ? paid : 0;
+  const dfRaw = order.deliveryFee;
+  const dfStored = typeof dfRaw === 'number' ? dfRaw : parseFloat(dfRaw);
+  const hasStoredDeliveryFee =
+    order.deliveryMethod === 'delivery' &&
+    Number.isFinite(dfStored) &&
+    dfStored > 0;
+  if (hasStoredDeliveryFee) {
+    return {
+      subtotalExDelivery: Math.max(0, safePaid - dfStored),
+      deliveryFee: dfStored,
+    };
+  }
+
+  if (order.deliveryMethod === 'delivery' && !(order.pointsUsed > 0)) {
+    const cartSum = sumOrderCartSubtotal(order);
+    const appFee = Number(order.appFee) || 0;
+    const couponDisc = Number(order.couponDiscount) || 0;
+    const inferredDf = Math.round((safePaid - cartSum - appFee + couponDisc) * 100) / 100;
+    if (inferredDf > 0.005 && inferredDf <= safePaid + 0.01) {
+      return {
+        subtotalExDelivery: Math.max(0, safePaid - inferredDf),
+        deliveryFee: inferredDf,
+      };
+    }
+  }
+
+  return { subtotalExDelivery: safePaid, deliveryFee: null };
+};
+
 const formatFutureOrderMeta = (deliveryDateTime) => {
   const scheduled = getScheduledDate(deliveryDateTime);
   if (!scheduled) return null;
@@ -108,6 +154,8 @@ const formatFutureOrderMeta = (deliveryDateTime) => {
 
 const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId, receiptStyle }) => {
 
+  const orderCardPrices = getOrderCardPriceParts(order);
+
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
                         order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل'
   const paymentString = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين'
@@ -124,6 +172,58 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   const [showSuggestAlternativesModal, setShowSuggestAlternativesModal] = useState(false);
   const [alternativeSlots, setAlternativeSlots] = useState([{ date: '', time: '12:00' }]);
   const [reservationActionLoading, setReservationActionLoading] = useState(false);
+
+  const driverContactRef = useRef(null);
+  const [driverMenuOpen, setDriverMenuOpen] = useState(false);
+  const [driverPhone, setDriverPhone] = useState(null);
+  const [driverPhoneFetched, setDriverPhoneFetched] = useState(false);
+  const [driverPhoneLoading, setDriverPhoneLoading] = useState(false);
+
+  useEffect(() => {
+    setDriverMenuOpen(false);
+    setDriverPhone(null);
+    setDriverPhoneFetched(false);
+    setDriverPhoneLoading(false);
+  }, [order.assignedDriverId, order.id]);
+
+  useEffect(() => {
+    if (!driverMenuOpen) return;
+    const onPointerDown = (e) => {
+      if (driverContactRef.current && !driverContactRef.current.contains(e.target)) {
+        setDriverMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [driverMenuOpen]);
+
+  const openDriverMenu = async (e) => {
+    e.stopPropagation();
+    const next = !driverMenuOpen;
+    setDriverMenuOpen(next);
+    if (!next || !order.assignedDriverId || !activeBusinessId || driverPhoneFetched) return;
+    setDriverPhoneLoading(true);
+    try {
+      const userRef = doc(db, 'menus', activeBusinessId, 'users', order.assignedDriverId);
+      const snap = await getDoc(userRef);
+      if (snap.exists()) {
+        const p = snap.data().phone;
+        setDriverPhone(typeof p === 'string' && p.trim() ? p.trim() : null);
+      } else {
+        setDriverPhone(null);
+      }
+    } catch (err) {
+      console.warn('[OrdersPage] Could not load driver phone:', err);
+      setDriverPhone(null);
+    } finally {
+      setDriverPhoneFetched(true);
+      setDriverPhoneLoading(false);
+    }
+  };
 
   // Fetch prep time options from business config
   useEffect(() => {
@@ -216,6 +316,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           ? 'بأنتظار الدفع'
           : (paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString)}</div>
         <div>عدد المنتجات: ${order.cart?.length || 0}</div>
+        ${order.couponCode ? `<div>كوبون: ${order.couponCode} — خصم ₪${formatPrice(order.couponDiscount ?? 0)}</div>` : ''}
       </div>
       ${(() => {
         // Future Order Indicator - Show if order is scheduled for future (Arabic format, before total)
@@ -520,6 +621,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       lines.push(`طريقة الدفع: ${paymentLabel}`);
     }
     lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
+    if (order.couponCode) {
+      lines.push(`كوبون: ${order.couponCode}${order.couponDiscount != null && order.couponDiscount > 0 ? ` (-${money(order.couponDiscount)})` : ''}`);
+    }
     lines.push('- - - - - - - - - - - - - - - -');
     
     // Product Details
@@ -883,7 +987,19 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     }
   };
 
-
+  // Shared metrics so status badge and driver chip are the same height (button UA styles otherwise grow the chip)
+  const statusDriverChipBase = {
+    boxSizing: 'border-box',
+    lineHeight: 1.2,
+    minHeight: 32,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+  };
 
   // Enhanced status badge with colors and icons
   const getStatusBadge = () => {
@@ -901,16 +1017,10 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     
     return (
       <div style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        padding: '6px 12px',
-        borderRadius: '20px',
+        ...statusDriverChipBase,
         backgroundColor: config.bgColor,
         color: config.color,
-        fontSize: '12px',
-        fontWeight: 'bold',
-        border: `1px solid ${config.color}20`
+        border: `1px solid ${config.color}20`,
       }}>
         <span>{config.icon}</span>
         <span>{config.text}</span>
@@ -1014,26 +1124,101 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             </div>
           )}
         </div>
-        {/* Driver Name - Left Side (Second) */}
+        {/* Driver — click for phone (+ customer delivery fee when known) */}
         {order.deliveryMethod === 'delivery' && order.assignedDriverName && (
-          <div style={{ 
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '6px 12px',
-            borderRadius: '20px',
-            background: '#e8f5e9',
-            border: '1px solid #4caf50',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            color: '#2e7d32'
-          }}>
-            <span>🚗</span>
-            <span>{order.assignedDriverName}</span>
-            {order.assignedAt && (
-              <span style={{ fontSize: '10px', color: '#666', marginRight: 2 }}>
-                ({new Date(order.assignedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
-              </span>
+          <div ref={driverContactRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={openDriverMenu}
+              aria-expanded={driverMenuOpen}
+              aria-haspopup="true"
+              className="order-driver-chip-btn"
+              style={{
+                ...statusDriverChipBase,
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                margin: 0,
+                background: '#e8f5e9',
+                border: '1px solid #4caf50',
+                color: '#2e7d32',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              <span>🚗</span>
+              <span>{order.assignedDriverName}</span>
+              {order.assignedAt && (
+                <span style={{ fontSize: '10px', color: '#666', marginRight: 2 }}>
+                  ({new Date(order.assignedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
+                </span>
+              )}
+            </button>
+            {driverMenuOpen && (
+              <div
+                role="menu"
+                onClick={(ev) => ev.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: 6,
+                  minWidth: 200,
+                  maxWidth: 280,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: '#fff',
+                  border: '1px solid #c8e6c9',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
+                  zIndex: 50,
+                  textAlign: 'right',
+                  direction: 'rtl',
+                }}
+              >
+                {(() => {
+                  const totalPaid = parseFloat(order.total ?? order.price ?? 0);
+                  const safeTotal = Number.isFinite(totalPaid) ? totalPaid : 0;
+                  const deliveryKnown =
+                    order.deliveryMethod === 'delivery' &&
+                    orderCardPrices.deliveryFee != null &&
+                    orderCardPrices.deliveryFee > 0;
+                  const row = {
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#333',
+                    marginBottom: 8,
+                    userSelect: 'text',
+                  };
+                  return (
+                    <>
+                      <div style={{ ...row, marginBottom: 10 }}>
+                        هاتف المرسل{' '}
+                        {driverPhoneLoading ? (
+                          <span style={{ color: '#666', fontWeight: 400 }}>…</span>
+                        ) : driverPhone ? (
+                          formatPhoneDisplay(driverPhone)
+                        ) : (
+                          <span style={{ color: '#888', fontWeight: 400 }}>—</span>
+                        )}
+                      </div>
+                      <div style={{ ...row, paddingTop: 8, borderTop: '1px solid #eee' }}>
+                        سعر التوصيل{' '}
+                        {deliveryKnown ? `₪${formatPrice(orderCardPrices.deliveryFee)}` : '—'}
+                      </div>
+                      <div
+                        style={{
+                          ...row,
+                          marginBottom: 0,
+                          paddingTop: 8,
+                          borderTop: '1px solid #eee',
+                          color: '#2e7d32',
+                        }}
+                      >
+                        السعر شامل ₪{formatPrice(safeTotal)}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
             )}
           </div>
         )}
@@ -1144,7 +1329,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         </div>
       </div>
 
-      {/* Products and Price row */}
+      {/* Products and Price row (card: main price excludes delivery when deliveryFee is on the order) */}
       <div className="row">
         <div>
           <span className="label">📦 عدد المنتجات:</span>
@@ -1152,9 +1337,23 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         </div>
         <div>
           <span className="label">💰 السعر:</span>
-          <span className="value order-price">₪{formatPrice(order.total ?? order.price ?? 0)}</span>
+          <span className="value order-price">
+            ₪{formatPrice(orderCardPrices.subtotalExDelivery)}
+          </span>
         </div>
       </div>
+
+      {(order.couponCode || (order.couponDiscount != null && order.couponDiscount > 0)) && (
+        <p>
+          <span className="label">🎫 كوبون:</span>
+          <span className="value" style={{ color: '#2e7d32', fontWeight: 600 }}>
+            {order.couponCode || '—'}
+            {order.couponDiscount != null && order.couponDiscount > 0
+              ? ` — خصم ₪${formatPrice(order.couponDiscount)}`
+              : ''}
+          </span>
+        </p>
+      )}
 
       {/* Show address for delivery orders */}
       {order.deliveryMethod === 'delivery' && (

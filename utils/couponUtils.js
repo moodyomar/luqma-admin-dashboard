@@ -117,6 +117,12 @@ export const createCoupon = async (couponData, businessId = brandConfig.id) => {
       expiryDate: couponData.expiresAt ? new Date(couponData.expiresAt) : null,
       usageCount: 0,
       maxUsage: couponData.usageLimit || null,
+      maxUsagePerUser: (() => {
+        const v = couponData.maxUsagePerUser;
+        if (v == null || v === '') return null;
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      })(),
       description: couponData.description || '',
       createdAt: new Date()
     };
@@ -259,6 +265,16 @@ export const updateCoupon = async (couponId, updateData, businessId = brandConfi
     if (updateData.maxUsage !== undefined) {
       mappedData.maxUsage = updateData.maxUsage ? parseInt(updateData.maxUsage) : null;
     }
+
+    if (updateData.maxUsagePerUser !== undefined) {
+      const v = updateData.maxUsagePerUser;
+      if (v == null || v === '') {
+        mappedData.maxUsagePerUser = null;
+      } else {
+        const n = parseInt(v, 10);
+        mappedData.maxUsagePerUser = Number.isFinite(n) && n > 0 ? n : null;
+      }
+    }
     
     // Map description (no mapping needed)
     if (updateData.description !== undefined) {
@@ -367,8 +383,9 @@ export const validateCoupon = async (code, orderAmount = 0) => {
       }
     }
     
-    // Check usage limit
-    if (coupon.maxUsage && coupon.usageCount >= coupon.maxUsage) {
+    // Check global usage limit
+    const used = coupon.usageCount ?? 0;
+    if (coupon.maxUsage != null && used >= coupon.maxUsage) {
       return {
         valid: false,
         error: 'הגעת למגבלת השימוש בקופון'
@@ -516,7 +533,7 @@ export const getCouponStatus = (coupon) => {
     return COUPON_STATUS.EXPIRED;
   }
   
-  if (coupon.maxUsage && coupon.usageCount >= coupon.maxUsage) {
+  if (coupon.maxUsage != null && (coupon.usageCount ?? 0) >= coupon.maxUsage) {
     return 'usage_limit_reached';
   }
   

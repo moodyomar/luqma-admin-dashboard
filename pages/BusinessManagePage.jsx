@@ -2460,10 +2460,17 @@ const CouponCard = ({ coupon, onEdit, onDelete, onToggleStatus }) => {
               </div>
             )}
             
-            {coupon.maxUsage && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <IoMdPeople size={10} />
+              <span>
+                שימוש כולל: {coupon.usageCount ?? 0}
+                {coupon.maxUsage != null ? ` / ${coupon.maxUsage}` : ''}
+              </span>
+            </div>
+            {coupon.maxUsagePerUser != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <IoMdPeople size={10} />
-                <span>שימוש: {coupon.usageCount || 0}/{coupon.maxUsage}</span>
+                <span>עד {coupon.maxUsagePerUser} לכל משתמש</span>
               </div>
             )}
             
@@ -2547,6 +2554,7 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen, activeBusinessId }) => {
     description: '',
     expiresAt: '',
     usageLimit: '',
+    maxUsagePerUser: '',
     minOrderAmount: '',
     maxDiscountAmount: '',
     status: COUPON_STATUS.ACTIVE
@@ -2561,6 +2569,7 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen, activeBusinessId }) => {
         description: coupon.description || '',
         expiresAt: coupon.expiryDate ? new Date(coupon.expiryDate).toISOString().split('T')[0] : '',
         usageLimit: coupon.maxUsage || '',
+        maxUsagePerUser: coupon.maxUsagePerUser ?? '',
         minOrderAmount: coupon.minimumOrder || '',
         maxDiscountAmount: coupon.maxDiscountAmount || '',
         status: coupon.isActive ? COUPON_STATUS.ACTIVE : COUPON_STATUS.INACTIVE
@@ -2573,6 +2582,7 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen, activeBusinessId }) => {
         description: '',
         expiresAt: '',
         usageLimit: '',
+        maxUsagePerUser: '',
         minOrderAmount: '',
         maxDiscountAmount: '',
         status: COUPON_STATUS.ACTIVE
@@ -2596,6 +2606,7 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen, activeBusinessId }) => {
         description: formData.description,
         expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : null,
         usageLimit: formData.usageLimit ? parseInt(formData.usageLimit) : null,
+        maxUsagePerUser: formData.maxUsagePerUser ? parseInt(formData.maxUsagePerUser, 10) : null,
         minOrderAmount: formData.minOrderAmount ? parseFloat(formData.minOrderAmount) : null,
         maxDiscountAmount: formData.maxDiscountAmount ? parseFloat(formData.maxDiscountAmount) : null,
         status: formData.status
@@ -2819,6 +2830,27 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen, activeBusinessId }) => {
                     boxSizing: 'border-box'
                   }}
                   placeholder="ללא הגבלה"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, fontWeight: 600, fontSize: 14 }}>
+                  מקסימום שימושים לכל משתמש
+                </label>
+                <input
+                  type="number"
+                  value={formData.maxUsagePerUser}
+                  onChange={(e) => setFormData({ ...formData, maxUsagePerUser: e.target.value })}
+                  min="1"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="ללא הגבלה (למשל 1 להזמנה ראשונה)"
                 />
               </div>
             </div>
