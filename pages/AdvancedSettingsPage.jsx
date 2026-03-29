@@ -49,6 +49,7 @@ const AdvancedSettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     accessBlocked: false,
+    enableCash: true,
     enableVisa: false,
     tranzila: { ...DEFAULT_TRANZILA },
     applePay: { ...DEFAULT_APPLE_PAY },
@@ -81,6 +82,7 @@ const AdvancedSettingsPage = () => {
           const applePay = { ...DEFAULT_APPLE_PAY, ...(payment.applePay || {}) };
           setForm({
             accessBlocked: data?.config?.accessBlocked === true,
+            enableCash: features.enableCash !== false,
             enableVisa: features.enableVisa === true,
             tranzila,
             applePay: {
@@ -129,7 +131,11 @@ const AdvancedSettingsPage = () => {
       const ref = doc(db, 'menus', activeBusinessId);
       const snap = await getDoc(ref);
       const existingFeatures = snap.exists() ? snap.data()?.config?.features || {} : {};
-      const mergedFeatures = { ...existingFeatures, enableVisa: form.enableVisa };
+      const mergedFeatures = {
+        ...existingFeatures,
+        enableCash: form.enableCash !== false,
+        enableVisa: form.enableVisa,
+      };
 
       const updatePayload = {
         'config.accessBlocked': form.accessBlocked === true,
@@ -204,7 +210,7 @@ const AdvancedSettingsPage = () => {
         color: '#004085'
       }}>
         <strong>كل الإعدادات من هذه الصفحة فقط — لا حاجة لإدخال شيء يدوياً في Firebase.</strong><br />
-        تفعيل/إيقاف الخانات وملء الحقول ثم «حفظ الإعدادات» يخزن تلقائياً: config.accessBlocked (إيقاف الوصول للتطبيق)، config.features.enableVisa (بطاقة ائتمان)، config.payment.tranzila، config.payment.applePay، config.colors (ألوان التطبيق). التطبيق يقرأ من Firebase فوراً.
+        تفعيل/إيقاف الخانات وملء الحقول ثم «حفظ الإعدادات» يخزن تلقائياً: config.accessBlocked (إيقاف الوصول للتطبيق)، config.features.enableCash (كاش)، config.features.enableVisa (بطاقة ائتمان)، config.payment.tranzila، config.payment.applePay، config.colors (ألوان التطبيق). التطبيق يقرأ من Firebase فوراً.
         <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(0,122,255,0.3)' }}>
           <strong>لماذا الخانات غير مفعّلة والحقول فارغة؟</strong> هذه الصفحة تعرض فقط ما محفوظ في Firebase. إذا التطبيق يعمل حالياً بالدفع عبر ملف .env (في menu-app)، فـ Firebase لم يُحدَّث بعد — الخانات تبقى غير مفعّلة والحقول فارغة حتى تنسخ القيم من .env هنا، تفعّل الخانات، وتضغط «حفظ الإعدادات». بعد الحفظ، التطبيق سيقرأ من Firebase وستتزامن الإعدادات.
         </div>
@@ -246,6 +252,14 @@ const AdvancedSettingsPage = () => {
           <h2 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FiCreditCard size={18} /> تفعيل طرق الدفع
           </h2>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '8px' }}>
+            <input
+              type="checkbox"
+              checked={form.enableCash}
+              onChange={(e) => handleChange('root', 'enableCash', e.target.checked)}
+            />
+            <span>الدفع نقداً (كاش) | Cash</span>
+          </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '8px' }}>
             <input
               type="checkbox"
