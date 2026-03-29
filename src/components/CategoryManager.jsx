@@ -239,6 +239,7 @@ const handleDragEnd = async (event) => {
                   <label style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>من الساعة:</label>
                   <input
                     type="time"
+                    dir="ltr"
                     value={form.visibilityTimeStart}
                     onChange={(e) => handleInput('visibilityTimeStart', e.target.value)}
                     style={{
@@ -246,7 +247,9 @@ const handleDragEnd = async (event) => {
                       padding: '8px',
                       borderRadius: '6px',
                       border: '1px solid #ddd',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      direction: 'ltr',
+                      textAlign: 'left',
                     }}
                   />
                 </div>
@@ -254,6 +257,7 @@ const handleDragEnd = async (event) => {
                   <label style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>إلى الساعة:</label>
                   <input
                     type="time"
+                    dir="ltr"
                     value={form.visibilityTimeEnd}
                     onChange={(e) => handleInput('visibilityTimeEnd', e.target.value)}
                     style={{
@@ -261,7 +265,9 @@ const handleDragEnd = async (event) => {
                       padding: '8px',
                       borderRadius: '6px',
                       border: '1px solid #ddd',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      direction: 'ltr',
+                      textAlign: 'left',
                     }}
                   />
                 </div>

@@ -155,7 +155,40 @@ service cloud.firestore {
 
       match /coupons/{couponId} {
         allow read: if hasBiz(businessId) || true;
-        allow write: if isBusinessAdmin(businessId) || isAdmin();
+
+        allow create, delete: if isBusinessAdmin(businessId) || isAdmin();
+
+        allow update: if isBusinessAdmin(businessId) || isAdmin();
+
+        allow update: if isAuthed() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usageCount', 'updatedAt']) &&
+          request.resource.data.usageCount is int &&
+          request.resource.data.usageCount ==
+            (resource.data.usageCount == null ? 0 : resource.data.usageCount) + 1;
+      }
+
+      match /couponUserUsage/{usageId} {
+        allow read: if isAuthed() && (
+          resource.data.userId == request.auth.uid ||
+          isBusinessAdmin(businessId) ||
+          isAdmin()
+        );
+
+        allow create: if isAuthed() &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.couponId is string &&
+          usageId == request.auth.uid + '_' + request.resource.data.couponId &&
+          request.resource.data.useCount is int &&
+          request.resource.data.useCount == 1;
+
+        allow update: if isAuthed() &&
+          resource.data.userId == request.auth.uid &&
+          usageId == request.auth.uid + '_' + resource.data.couponId &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.couponId == resource.data.couponId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['useCount', 'updatedAt']) &&
+          request.resource.data.useCount is int &&
+          request.resource.data.useCount == resource.data.useCount + 1;
       }
 
       match /media/{mediaId} {

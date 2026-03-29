@@ -1574,13 +1574,21 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
                     />
                     <input
                       type="time"
+                      dir="ltr"
                       value={slot.time}
                       onChange={(e) => {
                         const next = [...alternativeSlots];
                         next[idx] = { ...next[idx], time: e.target.value };
                         setAlternativeSlots(next);
                       }}
-                      style={{ width: 100, padding: '8px 12px', border: '1px solid #ddd', borderRadius: 8 }}
+                      style={{
+                        width: 100,
+                        padding: '8px 12px',
+                        border: '1px solid #ddd',
+                        borderRadius: 8,
+                        direction: 'ltr',
+                        textAlign: 'left',
+                      }}
                     />
                     {alternativeSlots.length > 1 && (
                       <button type="button" onClick={() => setAlternativeSlots(alternativeSlots.filter((_, i) => i !== idx))} style={{ padding: '8px 12px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>حذف</button>

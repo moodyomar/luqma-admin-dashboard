@@ -901,6 +901,7 @@ const BusinessManagePage = () => {
               <input
                 type="time"
                 name="close"
+                dir="ltr"
                 value={form.workingHours.close}
                 onChange={handleChange}
                 style={{
@@ -910,7 +911,8 @@ const BusinessManagePage = () => {
                   border: '1px solid #e0e0e0',
                   fontSize: 16,
                   background: '#fff',
-                  textAlign: 'right',
+                  direction: 'ltr',
+                  textAlign: 'left',
                   boxSizing: 'border-box',
                   width: '100%',
                 }}
@@ -921,6 +923,7 @@ const BusinessManagePage = () => {
               <input
                 type="time"
                 name="open"
+                dir="ltr"
                 value={form.workingHours.open}
                 onChange={handleChange}
                 style={{
@@ -930,7 +933,8 @@ const BusinessManagePage = () => {
                   border: '1px solid #e0e0e0',
                   fontSize: 16,
                   background: '#fff',
-                  textAlign: 'right',
+                  direction: 'ltr',
+                  textAlign: 'left',
                   boxSizing: 'border-box',
                   width: '100%',
                 }}

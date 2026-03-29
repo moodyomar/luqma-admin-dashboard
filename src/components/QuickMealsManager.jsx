@@ -398,6 +398,7 @@ const QuickMealsManager = ({ isOpen, onClose }) => {
                                 <label style={{ fontSize: window.innerWidth <= 768 ? '11px' : '12px', color: '#666', marginBottom: '4px', display: 'block' }}>من الساعة:</label>
                                 <input
                                   type="time"
+                                  dir="ltr"
                                   value={timeVisibilityForm.start}
                                   onChange={(e) => setTimeVisibilityForm({ ...timeVisibilityForm, start: e.target.value })}
                                   style={{
@@ -407,6 +408,8 @@ const QuickMealsManager = ({ isOpen, onClose }) => {
                                     border: '1px solid #ddd',
                                     fontSize: window.innerWidth <= 768 ? '13px' : '14px',
                                     boxSizing: 'border-box',
+                                    direction: 'ltr',
+                                    textAlign: 'left',
                                   }}
                                 />
                               </div>
@@ -414,6 +417,7 @@ const QuickMealsManager = ({ isOpen, onClose }) => {
                                 <label style={{ fontSize: window.innerWidth <= 768 ? '11px' : '12px', color: '#666', marginBottom: '4px', display: 'block' }}>إلى الساعة:</label>
                                 <input
                                   type="time"
+                                  dir="ltr"
                                   value={timeVisibilityForm.end}
                                   onChange={(e) => setTimeVisibilityForm({ ...timeVisibilityForm, end: e.target.value })}
                                   style={{
@@ -423,6 +427,8 @@ const QuickMealsManager = ({ isOpen, onClose }) => {
                                     border: '1px solid #ddd',
                                     fontSize: window.innerWidth <= 768 ? '13px' : '14px',
                                     boxSizing: 'border-box',
+                                    direction: 'ltr',
+                                    textAlign: 'left',
                                   }}
                                 />
                               </div>
