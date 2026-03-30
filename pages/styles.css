@@ -318,3 +318,14 @@ justify-content: space-between;
   flex-shrink: 0;
   cursor: pointer;
 }
+
+/* Store status modal: keep scroll, hide heavy native scrollbar */
+.orders-store-modal-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.orders-store-modal-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}

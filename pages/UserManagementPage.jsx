@@ -747,22 +747,23 @@ const UserManagementPage = () => {
           bottom: 0,
           background: 'rgba(0,0,0,0.5)',
           display: 'flex',
-          alignItems: 'center',
+          alignItems: isMobile ? 'flex-start' : 'center',
           justifyContent: 'center',
           zIndex: 1000,
-          padding: isMobile ? '10px' : '20px'
+          padding: isMobile ? '10px 10px calc(72px + env(safe-area-inset-bottom, 0px))' : '20px'
         }}>
           <div style={{
             background: '#fff',
             borderRadius: 12,
             width: '100%',
             maxWidth: isMobile ? '95%' : 600,
-            height: isMobile ? '90vh' : '85vh',
-            maxHeight: isMobile ? '90vh' : '85vh',
+            height: isMobile ? 'calc(100dvh - 92px - env(safe-area-inset-bottom, 0px))' : '85vh',
+            maxHeight: isMobile ? 'calc(100dvh - 92px - env(safe-area-inset-bottom, 0px))' : '85vh',
             display: 'flex',
             flexDirection: 'column',
             boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            marginTop: isMobile ? 4 : 0
           }}>
             {/* Header - Fixed */}
             <div style={{ 

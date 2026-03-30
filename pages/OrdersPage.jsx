@@ -11,6 +11,116 @@ import './pos-terminal.css';
 import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle, IoMdPrint } from 'react-icons/io';
 import QuickMealsManager from '../src/components/QuickMealsManager';
 
+// —— Quick working hours (same shape as BusinessManagePage) ——
+const OFF_DAY_WEEKDAYS_FULL = [
+  { key: 0, label: 'الأحد' },
+  { key: 1, label: 'الاثنين' },
+  { key: 2, label: 'الثلاثاء' },
+  { key: 3, label: 'الأربعاء' },
+  { key: 4, label: 'الخميس' },
+  { key: 5, label: 'الجمعة' },
+  { key: 6, label: 'السبت' },
+];
+
+function emptyDayRow() {
+  return { open: '', close: '', closed: false };
+}
+
+function normalizeByDayFromFirestore(raw) {
+  const out = {};
+  for (let i = 0; i < 7; i++) {
+    const r = raw && (raw[i] ?? raw[String(i)]);
+    out[i] = r
+      ? { open: r.open || '', close: r.close || '', closed: !!r.closed }
+      : { ...emptyDayRow() };
+  }
+  return out;
+}
+
+function normalizeWorkingHoursFromConfig(cfgWh) {
+  if (!cfgWh || typeof cfgWh !== 'object') {
+    return { open: '', close: '', offDays: [], perDayEnabled: false, byDay: {} };
+  }
+  const perDayEnabled = cfgWh.perDayEnabled === true;
+  if (perDayEnabled) {
+    return {
+      open: cfgWh.open || '',
+      close: cfgWh.close || '',
+      offDays: [],
+      perDayEnabled: true,
+      byDay: normalizeByDayFromFirestore(cfgWh.byDay),
+    };
+  }
+  const rawOff = cfgWh.offDays;
+  let offDays = [];
+  if (Array.isArray(rawOff)) {
+    offDays = [...new Set(rawOff.map(Number).filter((d) => d >= 0 && d <= 6 && !Number.isNaN(d)))].sort(
+      (a, b) => a - b
+    );
+  }
+  return {
+    open: cfgWh.open || '',
+    close: cfgWh.close || '',
+    offDays,
+    perDayEnabled: false,
+    byDay: {},
+  };
+}
+
+/** Convert legacy single schedule + offDays → per-day draft for the expandable editor */
+function legacyToPerDayDraft(wh) {
+  const byDay = {};
+  for (let i = 0; i < 7; i++) {
+    const off = (wh.offDays || []).includes(i);
+    byDay[i] = off
+      ? { open: '', close: '', closed: true }
+      : { open: wh.open || '', close: wh.close || '', closed: false };
+  }
+  return {
+    ...wh,
+    perDayEnabled: true,
+    byDay,
+    offDays: [],
+  };
+}
+
+function serializeWorkingHoursForSave(wh) {
+  if (!wh.perDayEnabled) {
+    return {
+      open: wh.open || '',
+      close: wh.close || '',
+      offDays: Array.isArray(wh.offDays) ? wh.offDays : [],
+      perDayEnabled: false,
+    };
+  }
+  const byDay = {};
+  for (let i = 0; i < 7; i++) {
+    const d = wh.byDay?.[i] || emptyDayRow();
+    byDay[String(i)] = {
+      open: d.open || '',
+      close: d.close || '',
+      closed: !!d.closed,
+    };
+  }
+  let firstOpen = '';
+  let firstClose = '';
+  for (let i = 0; i < 7; i++) {
+    const d = wh.byDay?.[i];
+    if (d && !d.closed && d.open && d.close) {
+      firstOpen = d.open;
+      firstClose = d.close;
+      break;
+    }
+  }
+  return {
+    perDayEnabled: true,
+    byDay,
+    open: firstOpen || wh.open || '',
+    close: firstClose || wh.close || '',
+    offDays: [],
+  };
+}
+
 // Normalize deliveryDateTime into a Date instance
 const getScheduledDate = (dateTime) => {
   if (!dateTime) return null;
@@ -1893,8 +2003,26 @@ const OrdersPage = () => {
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
   const [orderTimers, setOrderTimers] = useState({}); // Track countdown timers for each order
   const [showQuickMealsManager, setShowQuickMealsManager] = useState(false);
+  const [showStoreStatusModal, setShowStoreStatusModal] = useState(false);
+  const [storeStatusMode, setStoreStatusMode] = useState('auto');
+  const [storeStatusDraft, setStoreStatusDraft] = useState('auto');
+  const [savingStoreStatus, setSavingStoreStatus] = useState(false);
+  const [workingHoursLive, setWorkingHoursLive] = useState(() => normalizeWorkingHoursFromConfig(null));
+  const [workingHoursDraft, setWorkingHoursDraft] = useState(() => normalizeWorkingHoursFromConfig(null));
+  const [expandWorkingHoursDays, setExpandWorkingHoursDays] = useState(false);
+  const storeStatusModeRef = useRef(storeStatusMode);
+  const workingHoursLiveRef = useRef(workingHoursLive);
+  storeStatusModeRef.current = storeStatusMode;
+  workingHoursLiveRef.current = workingHoursLive;
   const [receiptStyle, setReceiptStyle] = useState(null); // Receipt style from Firebase config
   const { activeBusinessId } = useAuth();
+
+  const storeStatusModalDirty = useMemo(() => {
+    const whEqual =
+      JSON.stringify(serializeWorkingHoursForSave(workingHoursDraft)) ===
+      JSON.stringify(serializeWorkingHoursForSave(workingHoursLive));
+    return storeStatusDraft !== storeStatusMode || !whEqual;
+  }, [storeStatusDraft, storeStatusMode, workingHoursDraft, workingHoursLive]);
 
   // Function to start a timer for an order
   const startTimerForOrder = (orderId, estimatedMinutes) => {
@@ -1954,6 +2082,80 @@ const OrdersPage = () => {
     };
     loadReceiptStyle();
   }, [activeBusinessId]);
+
+  // Live store status + working hours (menu doc)
+  useEffect(() => {
+    if (!activeBusinessId || !db) return;
+    const ref = doc(db, 'menus', activeBusinessId);
+    const unsub = onSnapshot(ref, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const mode = data?.config?.storeStatusMode;
+      const next =
+        mode === 'open' || mode === 'closed' || mode === 'busy' || mode === 'auto' ? mode : 'auto';
+      setStoreStatusMode(next);
+      setWorkingHoursLive(normalizeWorkingHoursFromConfig(data?.config?.workingHours));
+    });
+    return () => unsub();
+  }, [activeBusinessId]);
+
+  useEffect(() => {
+    if (!showStoreStatusModal) return;
+    setStoreStatusDraft(storeStatusModeRef.current);
+    setWorkingHoursDraft(JSON.parse(JSON.stringify(workingHoursLiveRef.current)));
+    setExpandWorkingHoursDays(false);
+  }, [showStoreStatusModal]);
+
+  const openExpandWorkingDays = () => {
+    setWorkingHoursDraft((prev) => (prev.perDayEnabled ? prev : legacyToPerDayDraft(prev)));
+    setExpandWorkingHoursDays(true);
+  };
+
+  const setDaySwitchWorking = (dayKey, working) => {
+    setWorkingHoursDraft((prev) => {
+      if (!prev.perDayEnabled) return prev;
+      const nextBy = { ...(prev.byDay || {}) };
+      const cur = nextBy[dayKey] || emptyDayRow();
+      if (working) {
+        nextBy[dayKey] = {
+          closed: false,
+          open: cur.open || prev.open || '',
+          close: cur.close || prev.close || '',
+        };
+      } else {
+        nextBy[dayKey] = { open: '', close: '', closed: true };
+      }
+      return { ...prev, byDay: nextBy };
+    });
+  };
+
+  const updateByDayDraft = (dayKey, field, value) => {
+    setWorkingHoursDraft((prev) => {
+      if (!prev.perDayEnabled) return prev;
+      const nextBy = { ...(prev.byDay || {}) };
+      const cur = nextBy[dayKey] || emptyDayRow();
+      nextBy[dayKey] = { ...cur, [field]: value };
+      return { ...prev, byDay: nextBy };
+    });
+  };
+
+  const handleSaveStoreStatus = async () => {
+    if (!activeBusinessId || !db) return;
+    setSavingStoreStatus(true);
+    try {
+      await updateDoc(doc(db, 'menus', activeBusinessId), {
+        'config.storeStatusMode': storeStatusDraft,
+        'config.workingHours': serializeWorkingHoursForSave(workingHoursDraft),
+      });
+      toast.success('تم الحفظ');
+      setShowStoreStatusModal(false);
+    } catch (e) {
+      console.error('Failed to save store / hours:', e);
+      toast.error('تعذر الحفظ');
+    } finally {
+      setSavingStoreStatus(false);
+    }
+  };
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -2878,6 +3080,48 @@ const OrdersPage = () => {
       {/* Main Content Spacer for Bottom Tabs */}
       <div style={{ height: '80px' }} />
       
+      {/* Store status (working hours visibility) — quick control for staff */}
+      <button
+        type="button"
+        onClick={() => setShowStoreStatusModal(true)}
+        style={{
+          position: 'fixed',
+          bottom: window.innerWidth <= 768 ? '100px' : '90px',
+          left: '20px',
+          width: '56px',
+          height: '56px',
+          minWidth: '56px',
+          minHeight: '56px',
+          maxWidth: '56px',
+          maxHeight: '56px',
+          background: showStoreStatusModal ? '#0d6efd' : '#007bff',
+          border: 'none',
+          color: 'white',
+          fontSize: '24px',
+          cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          transition: 'all 0.2s ease',
+          borderRadius: '50%',
+          boxSizing: 'border-box',
+        }}
+        title="المتجر وساعات العمل (للموظفين)"
+        aria-label="المتجر وساعات العمل"
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.1)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        }}
+      >
+        🕐
+      </button>
+
       {/* Floating Quick Meals Manager Button */}
       <button
         onClick={() => setShowQuickMealsManager(prev => !prev)}
@@ -2917,6 +3161,408 @@ const OrdersPage = () => {
       >
         {showQuickMealsManager ? '✕' : '🍽️'}
       </button>
+
+      {showStoreStatusModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="store-status-modal-title"
+          onClick={() => !savingStoreStatus && setShowStoreStatusModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            zIndex: 10001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            className="orders-store-modal-scroll"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              borderRadius: 14,
+              maxWidth: 440,
+              width: '100%',
+              maxHeight: 'min(92vh, 620px)',
+              overflowY: 'auto',
+              padding: 20,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+              direction: 'rtl',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            <h2 id="store-status-modal-title" style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: '#212529' }}>
+              المتجر وساعات العمل
+            </h2>
+
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: '#495057', letterSpacing: 0.2 }}>
+              حالة الظهور
+            </label>
+            <select
+              value={storeStatusDraft}
+              onChange={(e) => setStoreStatusDraft(e.target.value)}
+              disabled={savingStoreStatus}
+              style={{
+                width: '100%',
+                height: 42,
+                borderRadius: 10,
+                border: '1px solid #dee2e6',
+                fontSize: 15,
+                padding: '0 12px',
+                marginBottom: 18,
+                background: '#f8f9fa',
+              }}
+            >
+              <option value="auto">تلقائي (حسب ساعات العمل)</option>
+              <option value="open">مفتوح الآن</option>
+              <option value="busy">مشغول حالياً</option>
+              <option value="closed">مغلق الآن</option>
+            </select>
+
+            <div
+              style={{
+                height: 1,
+                background: '#e9ecef',
+                margin: '0 0 16px',
+              }}
+            />
+
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, color: '#495057' }}>
+              ساعات وأيام العمل
+            </label>
+
+            {!workingHoursDraft.perDayEnabled && !expandWorkingHoursDays && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                  marginBottom: 4,
+                }}
+              >
+                <div style={{ flex: '1 1 120px', minWidth: 0 }}>
+                  <span style={{ fontSize: 11, color: '#868e96', display: 'block', marginBottom: 4 }}>فتح</span>
+                  <input
+                    type="time"
+                    dir="ltr"
+                    value={workingHoursDraft.open || ''}
+                    onChange={(e) =>
+                      setWorkingHoursDraft((p) => ({ ...p, open: e.target.value }))
+                    }
+                    disabled={savingStoreStatus}
+                    style={{
+                      width: '100%',
+                      height: 40,
+                      borderRadius: 10,
+                      border: '1px solid #dee2e6',
+                      padding: '0 10px',
+                      fontSize: 15,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: '1 1 120px', minWidth: 0 }}>
+                  <span style={{ fontSize: 11, color: '#868e96', display: 'block', marginBottom: 4 }}>إغلاق</span>
+                  <input
+                    type="time"
+                    dir="ltr"
+                    value={workingHoursDraft.close || ''}
+                    onChange={(e) =>
+                      setWorkingHoursDraft((p) => ({ ...p, close: e.target.value }))
+                    }
+                    disabled={savingStoreStatus}
+                    style={{
+                      width: '100%',
+                      height: 40,
+                      borderRadius: 10,
+                      border: '1px solid #dee2e6',
+                      padding: '0 10px',
+                      fontSize: 15,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={openExpandWorkingDays}
+                  disabled={savingStoreStatus}
+                  title="تعديل الأيام"
+                  style={{
+                    width: 44,
+                    height: 40,
+                    borderRadius: 10,
+                    border: '1px solid #dee2e6',
+                    background: '#f8f9fa',
+                    fontSize: 18,
+                    cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  ✏️
+                </button>
+              </div>
+            )}
+
+            {workingHoursDraft.perDayEnabled && !expandWorkingHoursDays && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: '1px solid #e9ecef',
+                  background: '#f8f9fa',
+                  marginBottom: 4,
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#343a40', display: 'block' }}>
+                    جدول تفصيلي لكل يوم
+                  </span>
+                  <span style={{ fontSize: 11, color: '#868e96', marginTop: 4, display: 'block' }}>
+                    اضغط ✏️ لتعديل الأيام والساعات
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpandWorkingHoursDays(true)}
+                  disabled={savingStoreStatus}
+                  title="تعديل"
+                  style={{
+                    width: 44,
+                    height: 40,
+                    borderRadius: 10,
+                    border: '1px solid #dee2e6',
+                    background: '#fff',
+                    fontSize: 18,
+                    cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  ✏️
+                </button>
+              </div>
+            )}
+
+            {expandWorkingHoursDays && workingHoursDraft.perDayEnabled && (
+              <>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                    marginTop: 4,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#495057' }}>الأيام</span>
+                  <button
+                    type="button"
+                    onClick={() => setExpandWorkingHoursDays(false)}
+                    title="إخفاء قائمة الأيام والعودة للعرض المختصر"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#007bff',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: '4px 0',
+                    }}
+                  >
+                    إخفاء الأيام
+                  </button>
+                </div>
+                <div
+                  className="orders-store-modal-scroll"
+                  style={{
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                    borderRadius: 12,
+                    border: '1px solid #e9ecef',
+                    background: '#fafafa',
+                    padding: '4px 12px 8px',
+                  }}
+                >
+                  {OFF_DAY_WEEKDAYS_FULL.map(({ key, label }) => {
+                    const row = workingHoursDraft.byDay?.[key] || emptyDayRow();
+                    const working = !row.closed;
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          padding: '12px 0',
+                          borderBottom: key < 6 ? '1px solid #e9ecef' : 'none',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                          }}
+                        >
+                          <span style={{ fontSize: 14, fontWeight: 600, color: '#212529', flex: 1, minWidth: 0 }}>
+                            {label}
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={working}
+                            disabled={savingStoreStatus}
+                            onClick={() => setDaySwitchWorking(key, !working)}
+                            style={{
+                              boxSizing: 'border-box',
+                              WebkitAppearance: 'none',
+                              appearance: 'none',
+                              width: 28,
+                              minWidth: 28,
+                              maxWidth: 28,
+                              height: 16,
+                              minHeight: 16,
+                              maxHeight: 16,
+                              borderRadius: 8,
+                              border: 'none',
+                              padding: 0,
+                              margin: 0,
+                              lineHeight: 0,
+                              fontSize: 0,
+                              background: working ? '#34c759' : '#e9e9ea',
+                              cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
+                              position: 'relative',
+                              flex: '0 0 28px',
+                              overflow: 'hidden',
+                              transition: 'background 0.2s',
+                            }}
+                          >
+                            <span
+                              style={{
+                                position: 'absolute',
+                                top: 2,
+                                left: working ? 14 : 2,
+                                width: 12,
+                                height: 12,
+                                borderRadius: '50%',
+                                background: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.14)',
+                                transition: 'left 0.2s',
+                                pointerEvents: 'none',
+                              }}
+                            />
+                          </button>
+                        </div>
+                        {working && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              gap: 10,
+                              marginTop: 10,
+                              flexWrap: 'wrap',
+                              alignItems: 'flex-end',
+                            }}
+                          >
+                            <div style={{ flex: '1 1 100px', minWidth: 0 }}>
+                              <span style={{ fontSize: 10, color: '#868e96', display: 'block', marginBottom: 4 }}>
+                                فتح
+                              </span>
+                              <input
+                                type="time"
+                                dir="ltr"
+                                value={row.open || ''}
+                                onChange={(e) => updateByDayDraft(key, 'open', e.target.value)}
+                                disabled={savingStoreStatus}
+                                style={{
+                                  width: '100%',
+                                  height: 36,
+                                  borderRadius: 8,
+                                  border: '1px solid #ced4da',
+                                  fontSize: 14,
+                                  padding: '0 8px',
+                                  boxSizing: 'border-box',
+                                }}
+                              />
+                            </div>
+                            <div style={{ flex: '1 1 100px', minWidth: 0 }}>
+                              <span style={{ fontSize: 10, color: '#868e96', display: 'block', marginBottom: 4 }}>
+                                إغلاق
+                              </span>
+                              <input
+                                type="time"
+                                dir="ltr"
+                                value={row.close || ''}
+                                onChange={(e) => updateByDayDraft(key, 'close', e.target.value)}
+                                disabled={savingStoreStatus}
+                                style={{
+                                  width: '100%',
+                                  height: 36,
+                                  borderRadius: 8,
+                                  border: '1px solid #ced4da',
+                                  fontSize: 14,
+                                  padding: '0 8px',
+                                  boxSizing: 'border-box',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
+              <button
+                type="button"
+                disabled={savingStoreStatus}
+                onClick={() => setShowStoreStatusModal(false)}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: 8,
+                  border: '1px solid #ced4da',
+                  background: '#f8f9fa',
+                  color: '#495057',
+                  fontWeight: 600,
+                  cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
+                }}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                disabled={savingStoreStatus || !storeStatusModalDirty}
+                onClick={handleSaveStoreStatus}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: savingStoreStatus || !storeStatusModalDirty ? '#adb5bd' : '#28a745',
+                  color: '#fff',
+                  fontWeight: 600,
+                  cursor: savingStoreStatus || !storeStatusModalDirty ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {savingStoreStatus ? 'جاري الحفظ...' : 'حفظ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Meals Manager Modal */}
       <QuickMealsManager

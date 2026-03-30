@@ -147,7 +147,9 @@ const BusinessManagePage = () => {
   const [showLoyaltyReferral, setShowLoyaltyReferral] = useState(false);
   const [showHeroTagline, setShowHeroTagline] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
+  const [showPrepTimeOptions, setShowPrepTimeOptions] = useState(true);
   const [showDriverZones, setShowDriverZones] = useState(false);
+  const [showPerDayHoursEditor, setShowPerDayHoursEditor] = useState(false);
   const [drivers, setDrivers] = useState([]);
   const [driversLoading, setDriversLoading] = useState(false);
   
@@ -356,6 +358,7 @@ const BusinessManagePage = () => {
     setForm((prev) => {
       const wh = prev.workingHours;
       if (checked) {
+        setShowPerDayHoursEditor(false);
         const byDay = {};
         for (let i = 0; i < 7; i++) {
           const off = (wh.offDays || []).includes(i);
@@ -397,6 +400,7 @@ const BusinessManagePage = () => {
         },
       };
     });
+    if (!checked) setShowPerDayHoursEditor(false);
   };
 
   const updateByDay = (dayKey, field, value) => {
@@ -418,6 +422,13 @@ const BusinessManagePage = () => {
       return { ...prev, workingHours: { ...wh, byDay: nextBy } };
     });
   };
+
+  const perDayClosedCount = OFF_DAY_WEEKDAYS.filter(({ key }) => {
+    const row = form.workingHours.byDay?.[key] || emptyDayRow();
+    return !!row.closed;
+  }).length;
+
+  const perDayOpenCount = 7 - perDayClosedCount;
 
   const handleLoyaltyChange = (key, value) => {
     setForm(prev => ({
@@ -1048,7 +1059,18 @@ const BusinessManagePage = () => {
                 </details>
               </>
             ) : (
-              <span style={{ fontSize: 12, color: '#999', lineHeight: 1.5, display: 'block', paddingTop: 8 }} dir="rtl">
+              <span
+                style={{
+                  fontSize: 12,
+                  color: '#999',
+                  lineHeight: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  minHeight: 44,
+                  marginTop: 24,
+                }}
+                dir="rtl"
+              >
                 أيام الإجازة تُحدّد لكل يوم في الجدول (مغلق).
               </span>
             )}
@@ -1126,71 +1148,98 @@ const BusinessManagePage = () => {
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-              {OFF_DAY_WEEKDAYS.map(({ key, label }) => {
-                const row = form.workingHours.byDay?.[key] || emptyDayRow();
-                const closed = !!row.closed;
-                return (
-                  <div
-                    key={key}
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 10px',
-                      borderRadius: 10,
-                      border: '1px solid #e8e8e8',
-                      background: '#fafafa',
-                    }}
-                  >
-                    <span style={{ minWidth: 72, fontWeight: 600, fontSize: 14 }}>{label}</span>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={closed}
-                        onChange={() => togglePerDayClosed(key)}
-                      />
-                      <span dir="rtl">مغلق</span>
-                    </label>
-                    <input
-                      type="time"
-                      dir="ltr"
-                      disabled={closed}
-                      value={row.open || ''}
-                      onChange={(e) => updateByDay(key, 'open', e.target.value)}
-                      style={{
-                        height: 40,
-                        padding: '0 10px',
-                        borderRadius: 8,
-                        border: '1px solid #e0e0e0',
-                        fontSize: 15,
-                        opacity: closed ? 0.5 : 1,
-                        flex: '1 1 100px',
-                        maxWidth: 140,
-                      }}
-                    />
-                    <span style={{ fontSize: 12, color: '#888' }}>—</span>
-                    <input
-                      type="time"
-                      dir="ltr"
-                      disabled={closed}
-                      value={row.close || ''}
-                      onChange={(e) => updateByDay(key, 'close', e.target.value)}
-                      style={{
-                        height: 40,
-                        padding: '0 10px',
-                        borderRadius: 8,
-                        border: '1px solid #e0e0e0',
-                        fontSize: 15,
-                        opacity: closed ? 0.5 : 1,
-                        flex: '1 1 100px',
-                        maxWidth: 140,
-                      }}
-                    />
-                  </div>
-                );
-              })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+              <button
+                type="button"
+                onClick={() => setShowPerDayHoursEditor((v) => !v)}
+                style={{
+                  width: '100%',
+                  border: '1px solid #e7e7e7',
+                  borderRadius: 12,
+                  background: '#fff',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                }}
+              >
+                <span dir="rtl" style={{ fontSize: 13, color: '#666' }}>
+                  {`مفتوح ${perDayOpenCount} أيام • مغلق ${perDayClosedCount} أيام`}
+                </span>
+                <span style={{ color: '#007bff', fontWeight: 600, fontSize: 14 }}>
+                  {showPerDayHoursEditor ? 'إخفاء التفاصيل ▲' : 'تعديل التفاصيل ▼'}
+                </span>
+              </button>
+
+              {showPerDayHoursEditor && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                  {OFF_DAY_WEEKDAYS.map(({ key, label }) => {
+                    const row = form.workingHours.byDay?.[key] || emptyDayRow();
+                    const closed = !!row.closed;
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '8px 10px',
+                          borderRadius: 10,
+                          border: '1px solid #e8e8e8',
+                          background: '#fafafa',
+                        }}
+                      >
+                        <span style={{ minWidth: 72, fontWeight: 600, fontSize: 14 }}>{label}</span>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={closed}
+                            onChange={() => togglePerDayClosed(key)}
+                          />
+                          <span dir="rtl">مغلق</span>
+                        </label>
+                        <input
+                          type="time"
+                          dir="ltr"
+                          disabled={closed}
+                          value={row.open || ''}
+                          onChange={(e) => updateByDay(key, 'open', e.target.value)}
+                          style={{
+                            height: 40,
+                            padding: '0 10px',
+                            borderRadius: 8,
+                            border: '1px solid #e0e0e0',
+                            fontSize: 15,
+                            opacity: closed ? 0.5 : 1,
+                            flex: '1 1 100px',
+                            maxWidth: 140,
+                          }}
+                        />
+                        <span style={{ fontSize: 12, color: '#888' }}>—</span>
+                        <input
+                          type="time"
+                          dir="ltr"
+                          disabled={closed}
+                          value={row.close || ''}
+                          onChange={(e) => updateByDay(key, 'close', e.target.value)}
+                          style={{
+                            height: 40,
+                            padding: '0 10px',
+                            borderRadius: 8,
+                            border: '1px solid #e0e0e0',
+                            fontSize: 15,
+                            opacity: closed ? 0.5 : 1,
+                            flex: '1 1 100px',
+                            maxWidth: 140,
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1220,7 +1269,7 @@ const BusinessManagePage = () => {
           {showHeroTagline && (
             <div style={{ marginTop: 12, padding: '12px 14px', background: '#fff', borderRadius: 12, border: '1px solid #eee', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <span style={{ fontSize: 12, color: '#777', lineHeight: 1.4 }}>
-                המשפט שיופיע מעל הקטגוריות בתחילת מסך הבית באפליקציה.
+              המשפט שיופיע מעל הקטגוריות בהתחלה.
               </span>
               <div style={{ display: 'flex', gap: 10, flexDirection: 'column' }}>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500, color: '#444' }}>
@@ -1820,48 +1869,91 @@ const BusinessManagePage = () => {
         
         {/* Prep time options row - moved to last row, styled */}
         <div style={{ marginTop: 18, width: '100%' }}>
-          <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
-            הוסף כל אפשרות שתרצה לקביעת זמן הכנת הזמנה, אחת בכל פעם. נתן דקות, שעות, וימים. תוכל להסיר אפשרות בלחיצה על ×.
-          </div>
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0', width: '100%', justifyContent: 'center', alignItems: 'center', rowGap: 10
-          }}>
-            {(form.prepTimeOptions || []).map((opt, idx) => (
-              <span key={idx} style={{ background: '#e0e0e0', borderRadius: 8, padding: '2px 8px', display: 'flex', alignItems: 'center', fontSize: 14, justifyContent: 'center', minWidth: 60, margin: '0 2px' }}>
-                {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
-                <button onClick={() => removePrepTimeOption(idx)} style={{ marginRight: 6, background: 'none', border: 'none', color: '#e00', fontWeight: 700, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
-              </span>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
-            <input
-              type="number"
-              min={1}
-              value={newPrepValue}
-              onChange={e => setNewPrepValue(e.target.value)}
-              placeholder="מספר"
-              style={{ width: '90px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}
-            />
-            <select value={newPrepUnit} onChange={e => setNewPrepUnit(e.target.value)} style={{ width: '100px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}>
-              <option value="minutes">דקות</option>
-              <option value="hours">שעות</option>
-              <option value="days">ימים</option>
-            </select>
-            <button
-              onClick={addPrepTimeOption}
-              disabled={
-                !newPrepValue ||
-                isNaN(Number(newPrepValue)) ||
-                Number(newPrepValue) <= 0 ||
-                (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) ||
-                (form.prepTimeOptions || []).length >= 6
-              }
-              style={{ width: '90px', height: 44, borderRadius: 10, background: '#007aff', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 0.5 : 1 }}
-            >הוסף</button>
-          </div>
-          {(form.prepTimeOptions || []).length >= 6 && (
-            <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 6 אפשרויות</div>
+          <button
+            type="button"
+            onClick={() => setShowPrepTimeOptions(v => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#007bff',
+              fontWeight: 600,
+              fontSize: 18,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 6,
+              padding: 0,
+            }}
+          >
+            אפשריות זמני הכנה להזמנות
+            <span style={{ fontSize: 18 }}>{showPrepTimeOptions ? '▲' : '▼'}</span>
+          </button>
+
+          {showPrepTimeOptions && (
+            <>
+              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
+              <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
+                הוסף כל אפשרות שתרצה לקביעת זמן הכנת הזמנה, אחת בכל פעם. נתן דקות, שעות, וימים. תוכל להסיר אפשרות בלחיצה על ×.
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
+                <input
+                  type="number"
+                  min={1}
+                  value={newPrepValue}
+                  onChange={e => setNewPrepValue(e.target.value)}
+                  placeholder="מספר"
+                  style={{ width: '90px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}
+                />
+                <select value={newPrepUnit} onChange={e => setNewPrepUnit(e.target.value)} style={{ width: '100px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}>
+                  <option value="minutes">דקות</option>
+                  <option value="hours">שעות</option>
+                  <option value="days">ימים</option>
+                </select>
+                <button
+                  onClick={addPrepTimeOption}
+                  disabled={
+                    !newPrepValue ||
+                    isNaN(Number(newPrepValue)) ||
+                    Number(newPrepValue) <= 0 ||
+                    (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) ||
+                    (form.prepTimeOptions || []).length >= 6
+                  }
+                  style={{ width: '90px', height: 44, borderRadius: 10, background: '#007aff', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 0.5 : 1 }}
+                >הוסף</button>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: 12,
+                margin: '12px 0 8px',
+                width: '100%',
+                alignItems: 'stretch'
+              }}>
+                {(form.prepTimeOptions || []).map((opt, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      background: '#e0e0e0',
+                      borderRadius: 10,
+                      padding: '6px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: 13,
+                      justifyContent: 'space-between',
+                      minHeight: 44,
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
+                    <button onClick={() => removePrepTimeOption(idx)} style={{ marginRight: 6, background: 'none', border: 'none', color: '#e00', fontWeight: 700, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+                  </span>
+                ))}
+              </div>
+              {(form.prepTimeOptions || []).length >= 6 && (
+                <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 6 אפשרויות</div>
+              )}
+            </>
           )}
         </div>
       </div>
