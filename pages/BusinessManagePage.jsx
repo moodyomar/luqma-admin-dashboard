@@ -60,13 +60,65 @@ const OFF_DAY_WEEKDAYS = [
   { key: 6, label: 'السبت' },
 ];
 
+function emptyDayRow() {
+  return { open: '', close: '', closed: false };
+}
+
+function normalizeByDayFromFirestore(raw) {
+  const out = {};
+  for (let i = 0; i < 7; i++) {
+    const r = raw && (raw[i] ?? raw[String(i)]);
+    out[i] = r
+      ? { open: r.open || '', close: r.close || '', closed: !!r.closed }
+      : { ...emptyDayRow() };
+  }
+  return out;
+}
+
+function serializeWorkingHours(wh) {
+  if (!wh.perDayEnabled) {
+    return {
+      open: wh.open || '',
+      close: wh.close || '',
+      offDays: Array.isArray(wh.offDays) ? wh.offDays : [],
+      perDayEnabled: false,
+    };
+  }
+  const byDay = {};
+  for (let i = 0; i < 7; i++) {
+    const d = wh.byDay?.[i] || emptyDayRow();
+    byDay[String(i)] = {
+      open: d.open || '',
+      close: d.close || '',
+      closed: !!d.closed,
+    };
+  }
+  let firstOpen = '';
+  let firstClose = '';
+  for (let i = 0; i < 7; i++) {
+    const d = wh.byDay?.[i];
+    if (d && !d.closed && d.open && d.close) {
+      firstOpen = d.open;
+      firstClose = d.close;
+      break;
+    }
+  }
+  return {
+    perDayEnabled: true,
+    byDay,
+    open: firstOpen || wh.open || '',
+    close: firstClose || wh.close || '',
+    offDays: [],
+  };
+}
+
 const BusinessManagePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { activeBusinessId } = useAuth();
   const [form, setForm] = useState({
     isOpen: true,
-    workingHours: { open: '', close: '', offDays: [] },
+    workingHours: { open: '', close: '', offDays: [], perDayEnabled: false, byDay: {} },
     contact: { instagram: '', phone: '', website: '', waze: '', googleMapsUrl: '', coordinates: '', businessAddress: '', pickupNote: '' },
     prepTimeOptions: [], // new field
     deliveryCities: [], // NEW FIELD for delivery cities
@@ -135,6 +187,7 @@ const BusinessManagePage = () => {
         let open = data.workingHours?.open || '';
         let close = data.workingHours?.close || '';
         let offDays = [];
+        const cfgWh = data.config?.workingHours || {};
         if (data.config?.workingHours) {
           open = data.config.workingHours.open || open;
           close = data.config.workingHours.close || close;
@@ -145,6 +198,8 @@ const BusinessManagePage = () => {
             );
           }
         }
+        const perDayEnabled = cfgWh.perDayEnabled === true;
+        const byDay = perDayEnabled ? normalizeByDayFromFirestore(cfgWh.byDay) : {};
         // Get contact from config if available
         const contact = {
           email: data.config?.contact?.email || data.contact?.email || '',
@@ -218,7 +273,7 @@ const BusinessManagePage = () => {
         // Set the form with all the loaded data
         setForm({
           isOpen: typeof data.isOpen === 'boolean' ? data.isOpen : true,
-          workingHours: { open, close, offDays },
+          workingHours: { open, close, offDays, perDayEnabled, byDay },
           contact,
           prepTimeOptions,
           deliveryCities,
@@ -294,6 +349,73 @@ const BusinessManagePage = () => {
       else next.add(dayKey);
       const offDays = [...next].sort((a, b) => a - b);
       return { ...prev, workingHours: { ...prev.workingHours, offDays } };
+    });
+  };
+
+  const togglePerDayEnabled = (checked) => {
+    setForm((prev) => {
+      const wh = prev.workingHours;
+      if (checked) {
+        const byDay = {};
+        for (let i = 0; i < 7; i++) {
+          const off = (wh.offDays || []).includes(i);
+          byDay[i] = off
+            ? { open: '', close: '', closed: true }
+            : { open: wh.open || '', close: wh.close || '', closed: false };
+        }
+        return { ...prev, workingHours: { ...wh, perDayEnabled: true, byDay } };
+      }
+      const byDay = wh.byDay || {};
+      const offDays = [];
+      for (let i = 0; i < 7; i++) {
+        const d = byDay[i];
+        if (!d || d.closed || !String(d.open || '').trim() || !String(d.close || '').trim()) {
+          offDays.push(i);
+        }
+      }
+      let open = wh.open || '';
+      let close = wh.close || '';
+      if (!open || !close) {
+        for (let i = 0; i < 7; i++) {
+          const d = byDay[i];
+          if (d && !d.closed && d.open && d.close) {
+            open = d.open;
+            close = d.close;
+            break;
+          }
+        }
+      }
+      return {
+        ...prev,
+        workingHours: {
+          ...wh,
+          perDayEnabled: false,
+          open,
+          close,
+          offDays: [...new Set(offDays)].sort((a, b) => a - b),
+          byDay: {},
+        },
+      };
+    });
+  };
+
+  const updateByDay = (dayKey, field, value) => {
+    setForm((prev) => {
+      const wh = prev.workingHours;
+      const nextBy = { ...(wh.byDay || {}) };
+      const cur = nextBy[dayKey] || emptyDayRow();
+      nextBy[dayKey] = { ...cur, [field]: value };
+      return { ...prev, workingHours: { ...wh, byDay: nextBy } };
+    });
+  };
+
+  const togglePerDayClosed = (dayKey) => {
+    setForm((prev) => {
+      const wh = prev.workingHours;
+      const nextBy = { ...(wh.byDay || {}) };
+      const cur = nextBy[dayKey] || emptyDayRow();
+      nextBy[dayKey] = { ...cur, closed: !cur.closed };
+      return { ...prev, workingHours: { ...wh, byDay: nextBy } };
     });
   };
 
@@ -497,7 +619,7 @@ const BusinessManagePage = () => {
       const updateData = {
         'config.deliveryFee': deleteField(),
         'config.isOpen': form.isOpen,
-        'config.workingHours': form.workingHours,
+        'config.workingHours': serializeWorkingHours(form.workingHours),
         'config.contact': form.contact,
         'config.prepTimeOptions': form.prepTimeOptions,
         'config.deliveryCities': form.deliveryCities,
@@ -885,95 +1007,192 @@ const BusinessManagePage = () => {
             </div>
           </div>
           <div className="business-settings-field off-days-dropdown-wrap" style={{ flex: '1 1 calc(50% - 6px)', minWidth: 'calc(50% - 6px)', position: 'relative' }}>
-            <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-              <span>أيام الإجازة</span>
-            </label>
-            <details className="off-days-dropdown">
-              <summary>
-                {(form.workingHours.offDays || []).length === 0
-                  ? 'مفتوح كل الأسبوع'
-                  : (form.workingHours.offDays || [])
-                      .map((k) => OFF_DAY_WEEKDAYS.find((d) => d.key === k))
-                      .filter(Boolean)
-                      .map((d) => d.label)
-                      .join('، ')}
-              </summary>
-              <div className="off-days-dropdown-panel">
-                <span style={{ fontSize: 12, color: '#777', display: 'block', marginBottom: 8, lineHeight: 1.45 }}>
-                  <span style={{ display: 'block' }} dir="rtl">
-                    اختر أيام العطلة للمحل.
-                  </span>
-                </span>
-                {OFF_DAY_WEEKDAYS.map(({ key, label }) => {
-                  const checked = (form.workingHours.offDays || []).includes(key);
-                  return (
-                    <label
-                      key={key}
-                      className="off-days-dropdown-row"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleOffDay(key)}
-                      />
-                      <span>{label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </details>
+            {!form.workingHours.perDayEnabled ? (
+              <>
+                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                  <span>أيام الإجازة</span>
+                </label>
+                <details className="off-days-dropdown">
+                  <summary>
+                    {(form.workingHours.offDays || []).length === 0
+                      ? 'مفتوح كل الأسبوع'
+                      : (form.workingHours.offDays || [])
+                          .map((k) => OFF_DAY_WEEKDAYS.find((d) => d.key === k))
+                          .filter(Boolean)
+                          .map((d) => d.label)
+                          .join('، ')}
+                  </summary>
+                  <div className="off-days-dropdown-panel">
+                    <span style={{ fontSize: 12, color: '#777', display: 'block', marginBottom: 8, lineHeight: 1.45 }}>
+                      <span style={{ display: 'block' }} dir="rtl">
+                        اختر أيام العطلة للمحل.
+                      </span>
+                    </span>
+                    {OFF_DAY_WEEKDAYS.map(({ key, label }) => {
+                      const checked = (form.workingHours.offDays || []).includes(key);
+                      return (
+                        <label
+                          key={key}
+                          className="off-days-dropdown-row"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleOffDay(key)}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </details>
+              </>
+            ) : (
+              <span style={{ fontSize: 12, color: '#999', lineHeight: 1.5, display: 'block', paddingTop: 8 }} dir="rtl">
+                أيام الإجازة تُحدّد لكل يوم في الجدول (مغلق).
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Row 2: Opening Hours (full width, 2 columns side by side) */}
+        {/* Row 2: Opening Hours — single schedule or per-day */}
         <div style={{ marginBottom: 12, width: '100%' }}>
           <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 8, minHeight: '20px', display: 'flex', alignItems: 'center' }}>ساعات العمل</label>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת סגירה</label>
-              <input
-                type="time"
-                name="close"
-                dir="ltr"
-                value={form.workingHours.close}
-                onChange={handleChange}
-                style={{
-                  height: 44,
-                  padding: '0 12px',
-                  borderRadius: 10,
-                  border: '1px solid #e0e0e0',
-                  fontSize: 16,
-                  background: '#fff',
-                  direction: 'ltr',
-                  textAlign: 'left',
-                  boxSizing: 'border-box',
-                  width: '100%',
-                }}
-              />
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 10,
+              cursor: 'pointer',
+              fontSize: 14,
+              color: '#333',
+              fontWeight: 500,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={!!form.workingHours.perDayEnabled}
+              onChange={(e) => togglePerDayEnabled(e.target.checked)}
+            />
+            <span dir="rtl">عندي ساعات عمل غير بأيام ثانيه</span>
+          </label>
+
+          {!form.workingHours.perDayEnabled ? (
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת סגירה</label>
+                <input
+                  type="time"
+                  name="close"
+                  dir="ltr"
+                  value={form.workingHours.close}
+                  onChange={handleChange}
+                  style={{
+                    height: 44,
+                    padding: '0 12px',
+                    borderRadius: 10,
+                    border: '1px solid #e0e0e0',
+                    fontSize: 16,
+                    background: '#fff',
+                    direction: 'ltr',
+                    textAlign: 'left',
+                    boxSizing: 'border-box',
+                    width: '100%',
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת פתיחה</label>
+                <input
+                  type="time"
+                  name="open"
+                  dir="ltr"
+                  value={form.workingHours.open}
+                  onChange={handleChange}
+                  style={{
+                    height: 44,
+                    padding: '0 12px',
+                    borderRadius: 10,
+                    border: '1px solid #e0e0e0',
+                    fontSize: 16,
+                    background: '#fff',
+                    direction: 'ltr',
+                    textAlign: 'left',
+                    boxSizing: 'border-box',
+                    width: '100%',
+                  }}
+                />
+              </div>
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת פתיחה</label>
-              <input
-                type="time"
-                name="open"
-                dir="ltr"
-                value={form.workingHours.open}
-                onChange={handleChange}
-                style={{
-                  height: 44,
-                  padding: '0 12px',
-                  borderRadius: 10,
-                  border: '1px solid #e0e0e0',
-                  fontSize: 16,
-                  background: '#fff',
-                  direction: 'ltr',
-                  textAlign: 'left',
-                  boxSizing: 'border-box',
-                  width: '100%',
-                }}
-              />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+              {OFF_DAY_WEEKDAYS.map(({ key, label }) => {
+                const row = form.workingHours.byDay?.[key] || emptyDayRow();
+                const closed = !!row.closed;
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      border: '1px solid #e8e8e8',
+                      background: '#fafafa',
+                    }}
+                  >
+                    <span style={{ minWidth: 72, fontWeight: 600, fontSize: 14 }}>{label}</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={closed}
+                        onChange={() => togglePerDayClosed(key)}
+                      />
+                      <span dir="rtl">مغلق</span>
+                    </label>
+                    <input
+                      type="time"
+                      dir="ltr"
+                      disabled={closed}
+                      value={row.open || ''}
+                      onChange={(e) => updateByDay(key, 'open', e.target.value)}
+                      style={{
+                        height: 40,
+                        padding: '0 10px',
+                        borderRadius: 8,
+                        border: '1px solid #e0e0e0',
+                        fontSize: 15,
+                        opacity: closed ? 0.5 : 1,
+                        flex: '1 1 100px',
+                        maxWidth: 140,
+                      }}
+                    />
+                    <span style={{ fontSize: 12, color: '#888' }}>—</span>
+                    <input
+                      type="time"
+                      dir="ltr"
+                      disabled={closed}
+                      value={row.close || ''}
+                      onChange={(e) => updateByDay(key, 'close', e.target.value)}
+                      style={{
+                        height: 40,
+                        padding: '0 10px',
+                        borderRadius: 8,
+                        border: '1px solid #e0e0e0',
+                        fontSize: 15,
+                        opacity: closed ? 0.5 : 1,
+                        flex: '1 1 100px',
+                        maxWidth: 140,
+                      }}
+                    />
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Hero tagline inputs */}
