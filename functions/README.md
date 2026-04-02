@@ -4,6 +4,30 @@
 
 This directory contains Firebase Cloud Functions for managing multi-tenant user access and custom claims.
 
+### White-label pipeline (generic, all clients)
+
+Everything under this folder is the **single source of truth** in the luqma repo:
+
+| What | Synced to MenuAppTemplate? | Deployed by sync? |
+|------|------------------------------|-------------------|
+| `src/**/*.ts`, `tsconfig.json`, `package.json`, `package-lock.json` | Yes (`sync-template.sh` copies the whole `functions/` tree except old excludes; **package files now flow from luqma**) | No |
+| `../firebase.json` | Yes | No |
+| `../firestore.rules` | Via `firebase-rules/` sync | No |
+
+**Deploy** (required for every Firebase project: dev, staging, each client):
+
+1. Run **`sync-template.sh`** (luqma → MenuAppTemplate).
+2. Run **`./update-client.sh <client-id>`** (or `--all`, or **`--dashboard-only`** if only the admin dashboard changed) so each client repo **receives** `Dashboard-reactjs` / `Menu-reactnative` files — **not optional** if `functions/` changed.
+3. Run **`./deploy-firebase-all.sh <client-id>`** or **`./update-client.sh <client-id> --deploy-only`** to **upload** rules and functions to Firebase.
+
+**`deploy-firebase-all.sh` alone** only deploys what is already in `Clients/<id>/*-dashboard`; it does **not** rsync the template. Skipping step 2 after a template sync is a common cause of stale Cloud Functions code.
+
+`admin-dashboard/firebase.json` includes **`predeploy`**: `npm install` + `npm run build` inside `functions/` before Cloud Functions upload, so deploys do not rely on a stale checked-in `lib/` (still commit `lib/` optionally for local tooling; deploy compiles fresh).
+
+**Permissions / IAM / callable security** live in function code and Firestore rules; changing them follows the same pipeline: edit in luqma → sync → update client repos → deploy Firebase.
+
+**Bulk `./update-client.sh --all`** skips Firebase deploy unless you use **`--deploy-only`** or **`deploy-firebase-all.sh`** — by design.
+
 ---
 
 ## 📦 Functions

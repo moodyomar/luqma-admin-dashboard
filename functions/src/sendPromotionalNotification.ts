@@ -1,14 +1,16 @@
 import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 import { logger } from "firebase-functions";
-import { onCall, HttpsError } from "firebase-functions/v2/https";
 
 /**
  * Cloud Function to send promotional notifications to users
- * Requires admin role to execute
- * 2nd gen callable (matches other v2 triggers in this codebase; avoids GCF gen1 + CPU deploy errors)
+ * Requires admin role to execute.
+ *
+ * Kept as **1st gen** callable so `firebase deploy` can update existing production functions.
+ * (Firebase does not support in-place upgrade from gen1 → gen2 for the same function name.)
  */
-export const sendPromotionalNotification = onCall(async (request) => {
-  const data = request.data as {
+export const sendPromotionalNotification = functions.https.onCall(async (data, context) => {
+  const payload = data as {
     title: string;
     body: string;
     targetUsers: "all" | string[];
@@ -16,39 +18,39 @@ export const sendPromotionalNotification = onCall(async (request) => {
   };
 
   // Authentication check
-  if (!request.auth) {
-    throw new HttpsError(
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
       "unauthenticated",
       "You must be authenticated to send notifications"
     );
   }
 
   // Authorization check - ensure user has admin role
-  const userRoles = (request.auth.token as { roles?: string[] })?.roles || [];
+  const userRoles = (context.auth.token as { roles?: string[] })?.roles || [];
   if (!userRoles.includes("admin")) {
-    throw new HttpsError(
+    throw new functions.https.HttpsError(
       "permission-denied",
       "Only admins can send promotional notifications"
     );
   }
 
   // Validate input
-  if (!data.title || !data.body) {
-    throw new HttpsError(
+  if (!payload.title || !payload.body) {
+    throw new functions.https.HttpsError(
       "invalid-argument",
       "Title and body are required"
     );
   }
 
-  if (data.title.length > 65) {
-    throw new HttpsError(
+  if (payload.title.length > 65) {
+    throw new functions.https.HttpsError(
       "invalid-argument",
       "Title must be 65 characters or less"
     );
   }
 
-  if (data.body.length > 240) {
-    throw new HttpsError(
+  if (payload.body.length > 240) {
+    throw new functions.https.HttpsError(
       "invalid-argument",
       "Body must be 240 characters or less"
     );
@@ -63,7 +65,7 @@ export const sendPromotionalNotification = onCall(async (request) => {
       let userDocs: admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>[] = [];
 
       // Determine target users
-      if (data.targetUsers === "all") {
+      if (payload.targetUsers === "all") {
         // Get all users from the global users collection (where push tokens are stored)
         const usersSnapshot = await db
           .collection("users")
@@ -92,8 +94,8 @@ export const sendPromotionalNotification = onCall(async (request) => {
         });
         
         logger.info(`Sending notification to all customer users: ${userDocs.length} users (filtered out drivers and users without phone numbers)`);
-      } else if (Array.isArray(data.targetUsers)) {
-        const userIds = data.targetUsers;
+      } else if (Array.isArray(payload.targetUsers)) {
+        const userIds = payload.targetUsers;
         logger.info(`Sending notification to specific users: ${userIds.length} users`);
         
         if (userIds.length === 0) {
@@ -116,7 +118,7 @@ export const sendPromotionalNotification = onCall(async (request) => {
           userDocs.push(...batchDocs.docs);
         }
       } else {
-        throw new HttpsError(
+        throw new functions.https.HttpsError(
           "invalid-argument",
           "targetUsers must be 'all' or an array of user IDs"
         );
@@ -240,8 +242,8 @@ export const sendPromotionalNotification = onCall(async (request) => {
       const customerMessages = tokens.map((token: string) => ({
         to: token,
         sound: "default",
-        title: data.title,
-        body: data.body,
+        title: payload.title,
+        body: payload.body,
         data: {
           type: "promotional",
           timestamp: new Date().toISOString(),
@@ -350,7 +352,7 @@ export const sendPromotionalNotification = onCall(async (request) => {
       };
   } catch (error) {
     logger.error("Error sending promotional notification:", error);
-    throw new HttpsError(
+    throw new functions.https.HttpsError(
       "internal",
       "Failed to send notification",
       error instanceof Error ? error.message : String(error)

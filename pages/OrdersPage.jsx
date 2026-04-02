@@ -11,116 +11,6 @@ import './pos-terminal.css';
 import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle, IoMdPrint } from 'react-icons/io';
 import QuickMealsManager from '../src/components/QuickMealsManager';
 
-// —— Quick working hours (same shape as BusinessManagePage) ——
-const OFF_DAY_WEEKDAYS_FULL = [
-  { key: 0, label: 'الأحد' },
-  { key: 1, label: 'الاثنين' },
-  { key: 2, label: 'الثلاثاء' },
-  { key: 3, label: 'الأربعاء' },
-  { key: 4, label: 'الخميس' },
-  { key: 5, label: 'الجمعة' },
-  { key: 6, label: 'السبت' },
-];
-
-function emptyDayRow() {
-  return { open: '', close: '', closed: false };
-}
-
-function normalizeByDayFromFirestore(raw) {
-  const out = {};
-  for (let i = 0; i < 7; i++) {
-    const r = raw && (raw[i] ?? raw[String(i)]);
-    out[i] = r
-      ? { open: r.open || '', close: r.close || '', closed: !!r.closed }
-      : { ...emptyDayRow() };
-  }
-  return out;
-}
-
-function normalizeWorkingHoursFromConfig(cfgWh) {
-  if (!cfgWh || typeof cfgWh !== 'object') {
-    return { open: '', close: '', offDays: [], perDayEnabled: false, byDay: {} };
-  }
-  const perDayEnabled = cfgWh.perDayEnabled === true;
-  if (perDayEnabled) {
-    return {
-      open: cfgWh.open || '',
-      close: cfgWh.close || '',
-      offDays: [],
-      perDayEnabled: true,
-      byDay: normalizeByDayFromFirestore(cfgWh.byDay),
-    };
-  }
-  const rawOff = cfgWh.offDays;
-  let offDays = [];
-  if (Array.isArray(rawOff)) {
-    offDays = [...new Set(rawOff.map(Number).filter((d) => d >= 0 && d <= 6 && !Number.isNaN(d)))].sort(
-      (a, b) => a - b
-    );
-  }
-  return {
-    open: cfgWh.open || '',
-    close: cfgWh.close || '',
-    offDays,
-    perDayEnabled: false,
-    byDay: {},
-  };
-}
-
-/** Convert legacy single schedule + offDays → per-day draft for the expandable editor */
-function legacyToPerDayDraft(wh) {
-  const byDay = {};
-  for (let i = 0; i < 7; i++) {
-    const off = (wh.offDays || []).includes(i);
-    byDay[i] = off
-      ? { open: '', close: '', closed: true }
-      : { open: wh.open || '', close: wh.close || '', closed: false };
-  }
-  return {
-    ...wh,
-    perDayEnabled: true,
-    byDay,
-    offDays: [],
-  };
-}
-
-function serializeWorkingHoursForSave(wh) {
-  if (!wh.perDayEnabled) {
-    return {
-      open: wh.open || '',
-      close: wh.close || '',
-      offDays: Array.isArray(wh.offDays) ? wh.offDays : [],
-      perDayEnabled: false,
-    };
-  }
-  const byDay = {};
-  for (let i = 0; i < 7; i++) {
-    const d = wh.byDay?.[i] || emptyDayRow();
-    byDay[String(i)] = {
-      open: d.open || '',
-      close: d.close || '',
-      closed: !!d.closed,
-    };
-  }
-  let firstOpen = '';
-  let firstClose = '';
-  for (let i = 0; i < 7; i++) {
-    const d = wh.byDay?.[i];
-    if (d && !d.closed && d.open && d.close) {
-      firstOpen = d.open;
-      firstClose = d.close;
-      break;
-    }
-  }
-  return {
-    perDayEnabled: true,
-    byDay,
-    open: firstOpen || wh.open || '',
-    close: firstClose || wh.close || '',
-    offDays: [],
-  };
-}
-
 // Normalize deliveryDateTime into a Date instance
 const getScheduledDate = (dateTime) => {
   if (!dateTime) return null;
@@ -172,52 +62,6 @@ const formatPhoneDisplay = (phone) => {
   return trimmed;
 };
 
-/** Same as receipt: sum of line items (excludes delivery, app fee, discounts). */
-const sumOrderCartSubtotal = (order) => {
-  if (!order?.cart || !Array.isArray(order.cart)) return 0;
-  return order.cart.reduce((sum, item) => {
-    const itemPrice = parseFloat(item.totalPrice || item.price || 0);
-    const quantity = parseInt(item.quantity || 1, 10);
-    return sum + itemPrice * quantity;
-  }, 0);
-};
-
-/**
- * Card: السعر uses subtotalExDelivery (excludes customer delivery).
- * deliveryFee when non-null is the customer delivery charge (stored or inferred); for driver popover only.
- */
-const getOrderCardPriceParts = (order) => {
-  const paid = parseFloat(order.total ?? order.price ?? 0);
-  const safePaid = Number.isFinite(paid) ? paid : 0;
-  const dfRaw = order.deliveryFee;
-  const dfStored = typeof dfRaw === 'number' ? dfRaw : parseFloat(dfRaw);
-  const hasStoredDeliveryFee =
-    order.deliveryMethod === 'delivery' &&
-    Number.isFinite(dfStored) &&
-    dfStored > 0;
-  if (hasStoredDeliveryFee) {
-    return {
-      subtotalExDelivery: Math.max(0, safePaid - dfStored),
-      deliveryFee: dfStored,
-    };
-  }
-
-  if (order.deliveryMethod === 'delivery' && !(order.pointsUsed > 0)) {
-    const cartSum = sumOrderCartSubtotal(order);
-    const appFee = Number(order.appFee) || 0;
-    const couponDisc = Number(order.couponDiscount) || 0;
-    const inferredDf = Math.round((safePaid - cartSum - appFee + couponDisc) * 100) / 100;
-    if (inferredDf > 0.005 && inferredDf <= safePaid + 0.01) {
-      return {
-        subtotalExDelivery: Math.max(0, safePaid - inferredDf),
-        deliveryFee: inferredDf,
-      };
-    }
-  }
-
-  return { subtotalExDelivery: safePaid, deliveryFee: null };
-};
-
 const formatFutureOrderMeta = (deliveryDateTime) => {
   const scheduled = getScheduledDate(deliveryDateTime);
   if (!scheduled) return null;
@@ -264,8 +108,6 @@ const formatFutureOrderMeta = (deliveryDateTime) => {
 
 const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId, receiptStyle }) => {
 
-  const orderCardPrices = getOrderCardPriceParts(order);
-
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
                         order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل'
   const paymentString = order.paymentMethod === 'cash' ? 'كاش' : 'اونلاين'
@@ -282,58 +124,6 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   const [showSuggestAlternativesModal, setShowSuggestAlternativesModal] = useState(false);
   const [alternativeSlots, setAlternativeSlots] = useState([{ date: '', time: '12:00' }]);
   const [reservationActionLoading, setReservationActionLoading] = useState(false);
-
-  const driverContactRef = useRef(null);
-  const [driverMenuOpen, setDriverMenuOpen] = useState(false);
-  const [driverPhone, setDriverPhone] = useState(null);
-  const [driverPhoneFetched, setDriverPhoneFetched] = useState(false);
-  const [driverPhoneLoading, setDriverPhoneLoading] = useState(false);
-
-  useEffect(() => {
-    setDriverMenuOpen(false);
-    setDriverPhone(null);
-    setDriverPhoneFetched(false);
-    setDriverPhoneLoading(false);
-  }, [order.assignedDriverId, order.id]);
-
-  useEffect(() => {
-    if (!driverMenuOpen) return;
-    const onPointerDown = (e) => {
-      if (driverContactRef.current && !driverContactRef.current.contains(e.target)) {
-        setDriverMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('touchstart', onPointerDown, { passive: true });
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('touchstart', onPointerDown);
-    };
-  }, [driverMenuOpen]);
-
-  const openDriverMenu = async (e) => {
-    e.stopPropagation();
-    const next = !driverMenuOpen;
-    setDriverMenuOpen(next);
-    if (!next || !order.assignedDriverId || !activeBusinessId || driverPhoneFetched) return;
-    setDriverPhoneLoading(true);
-    try {
-      const userRef = doc(db, 'menus', activeBusinessId, 'users', order.assignedDriverId);
-      const snap = await getDoc(userRef);
-      if (snap.exists()) {
-        const p = snap.data().phone;
-        setDriverPhone(typeof p === 'string' && p.trim() ? p.trim() : null);
-      } else {
-        setDriverPhone(null);
-      }
-    } catch (err) {
-      console.warn('[OrdersPage] Could not load driver phone:', err);
-      setDriverPhone(null);
-    } finally {
-      setDriverPhoneFetched(true);
-      setDriverPhoneLoading(false);
-    }
-  };
 
   // Fetch prep time options from business config
   useEffect(() => {
@@ -426,7 +216,6 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           ? 'بأنتظار الدفع'
           : (paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString)}</div>
         <div>عدد المنتجات: ${order.cart?.length || 0}</div>
-        ${order.couponCode ? `<div>كوبون: ${order.couponCode} — خصم ₪${formatPrice(order.couponDiscount ?? 0)}</div>` : ''}
       </div>
       ${(() => {
         // Future Order Indicator - Show if order is scheduled for future (Arabic format, before total)
@@ -731,9 +520,6 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       lines.push(`طريقة الدفع: ${paymentLabel}`);
     }
     lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
-    if (order.couponCode) {
-      lines.push(`كوبون: ${order.couponCode}${order.couponDiscount != null && order.couponDiscount > 0 ? ` (-${money(order.couponDiscount)})` : ''}`);
-    }
     lines.push('- - - - - - - - - - - - - - - -');
     
     // Product Details
@@ -1097,19 +883,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     }
   };
 
-  // Shared metrics so status badge and driver chip are the same height (button UA styles otherwise grow the chip)
-  const statusDriverChipBase = {
-    boxSizing: 'border-box',
-    lineHeight: 1.2,
-    minHeight: 32,
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '6px 12px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: 'bold',
-  };
+
 
   // Enhanced status badge with colors and icons
   const getStatusBadge = () => {
@@ -1127,10 +901,16 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     
     return (
       <div style={{
-        ...statusDriverChipBase,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '6px 12px',
+        borderRadius: '20px',
         backgroundColor: config.bgColor,
         color: config.color,
-        border: `1px solid ${config.color}20`,
+        fontSize: '12px',
+        fontWeight: 'bold',
+        border: `1px solid ${config.color}20`
       }}>
         <span>{config.icon}</span>
         <span>{config.text}</span>
@@ -1234,101 +1014,26 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             </div>
           )}
         </div>
-        {/* Driver — click for phone (+ customer delivery fee when known) */}
+        {/* Driver Name - Left Side (Second) */}
         {order.deliveryMethod === 'delivery' && order.assignedDriverName && (
-          <div ref={driverContactRef} style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={openDriverMenu}
-              aria-expanded={driverMenuOpen}
-              aria-haspopup="true"
-              className="order-driver-chip-btn"
-              style={{
-                ...statusDriverChipBase,
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                margin: 0,
-                background: '#e8f5e9',
-                border: '1px solid #4caf50',
-                color: '#2e7d32',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              <span>🚗</span>
-              <span>{order.assignedDriverName}</span>
-              {order.assignedAt && (
-                <span style={{ fontSize: '10px', color: '#666', marginRight: 2 }}>
-                  ({new Date(order.assignedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
-                </span>
-              )}
-            </button>
-            {driverMenuOpen && (
-              <div
-                role="menu"
-                onClick={(ev) => ev.stopPropagation()}
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  marginTop: 6,
-                  minWidth: 200,
-                  maxWidth: 280,
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  background: '#fff',
-                  border: '1px solid #c8e6c9',
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
-                  zIndex: 50,
-                  textAlign: 'right',
-                  direction: 'rtl',
-                }}
-              >
-                {(() => {
-                  const totalPaid = parseFloat(order.total ?? order.price ?? 0);
-                  const safeTotal = Number.isFinite(totalPaid) ? totalPaid : 0;
-                  const deliveryKnown =
-                    order.deliveryMethod === 'delivery' &&
-                    orderCardPrices.deliveryFee != null &&
-                    orderCardPrices.deliveryFee > 0;
-                  const row = {
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: '#333',
-                    marginBottom: 8,
-                    userSelect: 'text',
-                  };
-                  return (
-                    <>
-                      <div style={{ ...row, marginBottom: 10 }}>
-                        هاتف المرسل{' '}
-                        {driverPhoneLoading ? (
-                          <span style={{ color: '#666', fontWeight: 400 }}>…</span>
-                        ) : driverPhone ? (
-                          formatPhoneDisplay(driverPhone)
-                        ) : (
-                          <span style={{ color: '#888', fontWeight: 400 }}>—</span>
-                        )}
-                      </div>
-                      <div style={{ ...row, paddingTop: 8, borderTop: '1px solid #eee' }}>
-                        سعر التوصيل{' '}
-                        {deliveryKnown ? `₪${formatPrice(orderCardPrices.deliveryFee)}` : '—'}
-                      </div>
-                      <div
-                        style={{
-                          ...row,
-                          marginBottom: 0,
-                          paddingTop: 8,
-                          borderTop: '1px solid #eee',
-                          color: '#2e7d32',
-                        }}
-                      >
-                        السعر شامل ₪{formatPrice(safeTotal)}
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
+          <div style={{ 
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '6px 12px',
+            borderRadius: '20px',
+            background: '#e8f5e9',
+            border: '1px solid #4caf50',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            color: '#2e7d32'
+          }}>
+            <span>🚗</span>
+            <span>{order.assignedDriverName}</span>
+            {order.assignedAt && (
+              <span style={{ fontSize: '10px', color: '#666', marginRight: 2 }}>
+                ({new Date(order.assignedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
+              </span>
             )}
           </div>
         )}
@@ -1439,7 +1144,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         </div>
       </div>
 
-      {/* Products and Price row (card: main price excludes delivery when deliveryFee is on the order) */}
+      {/* Products and Price row */}
       <div className="row">
         <div>
           <span className="label">📦 عدد المنتجات:</span>
@@ -1447,23 +1152,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         </div>
         <div>
           <span className="label">💰 السعر:</span>
-          <span className="value order-price">
-            ₪{formatPrice(orderCardPrices.subtotalExDelivery)}
-          </span>
+          <span className="value order-price">₪{formatPrice(order.total ?? order.price ?? 0)}</span>
         </div>
       </div>
-
-      {(order.couponCode || (order.couponDiscount != null && order.couponDiscount > 0)) && (
-        <p>
-          <span className="label">🎫 كوبون:</span>
-          <span className="value" style={{ color: '#2e7d32', fontWeight: 600 }}>
-            {order.couponCode || '—'}
-            {order.couponDiscount != null && order.couponDiscount > 0
-              ? ` — خصم ₪${formatPrice(order.couponDiscount)}`
-              : ''}
-          </span>
-        </p>
-      )}
 
       {/* Show address for delivery orders */}
       {order.deliveryMethod === 'delivery' && (
@@ -1684,21 +1375,13 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
                     />
                     <input
                       type="time"
-                      dir="ltr"
                       value={slot.time}
                       onChange={(e) => {
                         const next = [...alternativeSlots];
                         next[idx] = { ...next[idx], time: e.target.value };
                         setAlternativeSlots(next);
                       }}
-                      style={{
-                        width: 100,
-                        padding: '8px 12px',
-                        border: '1px solid #ddd',
-                        borderRadius: 8,
-                        direction: 'ltr',
-                        textAlign: 'left',
-                      }}
+                      style={{ width: 100, padding: '8px 12px', border: '1px solid #ddd', borderRadius: 8 }}
                     />
                     {alternativeSlots.length > 1 && (
                       <button type="button" onClick={() => setAlternativeSlots(alternativeSlots.filter((_, i) => i !== idx))} style={{ padding: '8px 12px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>حذف</button>
@@ -2003,26 +1686,8 @@ const OrdersPage = () => {
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
   const [orderTimers, setOrderTimers] = useState({}); // Track countdown timers for each order
   const [showQuickMealsManager, setShowQuickMealsManager] = useState(false);
-  const [showStoreStatusModal, setShowStoreStatusModal] = useState(false);
-  const [storeStatusMode, setStoreStatusMode] = useState('auto');
-  const [storeStatusDraft, setStoreStatusDraft] = useState('auto');
-  const [savingStoreStatus, setSavingStoreStatus] = useState(false);
-  const [workingHoursLive, setWorkingHoursLive] = useState(() => normalizeWorkingHoursFromConfig(null));
-  const [workingHoursDraft, setWorkingHoursDraft] = useState(() => normalizeWorkingHoursFromConfig(null));
-  const [expandWorkingHoursDays, setExpandWorkingHoursDays] = useState(false);
-  const storeStatusModeRef = useRef(storeStatusMode);
-  const workingHoursLiveRef = useRef(workingHoursLive);
-  storeStatusModeRef.current = storeStatusMode;
-  workingHoursLiveRef.current = workingHoursLive;
   const [receiptStyle, setReceiptStyle] = useState(null); // Receipt style from Firebase config
   const { activeBusinessId } = useAuth();
-
-  const storeStatusModalDirty = useMemo(() => {
-    const whEqual =
-      JSON.stringify(serializeWorkingHoursForSave(workingHoursDraft)) ===
-      JSON.stringify(serializeWorkingHoursForSave(workingHoursLive));
-    return storeStatusDraft !== storeStatusMode || !whEqual;
-  }, [storeStatusDraft, storeStatusMode, workingHoursDraft, workingHoursLive]);
 
   // Function to start a timer for an order
   const startTimerForOrder = (orderId, estimatedMinutes) => {
@@ -2082,80 +1747,6 @@ const OrdersPage = () => {
     };
     loadReceiptStyle();
   }, [activeBusinessId]);
-
-  // Live store status + working hours (menu doc)
-  useEffect(() => {
-    if (!activeBusinessId || !db) return;
-    const ref = doc(db, 'menus', activeBusinessId);
-    const unsub = onSnapshot(ref, (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.data();
-      const mode = data?.config?.storeStatusMode;
-      const next =
-        mode === 'open' || mode === 'closed' || mode === 'busy' || mode === 'auto' ? mode : 'auto';
-      setStoreStatusMode(next);
-      setWorkingHoursLive(normalizeWorkingHoursFromConfig(data?.config?.workingHours));
-    });
-    return () => unsub();
-  }, [activeBusinessId]);
-
-  useEffect(() => {
-    if (!showStoreStatusModal) return;
-    setStoreStatusDraft(storeStatusModeRef.current);
-    setWorkingHoursDraft(JSON.parse(JSON.stringify(workingHoursLiveRef.current)));
-    setExpandWorkingHoursDays(false);
-  }, [showStoreStatusModal]);
-
-  const openExpandWorkingDays = () => {
-    setWorkingHoursDraft((prev) => (prev.perDayEnabled ? prev : legacyToPerDayDraft(prev)));
-    setExpandWorkingHoursDays(true);
-  };
-
-  const setDaySwitchWorking = (dayKey, working) => {
-    setWorkingHoursDraft((prev) => {
-      if (!prev.perDayEnabled) return prev;
-      const nextBy = { ...(prev.byDay || {}) };
-      const cur = nextBy[dayKey] || emptyDayRow();
-      if (working) {
-        nextBy[dayKey] = {
-          closed: false,
-          open: cur.open || prev.open || '',
-          close: cur.close || prev.close || '',
-        };
-      } else {
-        nextBy[dayKey] = { open: '', close: '', closed: true };
-      }
-      return { ...prev, byDay: nextBy };
-    });
-  };
-
-  const updateByDayDraft = (dayKey, field, value) => {
-    setWorkingHoursDraft((prev) => {
-      if (!prev.perDayEnabled) return prev;
-      const nextBy = { ...(prev.byDay || {}) };
-      const cur = nextBy[dayKey] || emptyDayRow();
-      nextBy[dayKey] = { ...cur, [field]: value };
-      return { ...prev, byDay: nextBy };
-    });
-  };
-
-  const handleSaveStoreStatus = async () => {
-    if (!activeBusinessId || !db) return;
-    setSavingStoreStatus(true);
-    try {
-      await updateDoc(doc(db, 'menus', activeBusinessId), {
-        'config.storeStatusMode': storeStatusDraft,
-        'config.workingHours': serializeWorkingHoursForSave(workingHoursDraft),
-      });
-      toast.success('تم الحفظ');
-      setShowStoreStatusModal(false);
-    } catch (e) {
-      console.error('Failed to save store / hours:', e);
-      toast.error('تعذر الحفظ');
-    } finally {
-      setSavingStoreStatus(false);
-    }
-  };
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -3080,48 +2671,6 @@ const OrdersPage = () => {
       {/* Main Content Spacer for Bottom Tabs */}
       <div style={{ height: '80px' }} />
       
-      {/* Store status (working hours visibility) — quick control for staff */}
-      <button
-        type="button"
-        onClick={() => setShowStoreStatusModal(true)}
-        style={{
-          position: 'fixed',
-          bottom: window.innerWidth <= 768 ? '100px' : '90px',
-          left: '20px',
-          width: '56px',
-          height: '56px',
-          minWidth: '56px',
-          minHeight: '56px',
-          maxWidth: '56px',
-          maxHeight: '56px',
-          background: showStoreStatusModal ? '#0d6efd' : '#007bff',
-          border: 'none',
-          color: 'white',
-          fontSize: '24px',
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          transition: 'all 0.2s ease',
-          borderRadius: '50%',
-          boxSizing: 'border-box',
-        }}
-        title="المتجر وساعات العمل (للموظفين)"
-        aria-label="المتجر وساعات العمل"
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.1)';
-          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-        }}
-      >
-        🕐
-      </button>
-
       {/* Floating Quick Meals Manager Button */}
       <button
         onClick={() => setShowQuickMealsManager(prev => !prev)}
@@ -3161,408 +2710,6 @@ const OrdersPage = () => {
       >
         {showQuickMealsManager ? '✕' : '🍽️'}
       </button>
-
-      {showStoreStatusModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="store-status-modal-title"
-          onClick={() => !savingStoreStatus && setShowStoreStatusModal(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.45)',
-            zIndex: 10001,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-          }}
-        >
-          <div
-            className="orders-store-modal-scroll"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#fff',
-              borderRadius: 14,
-              maxWidth: 440,
-              width: '100%',
-              maxHeight: 'min(92vh, 620px)',
-              overflowY: 'auto',
-              padding: 20,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-              direction: 'rtl',
-              WebkitOverflowScrolling: 'touch',
-            }}
-          >
-            <h2 id="store-status-modal-title" style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: '#212529' }}>
-              المتجر وساعات العمل
-            </h2>
-
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: '#495057', letterSpacing: 0.2 }}>
-              حالة الظهور
-            </label>
-            <select
-              value={storeStatusDraft}
-              onChange={(e) => setStoreStatusDraft(e.target.value)}
-              disabled={savingStoreStatus}
-              style={{
-                width: '100%',
-                height: 42,
-                borderRadius: 10,
-                border: '1px solid #dee2e6',
-                fontSize: 15,
-                padding: '0 12px',
-                marginBottom: 18,
-                background: '#f8f9fa',
-              }}
-            >
-              <option value="auto">تلقائي (حسب ساعات العمل)</option>
-              <option value="open">مفتوح الآن</option>
-              <option value="busy">مشغول حالياً</option>
-              <option value="closed">مغلق الآن</option>
-            </select>
-
-            <div
-              style={{
-                height: 1,
-                background: '#e9ecef',
-                margin: '0 0 16px',
-              }}
-            />
-
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, color: '#495057' }}>
-              ساعات وأيام العمل
-            </label>
-
-            {!workingHoursDraft.perDayEnabled && !expandWorkingHoursDays && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  gap: 10,
-                  flexWrap: 'wrap',
-                  marginBottom: 4,
-                }}
-              >
-                <div style={{ flex: '1 1 120px', minWidth: 0 }}>
-                  <span style={{ fontSize: 11, color: '#868e96', display: 'block', marginBottom: 4 }}>فتح</span>
-                  <input
-                    type="time"
-                    dir="ltr"
-                    value={workingHoursDraft.open || ''}
-                    onChange={(e) =>
-                      setWorkingHoursDraft((p) => ({ ...p, open: e.target.value }))
-                    }
-                    disabled={savingStoreStatus}
-                    style={{
-                      width: '100%',
-                      height: 40,
-                      borderRadius: 10,
-                      border: '1px solid #dee2e6',
-                      padding: '0 10px',
-                      fontSize: 15,
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-                <div style={{ flex: '1 1 120px', minWidth: 0 }}>
-                  <span style={{ fontSize: 11, color: '#868e96', display: 'block', marginBottom: 4 }}>إغلاق</span>
-                  <input
-                    type="time"
-                    dir="ltr"
-                    value={workingHoursDraft.close || ''}
-                    onChange={(e) =>
-                      setWorkingHoursDraft((p) => ({ ...p, close: e.target.value }))
-                    }
-                    disabled={savingStoreStatus}
-                    style={{
-                      width: '100%',
-                      height: 40,
-                      borderRadius: 10,
-                      border: '1px solid #dee2e6',
-                      padding: '0 10px',
-                      fontSize: 15,
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={openExpandWorkingDays}
-                  disabled={savingStoreStatus}
-                  title="تعديل الأيام"
-                  style={{
-                    width: 44,
-                    height: 40,
-                    borderRadius: 10,
-                    border: '1px solid #dee2e6',
-                    background: '#f8f9fa',
-                    fontSize: 18,
-                    cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  ✏️
-                </button>
-              </div>
-            )}
-
-            {workingHoursDraft.perDayEnabled && !expandWorkingHoursDays && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '12px 14px',
-                  borderRadius: 12,
-                  border: '1px solid #e9ecef',
-                  background: '#f8f9fa',
-                  marginBottom: 4,
-                }}
-              >
-                <div>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#343a40', display: 'block' }}>
-                    جدول تفصيلي لكل يوم
-                  </span>
-                  <span style={{ fontSize: 11, color: '#868e96', marginTop: 4, display: 'block' }}>
-                    اضغط ✏️ لتعديل الأيام والساعات
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setExpandWorkingHoursDays(true)}
-                  disabled={savingStoreStatus}
-                  title="تعديل"
-                  style={{
-                    width: 44,
-                    height: 40,
-                    borderRadius: 10,
-                    border: '1px solid #dee2e6',
-                    background: '#fff',
-                    fontSize: 18,
-                    cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  ✏️
-                </button>
-              </div>
-            )}
-
-            {expandWorkingHoursDays && workingHoursDraft.perDayEnabled && (
-              <>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                    marginTop: 4,
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#495057' }}>الأيام</span>
-                  <button
-                    type="button"
-                    onClick={() => setExpandWorkingHoursDays(false)}
-                    title="إخفاء قائمة الأيام والعودة للعرض المختصر"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#007bff',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      padding: '4px 0',
-                    }}
-                  >
-                    إخفاء الأيام
-                  </button>
-                </div>
-                <div
-                  className="orders-store-modal-scroll"
-                  style={{
-                    maxHeight: 280,
-                    overflowY: 'auto',
-                    borderRadius: 12,
-                    border: '1px solid #e9ecef',
-                    background: '#fafafa',
-                    padding: '4px 12px 8px',
-                  }}
-                >
-                  {OFF_DAY_WEEKDAYS_FULL.map(({ key, label }) => {
-                    const row = workingHoursDraft.byDay?.[key] || emptyDayRow();
-                    const working = !row.closed;
-                    return (
-                      <div
-                        key={key}
-                        style={{
-                          padding: '12px 0',
-                          borderBottom: key < 6 ? '1px solid #e9ecef' : 'none',
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 12,
-                          }}
-                        >
-                          <span style={{ fontSize: 14, fontWeight: 600, color: '#212529', flex: 1, minWidth: 0 }}>
-                            {label}
-                          </span>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={working}
-                            disabled={savingStoreStatus}
-                            onClick={() => setDaySwitchWorking(key, !working)}
-                            style={{
-                              boxSizing: 'border-box',
-                              WebkitAppearance: 'none',
-                              appearance: 'none',
-                              width: 28,
-                              minWidth: 28,
-                              maxWidth: 28,
-                              height: 16,
-                              minHeight: 16,
-                              maxHeight: 16,
-                              borderRadius: 8,
-                              border: 'none',
-                              padding: 0,
-                              margin: 0,
-                              lineHeight: 0,
-                              fontSize: 0,
-                              background: working ? '#34c759' : '#e9e9ea',
-                              cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
-                              position: 'relative',
-                              flex: '0 0 28px',
-                              overflow: 'hidden',
-                              transition: 'background 0.2s',
-                            }}
-                          >
-                            <span
-                              style={{
-                                position: 'absolute',
-                                top: 2,
-                                left: working ? 14 : 2,
-                                width: 12,
-                                height: 12,
-                                borderRadius: '50%',
-                                background: '#fff',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.14)',
-                                transition: 'left 0.2s',
-                                pointerEvents: 'none',
-                              }}
-                            />
-                          </button>
-                        </div>
-                        {working && (
-                          <div
-                            style={{
-                              display: 'flex',
-                              gap: 10,
-                              marginTop: 10,
-                              flexWrap: 'wrap',
-                              alignItems: 'flex-end',
-                            }}
-                          >
-                            <div style={{ flex: '1 1 100px', minWidth: 0 }}>
-                              <span style={{ fontSize: 10, color: '#868e96', display: 'block', marginBottom: 4 }}>
-                                فتح
-                              </span>
-                              <input
-                                type="time"
-                                dir="ltr"
-                                value={row.open || ''}
-                                onChange={(e) => updateByDayDraft(key, 'open', e.target.value)}
-                                disabled={savingStoreStatus}
-                                style={{
-                                  width: '100%',
-                                  height: 36,
-                                  borderRadius: 8,
-                                  border: '1px solid #ced4da',
-                                  fontSize: 14,
-                                  padding: '0 8px',
-                                  boxSizing: 'border-box',
-                                }}
-                              />
-                            </div>
-                            <div style={{ flex: '1 1 100px', minWidth: 0 }}>
-                              <span style={{ fontSize: 10, color: '#868e96', display: 'block', marginBottom: 4 }}>
-                                إغلاق
-                              </span>
-                              <input
-                                type="time"
-                                dir="ltr"
-                                value={row.close || ''}
-                                onChange={(e) => updateByDayDraft(key, 'close', e.target.value)}
-                                disabled={savingStoreStatus}
-                                style={{
-                                  width: '100%',
-                                  height: 36,
-                                  borderRadius: 8,
-                                  border: '1px solid #ced4da',
-                                  fontSize: 14,
-                                  padding: '0 8px',
-                                  boxSizing: 'border-box',
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
-              <button
-                type="button"
-                disabled={savingStoreStatus}
-                onClick={() => setShowStoreStatusModal(false)}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: 8,
-                  border: '1px solid #ced4da',
-                  background: '#f8f9fa',
-                  color: '#495057',
-                  fontWeight: 600,
-                  cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
-                }}
-              >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                disabled={savingStoreStatus || !storeStatusModalDirty}
-                onClick={handleSaveStoreStatus}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: 8,
-                  border: 'none',
-                  background: savingStoreStatus || !storeStatusModalDirty ? '#adb5bd' : '#28a745',
-                  color: '#fff',
-                  fontWeight: 600,
-                  cursor: savingStoreStatus || !storeStatusModalDirty ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {savingStoreStatus ? 'جاري الحفظ...' : 'حفظ'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Quick Meals Manager Modal */}
       <QuickMealsManager
