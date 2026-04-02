@@ -229,7 +229,9 @@ export const onReferralCodeApplied = onDocumentUpdated(
 // 2. RESET REFERRAL DATA
 // Admin function to reset referral data for a user
 // ==========================================
-export const resetReferralData = onCall(async (request) => {
+export const resetReferralData = onCall(
+  { region: "us-central1", cors: true },
+  async (request) => {
   // Check if caller is admin
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "المستخدم غير مصادق عليه");
@@ -294,5 +296,6 @@ export const resetReferralData = onCall(async (request) => {
     logger.error("Error resetting referral data:", error);
     throw new HttpsError("internal", `خطأ في إعادة تعيين بيانات الإحالة: ${error.message}`);
   }
-});
+  }
+);
 

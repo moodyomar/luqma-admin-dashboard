@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { db } from '../firebase/firebaseConfig';
+import { db, firebaseApp } from '../firebase/firebaseConfig';
 import { doc, getDoc, updateDoc, collection, getDocs, query, where, deleteField } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Toaster, toast } from 'react-hot-toast';
@@ -812,8 +812,11 @@ const BusinessManagePage = () => {
         selectedUsersCount: notificationForm.selectedUsers.length
       });
       
-      const functions = getFunctions();
-      const sendPromoNotification = httpsCallable(functions, 'sendPromotionalNotification');
+      const fnRegion = import.meta.env.VITE_FIREBASE_REGION || 'us-central1';
+      const promoCallableName =
+        import.meta.env.VITE_ADMIN_PROMO_CALLABLE || 'sendAdminPromotionalPush';
+      const functions = getFunctions(firebaseApp, fnRegion);
+      const sendPromoNotification = httpsCallable(functions, promoCallableName);
       
       const result = await sendPromoNotification({
         title: notificationForm.title,
@@ -823,6 +826,9 @@ const BusinessManagePage = () => {
       });
 
       console.log('[NOTIFICATION] Result from Cloud Function:', result.data);
+      if (result.data.expoErrorSummary?.length) {
+        console.error('[NOTIFICATION] Expo push errors (from server):', result.data.expoErrorSummary);
+      }
       
       // Always log debug info if available
       if (result.data.debug) {
@@ -850,10 +856,14 @@ const BusinessManagePage = () => {
             console.error('❌ No customer tokens found even though some users should have them. Check token format.');
           }
         }
-        toast.error(`ההודעה נשלחה אבל לא הגיעה לאף משתמש (0 משתמשים). בדוק את הקונסול לפרטים.`, {
-          duration: 5000,
-          icon: '⚠️'
-        });
+        const expoHint =
+          result.data.expoErrorSummary?.length > 0
+            ? ` (${result.data.expoErrorSummary.slice(0, 2).join(' · ')})`
+            : '';
+        toast.error(
+          `ההודעה נשלחה אבל לא הגיעה לאף משתמש (0 משתמשים). בדוק את הקונסול לפרטים.${expoHint}`,
+          { duration: 8000, icon: '⚠️' }
+        );
       } else {
         toast.success(`הודעה נשלחה בהצלחה ל-${result.data.sentTo} משתמשים!`);
       }

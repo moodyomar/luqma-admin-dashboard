@@ -5,9 +5,12 @@ admin.initializeApp();
 
 // Export Cloud Functions
 export { inviteUser } from "./inviteUser";
-export { addBusinessClaims, removeBusinessClaims, forceTokenRefresh } from "./setClaims";
+// setClaims helpers are imported by inviteUser/removeDriver only — not Cloud Functions (do not re-export).
 export { removeDriver } from "./removeDriver";
-export { sendPromotionalNotification } from "./sendPromotionalNotification";
+export {
+  sendAdminPromotionalPush,
+  sendPromotionalNotification,
+} from "./sendPromotionalNotification";
 
 // Customer notifications (CRITICAL - restores customer notification system)
 export { onOrderCreated, onOrderStatusChange } from "./customerNotifications";
