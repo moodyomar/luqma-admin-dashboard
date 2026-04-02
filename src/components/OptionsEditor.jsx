@@ -1,6 +1,16 @@
 // File: src/components/OptionsEditor.jsx
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { FiTrash2 } from 'react-icons/fi';
+import {
+  DndContext,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import SortableOptionCard from './SortableOptionCard';
+import SortableOptionValueRow from './SortableOptionValueRow';
 
 
 const defaultLabels = {
@@ -34,6 +44,70 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [isOptionsExpanded, setIsOptionsExpanded] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
+
+  /**
+   * Stable ids: _sortId on each option (admin-only), and value.value on each choice row for inner DnD.
+   * _sortId is stripped on Firebase save; value.value is kept (required for cart / limits).
+   */
+  useLayoutEffect(() => {
+    if (!options?.length) return;
+    const needsSortId = options.some((o) => !o._sortId);
+    const needsValueIds = options.some(
+      (o) => Array.isArray(o.values) && o.values.some((v) => !v.value)
+    );
+    if (!needsSortId && !needsValueIds) return;
+    onChange(
+      options.map((opt, oidx) => {
+        let o = opt;
+        if (!o._sortId) {
+          o = { ...o, _sortId: `opt_${Date.now()}_${oidx}_${Math.random().toString(36).slice(2, 11)}` };
+        }
+        if (Array.isArray(o.values) && o.values.some((v) => !v.value)) {
+          o = {
+            ...o,
+            values: o.values.map((v, vi) =>
+              v.value
+                ? v
+                : { ...v, value: `opt_val_${Date.now()}_${vi}_${Math.random().toString(36).slice(2, 11)}` }
+            ),
+          };
+        }
+        return o;
+      })
+    );
+  }, [options, onChange]);
+
+  const optionDragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const innerValueDragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const handleOptionsDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = options.findIndex((o) => o._sortId === active.id);
+    const newIndex = options.findIndex((o) => o._sortId === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    onChange(arrayMove(options, oldIndex, newIndex));
+  };
+
+  const handleOptionValuesDragEnd = (optionIndex) => (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const vals = [...(options[optionIndex]?.values || [])];
+    const oldIndex = vals.findIndex((v) => String(v.value) === String(active.id));
+    const newIndex = vals.findIndex((v) => String(v.value) === String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const updated = [...options];
+    updated[optionIndex] = {
+      ...updated[optionIndex],
+      values: arrayMove(vals, oldIndex, newIndex),
+    };
+    onChange(updated);
+  };
 
   const handleLabelChange = (index, lang, value) => {
     const updated = [...options];
@@ -130,6 +204,7 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
 
   const handleAddOption = (type) => {
     const newOption = {
+      _sortId: `opt_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
       type: type,
       label: {
         ar: '',
@@ -167,10 +242,10 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
     onChange(updated);
   };
 
-  const toggleOption = (index) => {
-    setExpandedOptions(prev => ({
+  const toggleOption = (sortId) => {
+    setExpandedOptions((prev) => ({
       ...prev,
-      [index]: !prev[index]
+      [sortId]: !prev[sortId],
     }));
   };
 
@@ -194,6 +269,7 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
         
         return {
           ...option,
+          _sortId: `opt_${baseTimestamp}_${optIndex}_${Math.random().toString(36).substr(2, 9)}`,
           displayAs: option.displayAs || 'text',
           // Deep copy label object
           label: {
@@ -262,6 +338,7 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
         
         return {
           ...option,
+          _sortId: `opt_${optionTimestamp}_${copyIndex}_${Math.random().toString(36).substr(2, 9)}`,
           displayAs: option.displayAs || 'text',
           // Deep copy label object
           label: {
@@ -385,6 +462,20 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
               إضافة خيار جديد
             </button>
           </div>
+        )}
+        {isOptionsExpanded && options.length > 1 && (
+          <p
+            style={{
+              fontSize: 12,
+              color: '#666',
+              margin: '10px 0 4px',
+              direction: 'rtl',
+              textAlign: 'right',
+              lineHeight: 1.4,
+            }}
+          >
+            ⋮⋮ اسحب المقبض لإعادة ترتيب الإضافات — نفس الترتيب يظهر للزبون في التطبيق.
+          </p>
         )}
       </div>
 
@@ -882,10 +973,29 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
             </div>
           )}
 
+          <DndContext
+            sensors={optionDragSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleOptionsDragEnd}
+          >
+            <SortableContext
+              items={options.map((o, i) => o._sortId || `pending-${i}`)}
+              strategy={verticalListSortingStrategy}
+            >
           {options.map((option, index) => (
-            <div key={index} className="option-card">
+            <SortableOptionCard
+              key={option._sortId || `pending-${index}`}
+              id={option._sortId || `pending-${index}`}
+            >
               <div className="option-header">
-                <strong>نوع الاضافه:</strong> <span style={{ color: 'green', fontWeight: '700' }}>{option.type === 'multi' ? 'خيارات متعدده' : 'خيار واحد'}</span>
+                <strong>نوع الاضافه:</strong>{' '}
+                <span style={{ color: 'green', fontWeight: '700' }}>
+                  {option.type === 'multi'
+                    ? 'خيارات متعدده'
+                    : option.type === 'input'
+                      ? 'حقل نصّي'
+                      : 'خيار واحد'}
+                </span>
                 {option.type !== 'input' && (
                   <span style={{ marginInlineStart: 12 }}>
                     <label style={{ fontWeight: 500 }}>
@@ -921,12 +1031,13 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                 </label>
               </div>
 
-              <div className="option-wrapper" style={{ marginBottom: 16 }}>
+              <div className="option-wrapper" style={{ marginBottom: 0 }}>
                 {option.type !== 'input' ? (
                   <>
                     <div className="btn-row-right">
                       <button
-                        onClick={() => toggleOption(index)}
+                        type="button"
+                        onClick={() => toggleOption(option._sortId || `pending-${index}`)}
                         style={{
                           direction: 'rtl',
                           backgroundColor: '#f4f4f4',
@@ -937,11 +1048,13 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                           marginBottom: 8
                         }}
                       >
-                        {expandedOptions[index] ? '🔽 إخفاء الإضافات' : '➕ عرض الإضافات'}
+                        {expandedOptions[option._sortId || `pending-${index}`]
+                          ? '🔽 إخفاء الإضافات'
+                          : '➕ عرض الإضافات'}
                       </button>
                       <div className="required-extra-label" style={{ marginTop: 8 }}>
                         <label>
-                          <span style={{ marginInlineStart: 6 }}>الحقل مطلوب؟</span>
+                          <span style={{ marginInlineStart: 6 }}>خيار أجباري</span>
                           <input
                             type="checkbox"
                             checked={option.required || false}
@@ -952,64 +1065,89 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                       </div>
                     </div>
 
-                    {expandedOptions[index] && (
+                    {expandedOptions[option._sortId || `pending-${index}`] && (
                       <div className="option-values">
                         <strong style={{ direction: 'rtl' }}>الاضافات | האפשריות</strong>
-
-                        {(option.values || []).map((val, valIndex) => (
-                          <div key={valIndex} className="value-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input
-                              placeholder="مثلا: صغير/كبير"
-                              value={val.label.ar}
-                              onChange={(e) => handleValueChange(index, valIndex, 'ar', e.target.value)}
-                            />
-                            <input
-                              placeholder="דוגמה: קטן/גדול"
-                              value={val.label.he}
-                              onChange={(e) => handleValueChange(index, valIndex, 'he', e.target.value)}
-                            />
-                            {option.displayAs === 'color' ? (
-                              <>
-                                <input
-                                  type="color"
-                                  value={val.color || '#000000'}
-                                  onChange={e => handleColorChange(index, valIndex, e.target.value)}
-                                  style={{ width: 40, height: 32, border: 'none', background: 'none', cursor: 'pointer' }}
-                                  title="اختر اللون"
-                                />
-                                <span style={{ width: 60, fontSize: 12, color: '#555' }}>{val.color || '#000000'}</span>
-                              </>
-                            ) : (
-                              <input
-                                style={{ minWidth: 85 }}
-                                type="url"
-                                placeholder="رابط الصورة"
-                                value={val.image || ''}
-                                onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
-                              />
-                            )}
-                            <input
-                              style={{ maxWidth: 100, minWidth: 70, width: 100 }}
-                              type="number"
-                              placeholder="كم زياده؟"
-                              value={val.extra || 0}
-                              onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
-                            />
-                            <button
-                              onClick={() => handleDeleteValue(index, valIndex)}
-                              style={{
-                                backgroundColor: '#d9534f',
-                                color: '#fff',
-                                border: 'none',
-                                padding: '4px 8px',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <FiTrash2 size={16} />
-                            </button>
+                        {(option.values || []).length > 1 && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: '#888',
+                              marginTop: 6,
+                              marginBottom: 4,
+                              direction: 'rtl',
+                            }}
+                          >
+                            ⋮⋮ اسحب المقبض لترتيب الصفوف — نفس الترتيب في التطبيق.
                           </div>
-                        ))}
+                        )}
+
+                        <DndContext
+                          sensors={innerValueDragSensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleOptionValuesDragEnd(index)}
+                        >
+                          <SortableContext
+                            items={(option.values || []).map((v) => String(v.value))}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {(option.values || []).map((val, valIndex) => (
+                              <SortableOptionValueRow key={val.value} id={String(val.value)}>
+                                <input
+                                  placeholder="مثلا: صغير/كبير"
+                                  value={val.label.ar}
+                                  onChange={(e) => handleValueChange(index, valIndex, 'ar', e.target.value)}
+                                />
+                                <input
+                                  placeholder="דוגמה: קטן/גדול"
+                                  value={val.label.he}
+                                  onChange={(e) => handleValueChange(index, valIndex, 'he', e.target.value)}
+                                />
+                                {option.displayAs === 'color' ? (
+                                  <>
+                                    <input
+                                      type="color"
+                                      value={val.color || '#000000'}
+                                      onChange={(e) => handleColorChange(index, valIndex, e.target.value)}
+                                      style={{ width: 40, height: 32, border: 'none', background: 'none', cursor: 'pointer' }}
+                                      title="اختر اللون"
+                                    />
+                                    <span style={{ width: 60, fontSize: 12, color: '#555' }}>{val.color || '#000000'}</span>
+                                  </>
+                                ) : (
+                                  <input
+                                    style={{ minWidth: 85 }}
+                                    type="url"
+                                    placeholder="رابط الصورة"
+                                    value={val.image || ''}
+                                    onChange={(e) => handleImageChange(index, valIndex, e.target.value)}
+                                  />
+                                )}
+                                <input
+                                  style={{ maxWidth: 100, minWidth: 70, width: 100 }}
+                                  type="number"
+                                  placeholder="كم زياده؟"
+                                  value={val.extra || 0}
+                                  onChange={(e) => handleExtraChange(index, valIndex, e.target.value)}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteValue(index, valIndex)}
+                                  style={{
+                                    backgroundColor: '#d9534f',
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '4px 8px',
+                                    borderRadius: 4,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <FiTrash2 size={16} />
+                                </button>
+                              </SortableOptionValueRow>
+                            ))}
+                          </SortableContext>
+                        </DndContext>
 
                         {option.type === 'multi' && (
                           <details style={{ marginTop: 10 }}>
@@ -1160,8 +1298,10 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                   </div>
                 )}
               </div>
-            </div>
+            </SortableOptionCard>
           ))}
+            </SortableContext>
+          </DndContext>
         </>
       )}
     </div>
