@@ -128,7 +128,14 @@
   margin-right: 10px;
 }
 
-/* Driver chip: strip UA extras so height matches status badge pill */
+/* Driver chip: match .order-status-chip / status pill (مكتمل) height */
+.order-status-chip,
+.order-driver-chip-btn {
+  box-sizing: border-box;
+  min-height: 32px;
+  line-height: 1.2;
+}
+
 .order-driver-chip-btn::-moz-focus-inner {
   border: 0;
   padding: 0;

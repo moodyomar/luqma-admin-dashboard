@@ -2,7 +2,7 @@
 # Copy shared Firestore rules from firebase-template.rules → per-tenant *.rules files.
 #
 # Source of truth (white-label / non-Luqma): firebase-rules/firebase-template.rules
-# Luqma production deploy: firebase-rules/luqma.rules (+ copy to ../firestore.rules — see README)
+# Luqma / QBMenu / Jeeb: ../firestore.rules only (do not duplicate; see firebase-rules/README.md)
 #
 # Usage:
 #   ./scripts/sync-firebase-tenant-rules.sh           # apply
@@ -25,7 +25,7 @@ if [[ ! -f "$SOURCE" ]]; then
 fi
 
 # Tenant rule files that should track the template byte-for-byte.
-# Do NOT list luqma.rules here — it adds Jeeb-only paths and must be merged manually from the template.
+# Do NOT list Luqma here — Jeeb paths live only in ../firestore.rules (merged manually from template when needed).
 # Add/remove names to match files under firebase-rules/*.rules
 TENANTS=(
   bunelo

@@ -1,21 +1,20 @@
 # Firebase Rules — Source of Truth & Client Status
 
-## Source of truth: `firebase-template.rules`
+## Source of truth
 
-Use **`firebase-template.rules`** when creating or updating Firestore rules for any **new client project** (except Luqma). Luqma keeps its own rules because of Jeeb-specific collections and behavior.
+- **Luqma / QBMenu / Jeeb:** **`admin-dashboard/firestore.rules`** only (superset). Deploy from `admin-dashboard` with `firebase deploy --only firestore:rules`. See **`README.md`** in this folder.
 
-**All non-Luqma clients use the same rules.** The files `safaa.rules`, `bunelo.rules`, `risto.rules`, `icon.rules`, and `refresh.rules` are identical (copy of the template). Update the template first, then copy to each client file when deploying.
+- **Other white-label clients:** **`firebase-template.rules`**. Files `safaa.rules`, `bunelo.rules`, `risto.rules`, `icon.rules`, `refresh.rules` track the template (`npm run sync:firestore-tenant-rules`).
 
-The template includes:
+Shared concepts in the template:
 
 - **Permissions:** `isAuthed`, `hasBiz`, `isAdmin`, `isDriver`, `isJeebDriver`, `isBusinessAdmin`
-- **Notifications:** `notificationLogs` (split-bill sessions), `menus/{businessId}/notifications`
-- **Redeem points:** `users/{uid}` readable/updatable by owner (and admin)
-- **Jeeb app:** `orders` read allowed for all (so Jeeb drivers in another Firebase project can read); order updates by admin or drivers (including `jeeb_driver`)
-- **Referral:** `users/{uid}/referralTransactions` and `referralStats` (read own, admin create/update/delete)
-- **New order / status change / refer-code notifications:** handled by Cloud Functions; rules allow admins to write `menus/{businessId}/notifications` and allow needed reads on `users`
+- **Notifications:** `notificationLogs` (split-bill), `menus/{businessId}/notifications`
+- **Redeem / users:** `users/{uid}` as documented in rules
+- **Referral:** `referralTransactions`, `referralStats` under `users/{uid}`
+- **Cloud Functions:** order/referral notifications; admins write `menus/.../notifications` where applicable
 
-Do **not** add Luqma-only collections: `/businesses`, `/client_requests`, `/jeeb_clients`.
+Do **not** put Luqma-only top-level collections in **`firebase-template.rules`**: `/businesses`, `/client_requests`, `/jeeb_clients` exist only in **`firestore.rules`**.
 
 ---
 
@@ -28,7 +27,7 @@ Do **not** add Luqma-only collections: `/businesses`, `/client_requests`, `/jeeb
 | **Risto**  | Same as template | Copy `risto.rules` to Firebase. |
 | **Icon**   | Same as template | Copy `icon.rules` to Firebase. |
 | **Refresh**| Same as template | Copy `refresh.rules` to Firebase. |
-| **Luqma**  | Different        | Uses `luqma.rules` only (has `/businesses`, `/client_requests`, `/jeeb_clients`). Do not use template. |
+| **Luqma**  | **`admin-dashboard/firestore.rules`** | Superset (Jeeb + menu); not under `firebase-rules/*.rules`. |
 
 ---
 
@@ -53,6 +52,6 @@ See **MenuAppTemplate/FIREBASE_DEPLOY.md** for the full flow and checklist.
 
 ## Summary
 
-- **All non-Luqma clients:** same rules — use `firebase-template.rules` or any of `safaa.rules`, `bunelo.rules`, `risto.rules`, `icon.rules`, `refresh.rules`.
-- **Luqma:** use `luqma.rules` only; do not replace with template.
-- **To change rules for all non-Luqma clients:** edit `firebase-template.rules`, then copy its content (from `rules_version` onward) into the five client files, or keep client files in sync manually.
+- **All non-Luqma clients:** same rules — use `firebase-template.rules` or synced `*.rules` files.
+- **Luqma / QBMenu / Jeeb:** edit **`admin-dashboard/firestore.rules`** only; do not duplicate under `firebase-rules/`.
+- **To change rules for all non-Luqma clients:** edit `firebase-template.rules`, then run `npm run sync:firestore-tenant-rules`. Merge any shared change into **`firestore.rules`** if Luqma needs it too.

@@ -2,10 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // =============================================================================
+    // Single source of truth — deploy: cd admin-dashboard && npm run rules:deploy
+    //
+    // Base = production QBMenu rules you had been running. The only additions are
+    // top-level matches for Jeeb admin: /businesses, /client_requests, /jeeb_clients
+    // (everything else, including menus/* and orders, is unchanged from that base).
+    // =============================================================================
+
     // ========================================
     // HELPER FUNCTIONS
     // ========================================
-    
+
     // Check if user is authenticated
     function isAuthed() {
       return request.auth != null;
@@ -13,28 +21,28 @@ service cloud.firestore {
 
     // Check if user belongs to a specific business
     function hasBiz(bid) {
-      return isAuthed() && 
+      return isAuthed() &&
              request.auth.token.businessIds != null &&
              request.auth.token.businessIds.hasAny([bid]);
     }
 
     // Check if user has admin role
     function isAdmin() {
-      return isAuthed() && 
+      return isAuthed() &&
              request.auth.token.roles != null &&
              request.auth.token.roles.hasAny(['admin']);
     }
 
     // Check if user has driver role
     function isDriver() {
-      return isAuthed() && 
+      return isAuthed() &&
              request.auth.token.roles != null &&
              request.auth.token.roles.hasAny(['driver']);
     }
 
     // Check if user is a Jeeb driver (works across all businesses)
     function isJeebDriver() {
-      return isAuthed() && 
+      return isAuthed() &&
              request.auth.token.roles != null &&
              request.auth.token.roles.hasAny(['jeeb_driver']);
     }
@@ -54,22 +62,49 @@ service cloud.firestore {
     }
 
     // ========================================
+    // JEEB / QBMenu — top-level collections (NOT in white-label template)
+    // Added so admin.jeeb.delivery can list businesses; was previously denied by catch-all.
+    // ========================================
+    match /businesses/{businessId} {
+      allow read: if isAuthed();
+      allow write: if isAdmin();
+    }
+
+    match /client_requests/{requestId} {
+      allow create: if isAuthed();
+      allow read: if isAuthed() && (
+        request.auth.uid == resource.data.requesterId ||
+        isAdmin() || isJeebDriver() || isDriver()
+      );
+      allow update: if isAuthed() && (
+        isAdmin() || isJeebDriver() || isDriver() || request.auth.uid == resource.data.requesterId
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /jeeb_clients/{clientId} {
+      allow read, write: if isAuthed() && (
+        request.auth.uid == clientId || isAdmin()
+      );
+    }
+
+    // ========================================
     // GLOBAL USERS COLLECTION (for push notifications & mobile app)
     // ========================================
     match /users/{uid} {
       // CRITICAL: Allow any authenticated user to read user documents
       // Mobile app and admin dashboard both need this access
       allow read: if isAuthed();
-      
+
       // CRITICAL: Allow users to create their own document (first-time registration with push token)
-      allow create: if isAuthed() && 
-                      (request.auth.uid == uid || 
-                       (request.resource.data.phone != null && 
+      allow create: if isAuthed() &&
+                      (request.auth.uid == uid ||
+                       (request.resource.data.phone != null &&
                         request.resource.data.phone is string));
-      
+
       // Allow users to update their own document (push token updates)
       allow update: if isAuthed() && (request.auth.uid == uid || isAdmin());
-      
+
       // Only allow users to delete their own document
       allow delete: if isAuthed() && request.auth.uid == uid;
 
@@ -110,14 +145,14 @@ service cloud.firestore {
         (isJeebDriver() && request.auth.uid == driverId) ||
         isAdmin()
       );
-      
+
       // Jeeb drivers can create/update their own profile
       // Admins can create/update any driver profile
       allow create, update: if isAuthed() && (
         (isJeebDriver() && request.auth.uid == driverId) ||
         isAdmin()
       );
-      
+
       // Prevent deletion (use soft delete or admin-only)
       allow delete: if isAdmin();
     }
@@ -129,19 +164,19 @@ service cloud.firestore {
       // Allow authenticated users to read split sessions
       // (users need session ID/invite code to access, providing security)
       allow read: if isAuthed();
-      
+
       // Allow authenticated users to create split sessions (as host)
-      allow create: if isAuthed() && 
+      allow create: if isAuthed() &&
                      request.resource.data.docType == 'split-session' &&
                      request.resource.data.hostId == request.auth.uid;
-      
+
       // Allow users to update split sessions they are part of
       // Host can update any field, participants can update (to add claims, etc.)
       allow update: if isAuthed() && (
         resource.data.hostId == request.auth.uid ||
         resource.data.participants[request.auth.uid] != null
       );
-      
+
       // Prevent deletion (sessions should expire, not be deleted)
       allow delete: if false;
     }
@@ -150,7 +185,7 @@ service cloud.firestore {
     // TENANT-SCOPED COLLECTIONS
     // ========================================
     match /menus/{businessId} {
-      
+
       // Business settings document (read by anyone with access, write by admins only)
       allow read: if hasBiz(businessId) || true; // Public read for menu display
       allow write: if isBusinessAdmin(businessId);
@@ -178,14 +213,14 @@ service cloud.firestore {
         // - Admins: see all orders (no filtering needed)
         // Security: Query-level filtering ensures users only see relevant orders
         allow read: if isAuthed();
-        
+
         // Update access:
         // - Admins: can update all orders
         // - Drivers: can update orders assigned to them OR unassigned orders (to accept them)
         // - Customers: cannot update orders (only admins/drivers can)
         // This prevents drivers from updating other drivers' assigned orders
         allow update: if hasBiz(businessId) && (
-          isAdmin() || 
+          isAdmin() ||
           (isDriver() && (
             // Driver can update if:
             // 1. Order is assigned to them, OR
@@ -196,19 +231,19 @@ service cloud.firestore {
             resource.data.assignedDriverId == ''
           ))
         );
-        
+
         // Create access:
         // - Admins: can create orders from dashboard
         // - Customers: can create orders (via menu app) - any authenticated user
         allow create: if isAuthed();
-        
+
         // Delete access:
         // - Admins: can delete any order
         // - Users: can delete their own orders, but only if status is 'pending' (not yet processed)
         //   Security: Users can only delete orders where userId matches their auth.uid
         //   Note: We use userId field for ownership verification (more secure than phone)
-        allow delete: if isBusinessAdmin(businessId) || 
-                      (isAuthed() && 
+        allow delete: if isBusinessAdmin(businessId) ||
+                      (isAuthed() &&
                        resource.data.status == 'pending' &&
                        resource.data.userId == request.auth.uid);
       }
@@ -325,12 +360,3 @@ service cloud.firestore {
     }
   }
 }
-
-
-
-
-
-
-
-
-

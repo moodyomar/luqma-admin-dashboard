@@ -172,6 +172,60 @@ const formatPhoneDisplay = (phone) => {
   return trimmed;
 };
 
+/** Sum of cart line totals (excludes delivery, app fee, discounts). */
+const sumOrderCartSubtotal = (order) => {
+  if (!order?.cart || !Array.isArray(order.cart)) return 0;
+  return order.cart.reduce((sum, item) => {
+    const itemPrice = parseFloat(item.totalPrice || item.price || 0);
+    const quantity = parseInt(item.quantity || 1, 10);
+    return sum + itemPrice * quantity;
+  }, 0);
+};
+
+/**
+ * Delivery fee, subtotal excluding that fee (when derivable), and full total (order total includes delivery).
+ * Used for driver popover.
+ */
+const getOrderCardPriceParts = (order) => {
+  const paid = parseFloat(order.total ?? order.price ?? 0);
+  const safePaid = Number.isFinite(paid) ? paid : 0;
+  const dfRaw = order.deliveryFee;
+  const dfStored = typeof dfRaw === 'number' ? dfRaw : parseFloat(dfRaw);
+  const hasStoredDeliveryFee =
+    order.deliveryMethod === 'delivery' &&
+    Number.isFinite(dfStored) &&
+    dfStored > 0;
+  if (hasStoredDeliveryFee) {
+    const subtotalExDelivery = Math.max(0, Math.round((safePaid - dfStored) * 100) / 100);
+    return {
+      deliveryFee: dfStored,
+      subtotalExDelivery,
+      totalIncludingDelivery: safePaid,
+    };
+  }
+
+  if (order.deliveryMethod === 'delivery' && !(order.pointsUsed > 0)) {
+    const cartSum = sumOrderCartSubtotal(order);
+    const appFee = Number(order.appFee) || 0;
+    const couponDisc = Number(order.couponDiscount) || 0;
+    const inferredDf = Math.round((safePaid - cartSum - appFee + couponDisc) * 100) / 100;
+    if (inferredDf > 0.005 && inferredDf <= safePaid + 0.01) {
+      const subtotalExDelivery = Math.round((cartSum + appFee - couponDisc) * 100) / 100;
+      return {
+        deliveryFee: inferredDf,
+        subtotalExDelivery,
+        totalIncludingDelivery: safePaid,
+      };
+    }
+  }
+
+  return {
+    deliveryFee: null,
+    subtotalExDelivery: null,
+    totalIncludingDelivery: safePaid,
+  };
+};
+
 const formatFutureOrderMeta = (deliveryDateTime) => {
   const scheduled = getScheduledDate(deliveryDateTime);
   if (!scheduled) return null;
@@ -234,6 +288,77 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   const [showSuggestAlternativesModal, setShowSuggestAlternativesModal] = useState(false);
   const [alternativeSlots, setAlternativeSlots] = useState([{ date: '', time: '12:00' }]);
   const [reservationActionLoading, setReservationActionLoading] = useState(false);
+
+  const driverPopoverRef = useRef(null);
+  const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
+  const [driverPhone, setDriverPhone] = useState(null);
+  const [driverPhoneFetched, setDriverPhoneFetched] = useState(false);
+  const [driverPhoneLoading, setDriverPhoneLoading] = useState(false);
+
+  const orderCardPrices = useMemo(() => getOrderCardPriceParts(order), [order]);
+
+  /** Card row السعر — for delivery, amount excludes customer delivery fee (full total in driver popover). */
+  const orderCardDisplayPrice = useMemo(() => {
+    const paid = parseFloat(order.total ?? order.price ?? 0);
+    const safePaid = Number.isFinite(paid) ? paid : 0;
+    if (order.deliveryMethod !== 'delivery') {
+      return safePaid;
+    }
+    if (orderCardPrices.subtotalExDelivery != null) {
+      return orderCardPrices.subtotalExDelivery;
+    }
+    const cart = sumOrderCartSubtotal(order);
+    if (cart > 0.005) {
+      return Math.round(cart * 100) / 100;
+    }
+    return safePaid;
+  }, [order, orderCardPrices]);
+
+  useEffect(() => {
+    setDriverPopoverOpen(false);
+    setDriverPhone(null);
+    setDriverPhoneFetched(false);
+    setDriverPhoneLoading(false);
+  }, [order.assignedDriverId, order.id]);
+
+  useEffect(() => {
+    if (!driverPopoverOpen) return;
+    const onPointerDown = (e) => {
+      if (driverPopoverRef.current && !driverPopoverRef.current.contains(e.target)) {
+        setDriverPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [driverPopoverOpen]);
+
+  const toggleDriverPopover = async (e) => {
+    e.stopPropagation();
+    const next = !driverPopoverOpen;
+    setDriverPopoverOpen(next);
+    if (!next || !order.assignedDriverId || !activeBusinessId || driverPhoneFetched) return;
+    setDriverPhoneLoading(true);
+    try {
+      const userRef = doc(db, 'menus', activeBusinessId, 'users', order.assignedDriverId);
+      const snap = await getDoc(userRef);
+      if (snap.exists()) {
+        const p = snap.data().phone;
+        setDriverPhone(typeof p === 'string' && p.trim() ? p.trim() : null);
+      } else {
+        setDriverPhone(null);
+      }
+    } catch (err) {
+      console.warn('[OrdersPage] Could not load driver phone:', err);
+      setDriverPhone(null);
+    } finally {
+      setDriverPhoneFetched(true);
+      setDriverPhoneLoading(false);
+    }
+  };
 
   // Fetch prep time options from business config
   useEffect(() => {
@@ -995,6 +1120,20 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
 
 
+  // Same dimensions as driver chip (مكتمل / السائق pills)
+  const orderHeaderChipBase = {
+    boxSizing: 'border-box',
+    lineHeight: 1.2,
+    minHeight: 32,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+  };
+
   // Enhanced status badge with colors and icons
   const getStatusBadge = () => {
     const statusConfig = {
@@ -1010,18 +1149,15 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     const config = statusConfig[order.status] || statusConfig['pending'];
     
     return (
-      <div style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        padding: '6px 12px',
-        borderRadius: '20px',
-        backgroundColor: config.bgColor,
-        color: config.color,
-        fontSize: '12px',
-        fontWeight: 'bold',
-        border: `1px solid ${config.color}20`
-      }}>
+      <div
+        className="order-status-chip"
+        style={{
+          ...orderHeaderChipBase,
+          backgroundColor: config.bgColor,
+          color: config.color,
+          border: `1px solid ${config.color}20`,
+        }}
+      >
         <span>{config.icon}</span>
         <span>{config.text}</span>
       </div>
@@ -1124,26 +1260,136 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             </div>
           )}
         </div>
-        {/* Driver Name - Left Side (Second) */}
+        {/* Driver chip — tap for phone, delivery fee, total */}
         {order.deliveryMethod === 'delivery' && order.assignedDriverName && (
-          <div style={{ 
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '6px 12px',
-            borderRadius: '20px',
-            background: '#e8f5e9',
-            border: '1px solid #4caf50',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            color: '#2e7d32'
-          }}>
-            <span>🚗</span>
-            <span>{order.assignedDriverName}</span>
-            {order.assignedAt && (
-              <span style={{ fontSize: '10px', color: '#666', marginRight: 2 }}>
-                ({new Date(order.assignedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
-              </span>
+          <div ref={driverPopoverRef} style={{ position: 'relative', display: 'inline-flex' }}>
+            <button
+              type="button"
+              onClick={toggleDriverPopover}
+              aria-expanded={driverPopoverOpen}
+              aria-haspopup="dialog"
+              className="order-driver-chip-btn"
+              style={{
+                ...orderHeaderChipBase,
+                background: driverPopoverOpen ? '#c8e6c9' : '#e8f5e9',
+                border: `1px solid ${driverPopoverOpen ? '#2e7d32' : '#4caf50'}`,
+                color: '#2e7d32',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                margin: 0,
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                boxShadow: driverPopoverOpen ? '0 2px 8px rgba(46,125,50,0.2)' : 'none',
+                transition: 'background 0.15s ease, box-shadow 0.15s ease',
+              }}
+            >
+              <span>🚗</span>
+              <span>{order.assignedDriverName}</span>
+              {order.assignedAt && (
+                <span
+                  style={{
+                    fontSize: '10px',
+                    color: '#666',
+                    marginRight: 2,
+                    lineHeight: 1,
+                    fontWeight: 600,
+                  }}
+                >
+                  ({new Date(order.assignedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
+                </span>
+              )}
+            </button>
+            {driverPopoverOpen && (
+              <div
+                role="dialog"
+                aria-label="تفاصيل السائق والتوصيل"
+                onClick={(ev) => ev.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: 'max-content',
+                  maxWidth: 'min(260px, calc(100vw - 24px))',
+                  boxSizing: 'border-box',
+                  padding: '8px 10px',
+                  borderRadius: 12,
+                  background: '#fff',
+                  border: '1px solid rgba(46, 125, 50, 0.18)',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+                  zIndex: 80,
+                  direction: 'rtl',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: '#1b5e20',
+                    marginBottom: 8,
+                    paddingBottom: 6,
+                    borderBottom: '1px solid #e8f5e9',
+                  }}
+                >
+                  السائق
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    {
+                      key: 'phone',
+                      label: 'الهاتف',
+                      value: driverPhoneLoading ? (
+                        <span style={{ color: '#90a4ae' }}>…</span>
+                      ) : driverPhone ? (
+                        formatPhoneDisplay(driverPhone)
+                      ) : (
+                        '—'
+                      ),
+                      valueBold: false,
+                    },
+                    {
+                      key: 'delivery',
+                      label: 'التوصيل',
+                      value:
+                        orderCardPrices.deliveryFee != null && orderCardPrices.deliveryFee > 0
+                          ? `₪${formatPrice(orderCardPrices.deliveryFee)}`
+                          : '—',
+                      valueBold: false,
+                    },
+                    {
+                      key: 'total',
+                      label: 'الإجمالي',
+                      value: `₪${formatPrice(orderCardPrices.totalIncludingDelivery)}`,
+                      valueBold: true,
+                    },
+                  ].map((row) => (
+                    <div
+                      key={row.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-start',
+                        flexWrap: 'wrap',
+                        gap: 4,
+                        fontSize: 12,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      <span style={{ color: '#78909c', flexShrink: 0 }}>{row.label}</span>
+                      <span style={{ color: '#78909c', flexShrink: 0, userSelect: 'none' }}>:</span>
+                      <span
+                        style={{
+                          fontWeight: row.valueBold ? 700 : 600,
+                          color: row.valueBold ? '#1b5e20' : '#263238',
+                          userSelect: row.key === 'phone' ? 'text' : undefined,
+                          minWidth: 0,
+                        }}
+                      >
+                        {row.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -1262,7 +1508,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         </div>
         <div>
           <span className="label">💰 السعر:</span>
-          <span className="value order-price">₪{formatPrice(order.total ?? order.price ?? 0)}</span>
+          <span className="value order-price">₪{formatPrice(orderCardDisplayPrice)}</span>
         </div>
       </div>
 

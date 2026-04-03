@@ -2,6 +2,7 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
+import { adminSpaCallableOpts } from "./adminSpaCallableOptions";
 
 /**
  * REFERRAL FUNCTIONS
@@ -230,7 +231,7 @@ export const onReferralCodeApplied = onDocumentUpdated(
 // Admin function to reset referral data for a user
 // ==========================================
 export const resetReferralData = onCall(
-  { region: "us-central1", cors: true },
+  adminSpaCallableOpts,
   async (request) => {
   // Check if caller is admin
   if (!request.auth) {

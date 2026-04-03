@@ -2,9 +2,7 @@ import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import type { CallableRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
-
-/** CORS required when the admin SPA is on a custom origin (Vercel, app.*.co.il, etc.). */
-const promoCallableOptions = { region: "us-central1" as const, cors: true };
+import { adminSpaCallableOpts } from "./adminSpaCallableOptions";
 
 /**
  * Admin promotional push (Expo). One handler, two exported callables:
@@ -444,12 +442,12 @@ async function promotionalPushHandler(request: CallableRequest) {
 }
 
 export const sendAdminPromotionalPush = onCall(
-  promoCallableOptions,
+  adminSpaCallableOpts,
   promotionalPushHandler
 );
 
 export const sendPromotionalNotification = onCall(
-  promoCallableOptions,
+  adminSpaCallableOpts,
   promotionalPushHandler
 );
 

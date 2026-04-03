@@ -1,50 +1,30 @@
 # Firestore rules in this repo
 
-## Two sources of truth
+## Single source of truth for Luqma / QBMenu / Jeeb
 
 | File | Role |
 |------|------|
-| **`firebase-template.rules`** | **Shared** rules for every white-label client (Risto, Bunelo, Icon, Safaa, Refresh, …). Edit here first when you add features that all tenants need (coupons, `couponUserUsage`, orders, drivers, etc.). |
-| **`luqma.rules`** | **Luqma only** = same base as the template **plus** extra collections and rules (Jeeb: `businesses`, `client_requests`, `jeeb_clients`, and any Luqma-specific tweaks). Do **not** overwrite this file with the template. |
+| **`../firestore.rules`** (i.e. `admin-dashboard/firestore.rules`) | **Only file to edit** for the main Luqma project. Includes white-label–style rules **plus** Jeeb collections (`businesses`, `client_requests`, `jeeb_clients`), public `menus/.../orders` reads for cross-project tooling, referrals, coupons, notifications, etc. `firebase.json` points here. |
 
-## Deploy file for Luqma main project
-
-`firebase.json` points Firestore at **`../firestore.rules`** (repo root: `admin-dashboard/firestore.rules`).  
-Keep it in sync with **`firebase-rules/luqma.rules`** when you change Luqma rules:
+## Deploy
 
 ```bash
 cd admin-dashboard
-cp firebase-rules/luqma.rules firestore.rules
-firebase deploy --only firestore:rules
+npm run rules:deploy
+# or: firebase deploy --only firestore:rules
 ```
 
-(Or maintain `firestore.rules` as the edited file and periodically copy back to `luqma.rules` — pick one workflow and stick to it.)
+**Jeeb driver app** (or any other repo): do not keep a second copy of these rules long term. Either deploy from `admin-dashboard` with the correct Firebase project, or add a short doc in that repo linking here and paste only when intentionally mirroring.
 
-## Propagate template → all tenant `.rules` files
+## White-label tenants (Risto, Bunelo, …)
 
-After you change **`firebase-template.rules`**, copy it to every tenant file (except `luqma.rules`):
+| File | Role |
+|------|------|
+| **`firebase-template.rules`** | Shared rules for clients that **do not** use Jeeb top-level collections. Edit here when all tenants need the same change. |
+| **`bunelo.rules`**, **`risto.rules`**, … | Copies of the template; refresh with `npm run sync:firestore-tenant-rules`. |
 
-```bash
-cd admin-dashboard
-npm run sync:firestore-tenant-rules
-# or: bash scripts/sync-firebase-tenant-rules.sh
-```
+When the template gains a feature Luqma also needs, update **`firebase-template.rules`**, run the sync script, then **merge the same block into `../firestore.rules`** in the right section (Luqma is the superset).
 
-Dry run:
+## Template sync (`sync-template.sh`)
 
-```bash
-bash scripts/sync-firebase-tenant-rules.sh --dry-run
-```
-
-Configured tenant names live in **`scripts/sync-firebase-tenant-rules.sh`** (`TENANTS` array). Add a new client by adding `firebase-rules/<client>.rules` and appending the name there.
-
-## Template repo (`sync-template.sh`)
-
-`sync-template.sh` rsyncs the whole **`firebase-rules/`** folder to MenuAppTemplate, then copies **`firebase-template.rules`** into the template apps’ `firestore.rules`.  
-Run **`sync:firestore-tenant-rules`** in luqma **before** `sync-template.sh` so the template receives already-aligned tenant copies.
-
-## Why not one file for everything?
-
-Luqma ships Jeeb and internal collections that other restaurants do not have. Putting those in `firebase-template.rules` would expose or complicate every client project. The split keeps tenants minimal and Luqma explicit.
-
-When you add a rule that **everyone** needs, change **`firebase-template.rules`**, run **`sync:firestore-tenant-rules`**, then **merge the same block into `luqma.rules`** in the right place (or diff template vs luqma and port only the delta).
+`sync-template.sh` rsyncs **`firebase-rules/`** to MenuAppTemplate. Luqma’s canonical rules are **not** inside `firebase-rules/`; they live in **`firestore.rules`**. After changing `firestore.rules`, deploy from this dashboard as above.
