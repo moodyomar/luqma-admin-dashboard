@@ -1,3 +1,7 @@
+/**
+ * Legacy: big “enable sound” button. Prefer AudioAutoplayUnlock in App.jsx.
+ * Kept for reference; not mounted anywhere in the current app shell.
+ */
 import { useState } from 'react';
 import brandConfig from '../../constants/brandConfig';
 

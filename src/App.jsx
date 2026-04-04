@@ -25,6 +25,7 @@ import { FiLogOut, FiRefreshCw } from 'react-icons/fi';
 import { auth } from '../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
 import { canAccessAdvancedSettings } from './utils/advancedSettingsAccess';
+import AudioAutoplayUnlock from './components/AudioAutoplayUnlock';
 import '../src/styles/admin.css'
 
 function App() {
@@ -170,6 +171,7 @@ function App() {
       backgroundColor: isLoginPage ? '#f8f9fa' : '#ffffff',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
+      <AudioAutoplayUnlock />
       {/* Role Selection Modal */}
       {showRoleModal && user && !loading && (
         <RoleSelectionModal 
