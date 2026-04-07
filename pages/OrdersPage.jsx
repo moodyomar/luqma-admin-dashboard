@@ -26,6 +26,16 @@ function emptyDayRow() {
   return { open: '', close: '', closed: false };
 }
 
+/** Order-type toggles (menus.config.features) — same flags as BusinessManagePage אפשרויות הזמנה זמינות */
+function normalizeOrderFeaturesFromConfig(features) {
+  const f = features && typeof features === 'object' ? features : {};
+  return {
+    enablePickup: !!f.enablePickup,
+    enableDelivery: !!f.enableDelivery,
+    enableEatIn: !!f.enableEatIn,
+  };
+}
+
 function normalizeByDayFromFirestore(raw) {
   const out = {};
   for (let i = 0; i < 7; i++) {
@@ -2049,10 +2059,15 @@ const OrdersPage = () => {
   const [workingHoursLive, setWorkingHoursLive] = useState(() => normalizeWorkingHoursFromConfig(null));
   const [workingHoursDraft, setWorkingHoursDraft] = useState(() => normalizeWorkingHoursFromConfig(null));
   const [expandWorkingHoursDays, setExpandWorkingHoursDays] = useState(false);
+  const [storeModalTab, setStoreModalTab] = useState('hours'); // 'hours' | 'delivery'
+  const [featuresLive, setFeaturesLive] = useState(() => normalizeOrderFeaturesFromConfig(null));
+  const [featuresDraft, setFeaturesDraft] = useState(() => normalizeOrderFeaturesFromConfig(null));
   const storeStatusModeRef = useRef(storeStatusMode);
   const workingHoursLiveRef = useRef(workingHoursLive);
+  const featuresLiveRef = useRef(featuresLive);
   storeStatusModeRef.current = storeStatusMode;
   workingHoursLiveRef.current = workingHoursLive;
+  featuresLiveRef.current = featuresLive;
   const [receiptStyle, setReceiptStyle] = useState(null); // Receipt style from Firebase config
   const { activeBusinessId } = useAuth();
 
@@ -2060,8 +2075,19 @@ const OrdersPage = () => {
     const whEqual =
       JSON.stringify(serializeWorkingHoursForSave(workingHoursDraft)) ===
       JSON.stringify(serializeWorkingHoursForSave(workingHoursLive));
-    return storeStatusDraft !== storeStatusMode || !whEqual;
-  }, [storeStatusDraft, storeStatusMode, workingHoursDraft, workingHoursLive]);
+    const featuresOrderDirty =
+      featuresDraft.enablePickup !== featuresLive.enablePickup ||
+      featuresDraft.enableDelivery !== featuresLive.enableDelivery ||
+      featuresDraft.enableEatIn !== featuresLive.enableEatIn;
+    return storeStatusDraft !== storeStatusMode || !whEqual || featuresOrderDirty;
+  }, [
+    storeStatusDraft,
+    storeStatusMode,
+    workingHoursDraft,
+    workingHoursLive,
+    featuresDraft,
+    featuresLive,
+  ]);
 
   // Function to start a timer for an order
   const startTimerForOrder = (orderId, estimatedMinutes) => {
@@ -2134,14 +2160,17 @@ const OrdersPage = () => {
         mode === 'open' || mode === 'closed' || mode === 'busy' || mode === 'auto' ? mode : 'auto';
       setStoreStatusMode(next);
       setWorkingHoursLive(normalizeWorkingHoursFromConfig(data?.config?.workingHours));
+      setFeaturesLive(normalizeOrderFeaturesFromConfig(data?.config?.features));
     });
     return () => unsub();
   }, [activeBusinessId]);
 
   useEffect(() => {
     if (!showStoreStatusModal) return;
+    setStoreModalTab('hours');
     setStoreStatusDraft(storeStatusModeRef.current);
     setWorkingHoursDraft(JSON.parse(JSON.stringify(workingHoursLiveRef.current)));
+    setFeaturesDraft({ ...featuresLiveRef.current });
     setExpandWorkingHoursDays(false);
   }, [showStoreStatusModal]);
 
@@ -2185,6 +2214,9 @@ const OrdersPage = () => {
       await updateDoc(doc(db, 'menus', activeBusinessId), {
         'config.storeStatusMode': storeStatusDraft,
         'config.workingHours': serializeWorkingHoursForSave(workingHoursDraft),
+        'config.features.enablePickup': featuresDraft.enablePickup,
+        'config.features.enableDelivery': featuresDraft.enableDelivery,
+        'config.features.enableEatIn': featuresDraft.enableEatIn,
       });
       toast.success('تم الحفظ');
       setShowStoreStatusModal(false);
@@ -3234,10 +3266,66 @@ const OrdersPage = () => {
               WebkitOverflowScrolling: 'touch',
             }}
           >
-            <h2 id="store-status-modal-title" style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: '#212529' }}>
+            <h2 id="store-status-modal-title" style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#212529' }}>
               المتجر وساعات العمل
             </h2>
 
+            <div
+              role="tablist"
+              aria-label="أقسام الإعدادات"
+              style={{
+                display: 'flex',
+                gap: 0,
+                marginBottom: 16,
+                borderBottom: '1px solid #e9ecef',
+              }}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={storeModalTab === 'hours'}
+                onClick={() => setStoreModalTab('hours')}
+                disabled={savingStoreStatus}
+                style={{
+                  flex: 1,
+                  padding: '10px 8px',
+                  border: 'none',
+                  borderBottom: storeModalTab === 'hours' ? '3px solid #007bff' : '3px solid transparent',
+                  marginBottom: -1,
+                  background: 'transparent',
+                  fontWeight: storeModalTab === 'hours' ? 700 : 500,
+                  color: storeModalTab === 'hours' ? '#007bff' : '#6c757d',
+                  fontSize: 14,
+                  cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
+                }}
+              >
+                ساعات العمل
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={storeModalTab === 'delivery'}
+                onClick={() => setStoreModalTab('delivery')}
+                disabled={savingStoreStatus}
+                style={{
+                  flex: 1,
+                  padding: '10px 8px',
+                  border: 'none',
+                  borderBottom: storeModalTab === 'delivery' ? '3px solid #007bff' : '3px solid transparent',
+                  marginBottom: -1,
+                  background: 'transparent',
+                  fontWeight: storeModalTab === 'delivery' ? 700 : 500,
+                  color: storeModalTab === 'delivery' ? '#007bff' : '#6c757d',
+                  fontSize: 14,
+                  cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
+                }}
+              >
+                إعدادات التوصيل
+              </button>
+            </div>
+
+            {storeModalTab === 'hours' && (
+            <>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: '#495057', letterSpacing: 0.2 }}>
               حالة الظهور
             </label>
@@ -3563,6 +3651,105 @@ const OrdersPage = () => {
                   })}
                 </div>
               </>
+            )}
+            </>
+            )}
+
+            {storeModalTab === 'delivery' && (
+              <div role="tabpanel" aria-label="إعدادات التوصيل">
+                <p style={{ margin: '0 0 14px', fontSize: 13, color: '#6c757d', lineHeight: 1.45 }}>
+                  فعّل أو عطّل طرق الطلب الظاهرة للعملاء في المنيو (نفس خيارات אפשרויות הזמנה זמינות في إعدادات المتجر).
+                </p>
+                {[
+                  {
+                    key: 'enableDelivery',
+                    label: 'توصيل',
+                    emoji: '🚚',
+                    get: () => featuresDraft.enableDelivery,
+                    set: (v) => setFeaturesDraft((p) => ({ ...p, enableDelivery: v })),
+                  },
+                  {
+                    key: 'enablePickup',
+                    label: 'استلام من المحل',
+                    emoji: '🏪',
+                    get: () => featuresDraft.enablePickup,
+                    set: (v) => setFeaturesDraft((p) => ({ ...p, enablePickup: v })),
+                  },
+                  {
+                    key: 'enableEatIn',
+                    label: 'أكل في المطعم',
+                    emoji: '🍽️',
+                    get: () => featuresDraft.enableEatIn,
+                    set: (v) => setFeaturesDraft((p) => ({ ...p, enableEatIn: v })),
+                  },
+                ].map(({ key, label, emoji, get, set }) => {
+                  const on = get();
+                  return (
+                    <div
+                      key={key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        padding: '14px 14px',
+                        borderRadius: 12,
+                        border: `1px solid ${on ? '#b6d4fe' : '#e9ecef'}`,
+                        background: on ? '#e7f1ff' : '#f8f9fa',
+                        marginBottom: 10,
+                      }}
+                    >
+                      <span style={{ fontSize: 15, fontWeight: 600, color: '#212529', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span aria-hidden>{emoji}</span>
+                        {label}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        aria-label={`${label} ${on ? 'مفعّل' : 'معطّل'}`}
+                        disabled={savingStoreStatus}
+                        onClick={() => set(!on)}
+                        style={{
+                          boxSizing: 'border-box',
+                          WebkitAppearance: 'none',
+                          appearance: 'none',
+                          width: 48,
+                          minWidth: 48,
+                          height: 28,
+                          borderRadius: 14,
+                          border: 'none',
+                          padding: 0,
+                          margin: 0,
+                          lineHeight: 0,
+                          fontSize: 0,
+                          background: on ? '#34c759' : '#e9e9ea',
+                          cursor: savingStoreStatus ? 'not-allowed' : 'pointer',
+                          position: 'relative',
+                          flexShrink: 0,
+                          overflow: 'hidden',
+                          transition: 'background 0.2s',
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: 3,
+                            left: on ? 22 : 3,
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            background: '#fff',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+                            transition: 'left 0.2s',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
