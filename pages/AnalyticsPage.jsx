@@ -1035,6 +1035,209 @@ const AnalyticsPage = () => {
                 fontSize: '14px'
               }}
             />
+            {customDateStart && customDateEnd && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const startDate = new Date(customDateStart);
+                  startDate.setHours(0, 0, 0, 0);
+                  const endDate = new Date(customDateEnd);
+                  endDate.setHours(23, 59, 59, 999);
+                  if (startDate > endDate) {
+                    toast.error('تاريخ البداية يجب أن يكون قبل أو مساويًا لتاريخ النهاية', {
+                      duration: 3000,
+                      position: 'top-center',
+                    });
+                    return;
+                  }
+
+                  const formatDateShort = (date) => {
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = String(date.getFullYear()).slice(-2);
+                    return `${day}.${month}.${year}`;
+                  };
+
+                  const startDateStr = formatDateShort(startDate);
+                  const endDateStr = formatDateShort(endDate);
+                  const dateRangeStr = `${startDateStr}-${endDateStr}`;
+
+                  const canUseNativePrinter = () =>
+                    typeof window !== 'undefined' &&
+                    window.PosPrinter &&
+                    typeof window.PosPrinter.printText === 'function';
+
+                  const currentAnalytics = analytics;
+                  const currentOrders = orders;
+                  const currentStartDate = startDate;
+                  const currentEndDate = endDate;
+                  const currentDateRangeStr = dateRangeStr;
+
+                  const buildReportText = () => {
+                    const lines = [];
+                    const maxWidth = 32;
+
+                    const centerText = (text, width = maxWidth) => {
+                      const padding = Math.max(0, Math.floor((width - text.length) / 2));
+                      return ' '.repeat(padding) + text;
+                    };
+
+                    const formatNumber = (num) => num.toLocaleString('en-US');
+
+                    lines.push('================================');
+                    lines.push(centerText('ملخص الفترة المحددة'));
+                    lines.push(centerText(currentDateRangeStr));
+                    lines.push('================================');
+                    lines.push('');
+
+                    const formatDateEnglishInner = (date) => {
+                      const day = String(date.getDate()).padStart(2, '0');
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const year = date.getFullYear();
+                      return `${day}/${month}/${year}`;
+                    };
+                    lines.push(`من: ${formatDateEnglishInner(currentStartDate)}`);
+                    lines.push(`إلى: ${formatDateEnglishInner(currentEndDate)}`);
+                    lines.push('- - - - - - - - - - - - - - - -');
+                    lines.push('');
+
+                    lines.push('--- الإحصائيات الرئيسية ---');
+                    lines.push('');
+                    lines.push('إجمالي المبيعات:');
+                    lines.push(`${formatNumber(currentAnalytics.totalSales)}₪`);
+                    lines.push('');
+                    lines.push(`عدد الطلبات: ${currentAnalytics.orderCount}`);
+                    lines.push(`متوسط قيمة الطلب: ${currentAnalytics.avgOrderValue.toFixed(2)}₪`);
+                    lines.push('');
+                    lines.push('- - - - - - - - - - - - - - - -');
+                    lines.push('');
+
+                    lines.push('--- طرق التوصيل ---');
+                    lines.push('');
+                    const deliveryMethodNames = {
+                      delivery: 'توصيل',
+                      pickup: 'استلام',
+                      eat_in: 'اكل بالمطعم',
+                      unknown: 'غير محدد',
+                    };
+                    const deliveryTotal = Object.values(currentAnalytics.deliveryStats).reduce((a, b) => a + b, 0);
+                    Object.entries(currentAnalytics.deliveryStats)
+                      .sort(([, a], [, b]) => b - a)
+                      .forEach(([method, count]) => {
+                        const percentage = deliveryTotal > 0 ? ((count / deliveryTotal) * 100).toFixed(1) : 0;
+                        const methodName = deliveryMethodNames[method] || method;
+                        lines.push(`${methodName}:`);
+                        lines.push(`  ${count} طلب (${percentage}%)`);
+                      });
+                    lines.push('');
+                    lines.push('- - - - - - - - - - - - - - - -');
+                    lines.push('');
+
+                    lines.push('--- طرق الدفع ---');
+                    lines.push('');
+                    const paymentMethodNames = {
+                      cash: 'كاش',
+                      visa: 'فيزا',
+                      apple_pay: 'Apple Pay',
+                      unknown: 'غير محدد',
+                    };
+                    const paymentTotal = Object.values(currentAnalytics.paymentStats).reduce((a, b) => a + b, 0);
+
+                    const filteredOrdersForCalc = currentOrders.filter((order) => {
+                      const orderDate = new Date(order.createdAt);
+                      return orderDate >= currentStartDate && orderDate <= currentEndDate;
+                    });
+
+                    const paymentAmounts = {};
+                    filteredOrdersForCalc.forEach((order) => {
+                      const method = order.paymentMethod || 'unknown';
+                      paymentAmounts[method] = (paymentAmounts[method] || 0) + getOrderRevenue(order);
+                    });
+
+                    Object.entries(currentAnalytics.paymentStats)
+                      .sort(([, a], [, b]) => b - a)
+                      .forEach(([method, count]) => {
+                        const percentage = paymentTotal > 0 ? ((count / paymentTotal) * 100).toFixed(1) : 0;
+                        const amount = paymentAmounts[method] || 0;
+                        const methodName = paymentMethodNames[method] || method;
+                        lines.push(`${methodName}:`);
+                        lines.push(`  ${formatNumber(amount)}₪ - ${percentage}%`);
+                      });
+                    lines.push('');
+                    lines.push('================================');
+                    lines.push('');
+
+                    return lines.join('\n');
+                  };
+
+                  if (canUseNativePrinter()) {
+                    try {
+                      console.log('✅ Using native POS printer for custom range report');
+                      const reportText = buildReportText();
+                      const result = await window.PosPrinter.printText(reportText);
+
+                      if (result && typeof result === 'string' && result.includes('success')) {
+                        toast.success('✅ تمت طباعة ملخص الفترة المحددة بنجاح', {
+                          duration: 2000,
+                          position: 'top-center',
+                          style: {
+                            fontSize: '18px',
+                            fontWeight: '700',
+                            padding: '16px 24px',
+                          },
+                        });
+                        return;
+                      }
+                      if (result && typeof result === 'string' && result.includes('error')) {
+                        console.error('Native print error:', result);
+                        toast.error(`❌ خطأ في الطباعة: ${result}`, {
+                          duration: 3000,
+                          position: 'top-center',
+                        });
+                        return;
+                      }
+                      console.warn('⚠️ Unexpected print result format:', result);
+                      toast.error('❌ خطأ غير متوقع في الطباعة', {
+                        duration: 3000,
+                        position: 'top-center',
+                      });
+                    } catch (err) {
+                      console.error('❌ Native POS print failed:', err);
+                      toast.error(`❌ فشل الاتصال بالطابعة: ${err?.message || 'خطأ غير معروف'}`, {
+                        duration: 3000,
+                        position: 'top-center',
+                      });
+                    }
+                  } else {
+                    console.warn('⚠️ Native printer not available');
+                    toast.error('⚠️ الطابعة غير متاحة. يرجى التأكد من الاتصال بالطابعة.', {
+                      duration: 3000,
+                      position: 'top-center',
+                    });
+                  }
+                }}
+                style={{
+                  flex: '1 1 100%',
+                  marginTop: '8px',
+                  padding: window.innerWidth < 768 ? '10px 14px' : '10px 18px',
+                  borderRadius: '10px',
+                  border: '1px solid #28a745',
+                  background: '#28a745',
+                  color: 'white',
+                  fontSize: window.innerWidth < 768 ? '13px' : '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <span aria-hidden>📄</span>
+                <span>طباعة ملخص PDF للفترة المحددة</span>
+              </button>
+            )}
           </div>
         )}
         {/* Daily PDF Export Button */}
