@@ -160,6 +160,14 @@ const isFutureOrder = (order) => {
   return scheduledTime > new Date();
 };
 
+/** True when order has a delivery/ready time still in the future (scheduled) — any status */
+const isScheduledForFutureTime = (order) => {
+  if (!order?.deliveryDateTime) return false;
+  const scheduledTime = getScheduledDate(order.deliveryDateTime);
+  if (!scheduledTime) return false;
+  return scheduledTime > new Date();
+};
+
 // Helper: order is a reservation request (eat-in, not yet confirmed by admin)
 const isReservationRequest = (order) => order.reservationStatus === 'reservation_request';
 
@@ -2046,6 +2054,8 @@ const OrdersPage = () => {
   const isFirstLoad = useRef(true); // 🟡 new flag
   const knownOrderIds = useRef(new Set()); // Track known order IDs to detect truly new orders
   const futureOrderDuePlayedIds = useRef(new Set()); // Track which future orders we already played "due" sound for
+  /** orderId -> { timeoutId?, intervalId? } for repeating "not accepted" reminders (non-scheduled orders only) */
+  const notAcceptedReminderTimersRef = useRef(new Map());
   const ordersRef = useRef([]); // Latest orders for interval callback
   const [viewType, setViewType] = useState('new'); // 'new', 'active', 'past', 'future'
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'delivery', 'pickup', 'eat_in'
@@ -2230,7 +2240,97 @@ const OrdersPage = () => {
 
   useEffect(() => {
     if (!activeBusinessId) return;
-    
+
+    const clearNotAcceptedReminder = (orderId) => {
+      const t = notAcceptedReminderTimersRef.current.get(orderId);
+      if (!t) return;
+      if (t.timeoutId != null) clearTimeout(t.timeoutId);
+      if (t.intervalId != null) clearInterval(t.intervalId);
+      notAcceptedReminderTimersRef.current.delete(orderId);
+    };
+
+    const clearAllNotAcceptedReminders = () => {
+      notAcceptedReminderTimersRef.current.forEach((t) => {
+        if (t.timeoutId != null) clearTimeout(t.timeoutId);
+        if (t.intervalId != null) clearInterval(t.intervalId);
+      });
+      notAcceptedReminderTimersRef.current.clear();
+    };
+
+    const playNotAcceptedYetFeedback = (orderId) => {
+      const notAcceptedSound = brandConfig.orderNotAcceptedSound || brandConfig.notificationSound;
+      try {
+        const audio = new Audio(notAcceptedSound);
+        audio.volume = 1.0;
+        audio.play().catch((err) => console.warn('Failed to play order-not-accepted audio:', err));
+        console.log('🔔 Order not accepted yet – reminder sound:', orderId);
+      } catch (err) {
+        console.warn('Order-not-accepted audio error:', err);
+      }
+      toast.custom(
+        () => (
+          <div
+            style={{
+              background: '#ffecb3',
+              padding: '14px 20px',
+              borderRadius: '10px',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              color: '#222',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              direction: 'rtl',
+            }}
+          >
+            ⏱️ طلب لم يُقبل بعد – يرجى القبول
+          </div>
+        ),
+        { duration: 8000 }
+      );
+    };
+
+    /** Repeating reminders every `delayMs` after first `delayMs`, only for non-scheduled orders */
+    const scheduleRepeatingNotAcceptedReminders = (order) => {
+      if (!order?.id) return;
+      if (isScheduledForFutureTime(order)) return;
+      if (order.status !== 'pending' && order.status !== 'confirmed') return;
+
+      const delayMs = brandConfig.orderNotAcceptedAfterMs ?? 60 * 1000;
+      clearNotAcceptedReminder(order.id);
+
+      const checkStillUnaccepted = async () => {
+        try {
+          const orderRef = doc(db, 'menus', activeBusinessId, 'orders', order.id);
+          const orderSnap = await getDoc(orderRef);
+          if (!orderSnap.exists()) return false;
+          const st = orderSnap.data().status;
+          return st === 'pending' || st === 'confirmed';
+        } catch (err) {
+          console.warn('Error checking order status for not-accepted reminder:', err);
+          return false;
+        }
+      };
+
+      const timeoutId = setTimeout(async () => {
+        if (!(await checkStillUnaccepted())) {
+          clearNotAcceptedReminder(order.id);
+          return;
+        }
+        playNotAcceptedYetFeedback(order.id);
+
+        const intervalId = setInterval(async () => {
+          if (!(await checkStillUnaccepted())) {
+            clearNotAcceptedReminder(order.id);
+            return;
+          }
+          playNotAcceptedYetFeedback(order.id);
+        }, delayMs);
+
+        notAcceptedReminderTimersRef.current.set(order.id, { intervalId });
+      }, delayMs);
+
+      notAcceptedReminderTimersRef.current.set(order.id, { timeoutId });
+    };
+
     const unsubscribe = onSnapshot(
       collection(db, 'menus', activeBusinessId, 'orders'), (snapshot) => {
         const updatedOrders = snapshot.docs.map(doc => ({
@@ -2265,56 +2365,16 @@ const OrdersPage = () => {
               audio.play().catch(err => {
                 console.warn('Failed to play audio:', err);
               });
-              
-              // Track unaccepted orders: play "order not accepted yet" after 2 minutes if still pending
-              const notAcceptedDelayMs = brandConfig.orderNotAcceptedAfterMs ?? 2 * 60 * 1000;
-              const notAcceptedSound = brandConfig.orderNotAcceptedSound || brandConfig.notificationSound;
-              newOrders.forEach(order => {
-                if (order && (order.status === 'pending' || order.status === 'confirmed')) {
-                  setTimeout(() => {
-                    const checkOrder = async () => {
-                      try {
-                        const orderRef = doc(db, 'menus', activeBusinessId, 'orders', order.id);
-                        const orderSnap = await getDoc(orderRef);
-                        if (orderSnap.exists()) {
-                          const currentOrder = orderSnap.data();
-                          if (currentOrder.status === 'pending' || currentOrder.status === 'confirmed') {
-                            try {
-                              const audio = new Audio(notAcceptedSound);
-                              audio.volume = 1.0;
-                              audio.play().catch(err => console.warn('Failed to play order-not-accepted audio:', err));
-                              console.log('🔔 Order not accepted yet – reminder sound:', order.id);
-                              toast.custom(() => (
-                                <div style={{
-                                  background: '#ffecb3',
-                                  padding: '14px 20px',
-                                  borderRadius: '10px',
-                                  fontWeight: 'bold',
-                                  fontSize: '16px',
-                                  color: '#222',
-                                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                  direction: 'rtl'
-                                }}>
-                                  ⏱️ طلب لم يُقبل بعد – يرجى القبول
-                                </div>
-                              ), { duration: 8000 });
-                            } catch (err) {
-                              console.warn('Order-not-accepted audio error:', err);
-                            }
-                          }
-                        }
-                      } catch (err) {
-                        console.warn('Error checking order status for not-accepted reminder:', err);
-                      }
-                    };
-                    checkOrder();
-                  }, notAcceptedDelayMs);
+
+              newOrders.forEach((ord) => {
+                if (ord && (ord.status === 'pending' || ord.status === 'confirmed')) {
+                  scheduleRepeatingNotAcceptedReminders(ord);
                 }
               });
             } catch (err) {
               console.warn('Audio error:', err);
             }
-            
+
             toast.custom(() => (
               <div style={{
                 background: '#fff8c4',
@@ -2337,7 +2397,10 @@ const OrdersPage = () => {
         setPrevOrdersCount(updatedOrders.length);
       });
 
-    return () => unsubscribe();
+    return () => {
+      clearAllNotAcceptedReminders();
+      unsubscribe();
+    };
   }, [activeBusinessId]);
 
   // Keep ref in sync with orders for interval

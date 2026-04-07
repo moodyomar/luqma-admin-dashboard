@@ -4,7 +4,7 @@
 const DEFAULT_NEW_ORDER_SOUND = '/new-order-arrived.mp3';
 const DEFAULT_NOT_ACCEPTED_SOUND = '/order-not-accepted-yet.mp3';
 const DEFAULT_FUTURE_DUE_SOUND = '/future-order-due.mp3';
-const DEFAULT_NOT_ACCEPTED_AFTER_MS = 2 * 60 * 1000; // 2 minutes
+const DEFAULT_NOT_ACCEPTED_AFTER_MS = 60 * 1000; // 1 minute — first reminder, then repeats at same interval while unaccepted
 
 const brandConfig = {
   id: 'luqma',

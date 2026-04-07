@@ -7,7 +7,7 @@ Place your audio files in this folder (`public/`) so they are served at the root
 | File | When it plays |
 |------|----------------|
 | **new-order-arrived.mp3** | New order arrived (plays immediately). |
-| **order-not-accepted-yet.mp3** | New order still not accepted after 2 minutes – reminder. |
+| **order-not-accepted-yet.mp3** | Non-scheduled order still not accepted — first reminder after 1 minute, then every 1 minute until accepted. |
 | **future-order-due.mp3** | A scheduled (future) order’s time has just become due – “time to prepare”. |
 
 ## Keeping different voices per app (sync-safe)
@@ -26,8 +26,8 @@ Place your audio files in this folder (`public/`) so they are served at the root
 VITE_NEW_ORDER_SOUND=/new-order-arrived.mp3
 VITE_ORDER_NOT_ACCEPTED_SOUND=/order-not-accepted-yet.mp3
 VITE_FUTURE_ORDER_DUE_SOUND=/future-order-due.mp3
-# Optional – delay before “not accepted” reminder (milliseconds, default 120000 = 2 min)
-VITE_ORDER_NOT_ACCEPTED_AFTER_MS=120000
+# Optional – delay before first “not accepted” reminder and between repeats (ms, default 60000 = 1 min)
+VITE_ORDER_NOT_ACCEPTED_AFTER_MS=60000
 ```
 
 - If a sound file is missing, the app will try to play it and log a warning; no crash.
