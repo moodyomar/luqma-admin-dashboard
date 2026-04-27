@@ -34,6 +34,11 @@ const displayAsTypes = [
   // Future: { value: 'image', label: 'صورة' },
 ];
 
+const handlingTypes = [
+  { value: 'extras', label: 'إضافات' },
+  { value: 'ingredients', label: 'مكونات' },
+];
+
 const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory, allMealsData, categories }) => {
   const [newOptionType, setNewOptionType] = useState('select');
   const [expandedOptions, setExpandedOptions] = useState({});
@@ -167,6 +172,27 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
     onChange(updated);
   };
 
+  const handleHandlingAsChange = (optionIndex, value) => {
+    const updated = [...options];
+    const option = updated[optionIndex];
+    const next = {
+      ...option,
+      handlingAs: value,
+    };
+
+    // Ingredients should be selected by default (allChecked=true) on multi-select groups.
+    if (value === 'ingredients' && next.type === 'multi') {
+      next.allChecked = true;
+      delete next.max;
+      if (typeof next.ingredientsChangeable !== 'boolean') {
+        next.ingredientsChangeable = true;
+      }
+    }
+
+    updated[optionIndex] = next;
+    onChange(updated);
+  };
+
   const handleColorChange = (optionIndex, valueIndex, color) => {
     const updated = [...options];
     updated[optionIndex].values[valueIndex].color = color;
@@ -214,6 +240,8 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
       required: false,
       max: null,
       allChecked: false,
+      handlingAs: type === 'multi' ? 'extras' : undefined,
+      ingredientsChangeable: true,
       limitsBySelectValue: {},
       displayAs: type === 'select' ? 'text' : type === 'multi' ? 'text' : undefined,
       inputPlaceholder: { ar: '', he: '' },
@@ -237,6 +265,14 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
     // 🧹 منطق إضافي: إذا اختار "الكل"، احذف max
     if (field === 'allChecked' && value === true) {
       delete updated[optionIndex].max;
+    }
+    if (
+      field === 'allChecked' &&
+      value === false &&
+      updated[optionIndex]?.handlingAs === 'ingredients' &&
+      updated[optionIndex]?.type === 'multi'
+    ) {
+      updated[optionIndex].allChecked = true;
     }
 
     onChange(updated);
@@ -997,7 +1033,7 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                       : 'خيار واحد'}
                 </span>
                 {option.type !== 'input' && (
-                  <span style={{ marginInlineStart: 12 }}>
+                  <span style={{ marginInlineStart: 12, display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
                     <label style={{ fontWeight: 500 }}>
                       <span style={{ marginInlineEnd: 4 }}>عرض كـ:</span>
                       <select
@@ -1010,6 +1046,20 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                         ))}
                       </select>
                     </label>
+                    {option.type === 'multi' && (
+                      <label style={{ fontWeight: 500 }}>
+                        <span style={{ marginInlineEnd: 4 }}>عامله كـ:</span>
+                        <select
+                          value={option.handlingAs || 'extras'}
+                          onChange={(e) => handleHandlingAsChange(index, e.target.value)}
+                          style={{ padding: '2px 4px', width: '115px', borderRadius: 4, border: '1px solid #ccc', fontSize: 13 }}
+                        >
+                          {handlingTypes.map((type) => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                   </span>
                 )}
               </div>
@@ -1187,10 +1237,46 @@ const OptionsEditor = ({ options = [], onChange, categoryId, allMealsInCategory,
                                     onChange={(e) =>
                                       handleAdvancedChange(index, 'allChecked', e.target.checked)
                                     }
+                                    disabled={option.handlingAs === 'ingredients'}
                                   />
                                   اختيار الكل افتراضياً
                                 </label>
+                                {option.handlingAs === 'ingredients' && (
+                                  <div style={{ fontSize: 11, color: '#0d6efd', marginTop: 4 }}>
+                                    مفعّل تلقائياً لأن هذا النوع مُعامل كمكونات.
+                                  </div>
+                                )}
                               </div>
+
+                              {option.handlingAs === 'ingredients' && (
+                                <div className="all-checked-toggle" style={{ marginTop: 10 }}>
+                                  <label>
+                                    <span style={{ marginInlineEnd: 6 }}>سلوك المكونات:</span>
+                                    <select
+                                      value={option.ingredientsChangeable === false ? 'locked' : 'changeable'}
+                                      onChange={(e) =>
+                                        handleAdvancedChange(
+                                          index,
+                                          'ingredientsChangeable',
+                                          e.target.value === 'changeable'
+                                        )
+                                      }
+                                      style={{
+                                        padding: '4px 8px',
+                                        borderRadius: 6,
+                                        border: '1px solid #ccc',
+                                        fontSize: 13,
+                                      }}
+                                    >
+                                      <option value="changeable">قابلة للتغيير (بدون بندورة)</option>
+                                      <option value="locked">ثابتة (عرض فقط)</option>
+                                    </select>
+                                  </label>
+                                  <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+                                    عند الاختيار "ثابتة" ستُعرض المكونات بدون السماح بإلغاءها في التطبيق.
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             {/* limit option by size (like mansaf & salads limit) */}
                             <div className="limits-per-size" style={{ marginTop: 10, direction: 'rtl' }}>

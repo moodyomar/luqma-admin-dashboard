@@ -41,7 +41,8 @@ const DEFAULT_LOYALTY = {
 
 const DEFAULT_REFERRAL = {
   referrerAmount: 20, // Fixed amount in ₪
-  refereeAmount: 10   // Fixed amount in ₪
+  refereeAmount: 10,  // Fixed amount in ₪
+  appLink: brandConfig?.referral?.appLink || ''
 };
 
 const DEFAULT_HERO_TAGLINE = {
@@ -264,7 +265,11 @@ const BusinessManagePage = () => {
             ? Number(data.config.referral.refereeAmount)
             : (Number(data.config?.referral?.refereePercentage) > 0
                 ? Number(data.config.referral.refereePercentage) // Legacy: treat percentage as amount
-                : DEFAULT_REFERRAL.refereeAmount)
+                : DEFAULT_REFERRAL.refereeAmount),
+          appLink:
+            typeof data.config?.referral?.appLink === 'string'
+              ? data.config.referral.appLink
+              : DEFAULT_REFERRAL.appLink
         };
         
         const heroTagline = {
@@ -445,7 +450,7 @@ const BusinessManagePage = () => {
       ...prev,
       referral: {
         ...prev.referral,
-        [key]: Number(value)
+        [key]: key === 'appLink' ? value : Number(value)
       }
     }));
   };
@@ -646,7 +651,8 @@ const BusinessManagePage = () => {
         },
         'config.referral': {
           referrerAmount: Number(form.referral.referrerAmount) || DEFAULT_REFERRAL.referrerAmount,
-          refereeAmount: Number(form.referral.refereeAmount) || DEFAULT_REFERRAL.refereeAmount
+          refereeAmount: Number(form.referral.refereeAmount) || DEFAULT_REFERRAL.refereeAmount,
+          appLink: typeof form.referral.appLink === 'string' ? form.referral.appLink.trim() : DEFAULT_REFERRAL.appLink
         }
       };
       
@@ -1868,6 +1874,28 @@ const BusinessManagePage = () => {
                       </div>
                     </div>
                   </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>קישור אפליקציה לשיתוף</span>
+                      <input
+                        type="url"
+                        value={form.referral.appLink || DEFAULT_REFERRAL.appLink}
+                        onChange={(e) => handleReferralChange('appLink', e.target.value)}
+                        placeholder="https://your-app-link.example"
+                        style={{
+                          height: 44,
+                          padding: '0 12px',
+                          borderRadius: 10,
+                          border: '1px solid #e0e0e0',
+                          fontSize: 15,
+                          background: '#fff',
+                          textAlign: 'left',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
+                        הקישור שיופיע בהודעת השיתוף של קוד ההפניה באפליקציית הלקוח.
+                      </div>
+                    </div>
                   <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4, padding: 8, background: '#f8f9fa', borderRadius: 6 }}>
                     💡 <strong>דוגמה:</strong> אם ההגדרות הן 20 ₪ למשתף ו-10 ₪ למשתמש חדש, אז המשתף יקבל 20 ₪ נקודות והמשתמש החדש יקבל 10 ₪ נקודות, ללא תלות בגובה ההזמנה.
                   </div>

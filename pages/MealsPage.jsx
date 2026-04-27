@@ -177,6 +177,16 @@ const MealsPage = () => {
 
               if (opt?.type !== 'input') {
                 baseOption.displayAs = opt?.displayAs || 'text';
+                if (opt?.type === 'multi') {
+                  // Keep white-label semantics for extras vs ingredients.
+                  baseOption.handlingAs = opt?.handlingAs === 'ingredients' ? 'ingredients' : 'extras';
+                  // Ingredients can be locked (always included) or changeable (allow removing e.g. "without tomato").
+                  baseOption.ingredientsChangeable = opt?.ingredientsChangeable !== false;
+                  // For ingredient groups, keep allChecked=true as source-of-truth default selection behavior.
+                  if (baseOption.handlingAs === 'ingredients') {
+                    baseOption.allChecked = true;
+                  }
+                }
               } else {
                 baseOption.inputPlaceholder = {
                   ar: opt?.inputPlaceholder?.ar || '',

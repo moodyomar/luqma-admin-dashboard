@@ -190,6 +190,17 @@ const formatPhoneDisplay = (phone) => {
   return trimmed;
 };
 
+/** Display a clean numeric order number (no mixed letters). */
+const getReadableOrderNumber = (order) => {
+  const raw = String(order?.uid || order?.id || '');
+  if (!raw) return '000000';
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length >= 6) return digits.slice(-6);
+  if (digits.length > 0) return digits.padStart(6, '0');
+  // For legacy letter-only IDs keep stable fallback.
+  return raw.slice(0, 6);
+};
+
 /** Sum of cart line totals (excludes delivery, app fee, discounts). */
 const sumOrderCartSubtotal = (order) => {
   if (!order?.cart || !Array.isArray(order.cart)) return 0;
@@ -400,7 +411,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   }, []);
 
   const buildReceiptHtml = (order) => {
-    const orderId = (order.uid || order.id || '').slice(0, 6);
+    const orderId = getReadableOrderNumber(order);
     const driver = order.deliveryMethod === 'delivery' && order.assignedDriverName
       ? `السائق: ${order.assignedDriverName}` : null;
     const addressBlock = order.deliveryMethod === 'delivery'
@@ -415,6 +426,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       const size = item.optionsText ? ` (${item.optionsText})` : '';
       const extras = Array.isArray(item.selectedExtras)
         ? item.selectedExtras
+            .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
             .map(extra => (typeof extra === 'object' ? extra.label?.ar || '' : ''))
             .filter(Boolean)
         : [];
@@ -540,7 +552,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           <div class="section-title">ملاحظة الزبون</div>
           <div>${order.note}</div>
         </div>` : ''}
-      <div class="footer">شكراً لاستخدامكم تطبيق لقمة</div>
+      <div class="footer">شكراً لاستخدامكم تطبيق ${brandConfig.name || 'لقمة'}</div>
     </body>
   </html>
 `;
@@ -655,7 +667,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   };
 
   const buildReceiptText = (order, receiptStyle = null) => {
-    const shortId = (order.uid || order.id || '').toString().slice(0, 6);
+    const shortId = getReadableOrderNumber(order);
     const lines = [];
     const money = (value) => {
       const num = Number(value);
@@ -794,6 +806,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
       if (Array.isArray(item.selectedExtras) && item.selectedExtras.length) {
         const extras = item.selectedExtras
+          .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
           .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : extra))
           .filter(Boolean);
         if (extras.length) {
@@ -1230,7 +1243,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       <div className="order-header">
         <div className="dateCol">
           <span className="order-date">{order.date}</span>
-          <span className="order-id">#{(order.uid || order.id)?.slice(0, 6)}</span>
+          <span className="order-id">#{getReadableOrderNumber(order)}</span>
         </div>
         <div className="print-row">
           <button className="printingBtn" onClick={() => handlePrint(order)}>🖨️</button>
@@ -1673,10 +1686,11 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
                     {item.name?.ar || item.name} × {item.quantity}
                     {item.optionsText && <span style={{ color: '#666' }}> – {item.optionsText}</span>}
                   </div>
-                  {Array.isArray(item.selectedExtras) && item.selectedExtras.length > 0 && (
+                  {Array.isArray(item.selectedExtras) && item.selectedExtras.some(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without') && (
                     <div style={{ fontSize: 13, color: '#999' }}>
                       إضافات:{' '}
                       {item.selectedExtras
+                        .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
                         .map(extra => {
                           if (typeof extra === 'object') {
                             return extra.label?.ar || extra.label || '';
