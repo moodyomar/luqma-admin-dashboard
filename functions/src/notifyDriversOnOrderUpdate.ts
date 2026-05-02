@@ -55,6 +55,54 @@ function isFutureOrderNotYetDue(orderData: any): boolean {
   }
 }
 
+/** Zone labels for driver filtering: city fields + first segment of address ("city, street, ..."). */
+function collectOrderCityCandidates(orderData: any): string[] {
+  const variants: string[] = [];
+  const pushRaw = (v: any) => {
+    if (v == null) return;
+    if (typeof v === "string") {
+      const t = v.trim();
+      if (t) variants.push(t);
+      return;
+    }
+    if (typeof v === "object") {
+      for (const k of ["he", "ar", "en"]) {
+        const t = String((v as any)[k] || "").trim();
+        if (t) variants.push(t);
+      }
+    }
+  };
+  pushRaw(orderData.city);
+  pushRaw(orderData.deliveryCity);
+  const addr = orderData.address;
+  if (typeof addr === "string" && addr.trim()) {
+    const first = addr.split(/[،,]/)[0]?.trim();
+    if (first) variants.push(first);
+  }
+  const lower = variants.map((s) => s.toLowerCase());
+  return [...new Set(lower)];
+}
+
+function orderCityMatchesAllowedZones(orderData: any, allowedCities: any[]): boolean {
+  const candidates = collectOrderCityCandidates(orderData);
+  if (candidates.length === 0) return false;
+  return candidates.some((candidate) =>
+    allowedCities.some((allowedCity: any) => {
+      if (typeof allowedCity === "string") {
+        return allowedCity.trim().toLowerCase() === candidate;
+      }
+      const cityHe = (allowedCity.he || "").trim().toLowerCase();
+      const cityAr = (allowedCity.ar || "").trim().toLowerCase();
+      const cityEn = (allowedCity.en || "").trim().toLowerCase();
+      return (
+        (cityHe && cityHe === candidate) ||
+        (cityAr && cityAr === candidate) ||
+        (cityEn && cityEn === candidate)
+      );
+    })
+  );
+}
+
 /**
  * Helper: Send push notifications via Expo Push API
  */
@@ -136,8 +184,7 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
       
       let targetDriverIds: string[] = [];
       
-      // Get order city for filtering (check both city and deliveryCity fields)
-      const orderCity = afterData.city || afterData.deliveryCity || '';
+      const zoneCandidates = collectOrderCityCandidates(afterData);
       
       if (assignedDriverId) {
         // Order is assigned - notify only the assigned driver (skip city filtering for assigned orders)
@@ -145,12 +192,11 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
         targetDriverIds = [assignedDriverId];
       } else {
         // Order is unassigned - notify only drivers with matching delivery zones
-        // If order has no city, skip notifications (shouldn't happen for delivery orders)
-        if (!orderCity || orderCity.trim() === '') {
-          logger.warn(`Order ${orderId} has no city specified, skipping driver notifications for unassigned order`);
+        if (zoneCandidates.length === 0) {
+          logger.warn(`Order ${orderId} has no city/address zone data, skipping driver notifications for unassigned order`);
           return null;
         }
-        logger.info(`Order ${orderId} is unassigned, filtering drivers by delivery zone: ${orderCity}`);
+        logger.info(`Order ${orderId} is unassigned, zone candidates: ${zoneCandidates.join(" | ")}`);
         const driversSnapshot = await db
           .collection("menus")
           .doc(businessId)
@@ -176,34 +222,21 @@ export const notifyDriversOnStatusChange = onDocumentUpdated("menus/{businessId}
             return;
           }
           
-          // Check if order city matches any of driver's allowed cities
-          const cityMatches = allowedCities.some((allowedCity: any) => {
-            // Handle both string and object formats
-            if (typeof allowedCity === 'string') {
-              return allowedCity.toLowerCase() === orderCity.toLowerCase();
-            }
-            // Handle object format with he/ar properties
-            const cityHe = allowedCity.he || '';
-            const cityAr = allowedCity.ar || '';
-            return (
-              (cityHe && cityHe.toLowerCase() === orderCity.toLowerCase()) ||
-              (cityAr && cityAr.toLowerCase() === orderCity.toLowerCase())
-            );
-          });
+          const cityMatches = orderCityMatchesAllowedZones(afterData, allowedCities);
           
           if (cityMatches) {
             eligibleDrivers.push(driverDoc.id);
-            logger.info(`Driver ${driverDoc.id} is eligible for order in city: ${orderCity}`);
+            logger.info(`Driver ${driverDoc.id} is eligible for order (zones match)`);
           } else {
-            logger.info(`Driver ${driverDoc.id} is NOT eligible - city ${orderCity} not in allowed zones`);
+            logger.info(`Driver ${driverDoc.id} is NOT eligible - order zones [${zoneCandidates.join(" | ")}] not in allowed list`);
           }
         });
         
         targetDriverIds = eligibleDrivers;
-        logger.info(`Found ${targetDriverIds.length} eligible drivers (out of ${driversSnapshot.docs.length} total) for order in city: ${orderCity}`);
+        logger.info(`Found ${targetDriverIds.length} eligible drivers (out of ${driversSnapshot.docs.length} total) for order zones: ${zoneCandidates.join(" | ")}`);
         
         if (targetDriverIds.length === 0) {
-          logger.warn(`No drivers found with delivery zone matching city: ${orderCity}`);
+          logger.warn(`No drivers found with delivery zone matching order zones: ${zoneCandidates.join(" | ")}`);
           return null;
         }
       }
@@ -331,8 +364,7 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
       
       let targetDriverIds: string[] = [];
       
-      // Get order city for filtering (check both city and deliveryCity fields)
-      const orderCity = orderData.city || orderData.deliveryCity || '';
+      const createZoneCandidates = collectOrderCityCandidates(orderData);
       
       if (assignedDriverId) {
         // Order is assigned - notify only the assigned driver (skip city filtering for assigned orders)
@@ -340,12 +372,11 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
         targetDriverIds = [assignedDriverId];
       } else {
         // Order is unassigned - notify only drivers with matching delivery zones
-        // If order has no city, skip notifications (shouldn't happen for delivery orders)
-        if (!orderCity || orderCity.trim() === '') {
-          logger.warn(`New order ${orderId} has no city specified, skipping driver notifications for unassigned order`);
+        if (createZoneCandidates.length === 0) {
+          logger.warn(`New order ${orderId} has no city/address zone data, skipping driver notifications for unassigned order`);
           return null;
         }
-        logger.info(`New order ${orderId} is unassigned, filtering drivers by delivery zone: ${orderCity}`);
+        logger.info(`New order ${orderId} is unassigned, zone candidates: ${createZoneCandidates.join(" | ")}`);
         const driversSnapshot = await db
           .collection("menus")
           .doc(businessId)
@@ -371,34 +402,21 @@ export const notifyDriversOnCreate = onDocumentCreated("menus/{businessId}/order
             return;
           }
           
-          // Check if order city matches any of driver's allowed cities
-          const cityMatches = allowedCities.some((allowedCity: any) => {
-            // Handle both string and object formats
-            if (typeof allowedCity === 'string') {
-              return allowedCity.toLowerCase() === orderCity.toLowerCase();
-            }
-            // Handle object format with he/ar properties
-            const cityHe = allowedCity.he || '';
-            const cityAr = allowedCity.ar || '';
-            return (
-              (cityHe && cityHe.toLowerCase() === orderCity.toLowerCase()) ||
-              (cityAr && cityAr.toLowerCase() === orderCity.toLowerCase())
-            );
-          });
+          const cityMatches = orderCityMatchesAllowedZones(orderData, allowedCities);
           
           if (cityMatches) {
             eligibleDrivers.push(driverDoc.id);
-            logger.info(`Driver ${driverDoc.id} is eligible for order in city: ${orderCity}`);
+            logger.info(`Driver ${driverDoc.id} is eligible for new order (zones match)`);
           } else {
-            logger.info(`Driver ${driverDoc.id} is NOT eligible - city ${orderCity} not in allowed zones`);
+            logger.info(`Driver ${driverDoc.id} is NOT eligible - order zones [${createZoneCandidates.join(" | ")}] not in allowed list`);
           }
         });
         
         targetDriverIds = eligibleDrivers;
-        logger.info(`Found ${targetDriverIds.length} eligible drivers (out of ${driversSnapshot.docs.length} total) for order in city: ${orderCity}`);
+        logger.info(`Found ${targetDriverIds.length} eligible drivers (out of ${driversSnapshot.docs.length} total) for new order zones: ${createZoneCandidates.join(" | ")}`);
         
         if (targetDriverIds.length === 0) {
-          logger.warn(`No drivers found with delivery zone matching city: ${orderCity}`);
+          logger.warn(`No drivers found with delivery zone matching new order zones: ${createZoneCandidates.join(" | ")}`);
           return null;
         }
       }
