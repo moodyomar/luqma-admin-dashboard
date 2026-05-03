@@ -107,15 +107,24 @@ function isFutureOrderNowDue(orderData: any): boolean {
   }
 }
 
+/** Firebase Auth uid on the order (push tokens are stored on users/{uid}). */
+function orderCustomerAuthUid(order: Record<string, unknown>): string | null {
+  const u = order.userId ?? order.user_id;
+  if (typeof u === "string" && u.trim() !== "") return u.trim();
+  return null;
+}
+
 async function sendNotificationToUser(
-  phone: string,
+  phone: string | undefined | null,
   content: LocalizedPushContent,
   orderId: string,
   status: string,
-  deliveryMethod: string
+  deliveryMethod: string,
+  firebaseUserId?: string | null
 ) {
   await sendLocalizedExpoToCustomerByPhone({
     phone,
+    firebaseUserId: firebaseUserId ?? undefined,
     content,
     data: { orderId, status, deliveryMethod, screen: orderId ? "MyOrdersScreen" : "ProfileTab" },
     log: { orderId, status, deliveryMethod },
@@ -135,8 +144,14 @@ export const onOrderCreated = onDocumentCreated("menus/{brandId}/orders/{orderId
 
   console.log(`New order created: ${orderId}`);
 
-  if (!phone || String(phone).trim() === "") {
-    console.warn("onOrderCreated: Order has no phone — cannot send customer notification");
+  const customerUid = orderCustomerAuthUid(order as Record<string, unknown>);
+  if (
+    (!phone || String(phone).trim() === "") &&
+    !customerUid
+  ) {
+    console.warn(
+      "onOrderCreated: no phone and no userId — cannot send customer notification"
+    );
     return null;
   }
 
@@ -180,7 +195,8 @@ export const onOrderCreated = onDocumentCreated("menus/{brandId}/orders/{orderId
       content,
       orderId,
       "reservation_request_sent",
-      "eat_in"
+      "eat_in",
+      customerUid
     );
     return null;
   }
@@ -248,7 +264,8 @@ export const onOrderCreated = onDocumentCreated("menus/{brandId}/orders/{orderId
     content,
     orderId,
     "pending",
-    deliveryMethod || ""
+    deliveryMethod || "",
+    customerUid
   );
 
   return null;
@@ -275,6 +292,7 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
     ) {
       const orderId = event.params.orderId;
       const { phone, deliveryMethod } = after;
+      const resCustomerUid = orderCustomerAuthUid(after as Record<string, unknown>);
       let content: LocalizedPushContent;
       if (newReservationStatus === "reservation_confirmed") {
         const dt = after.deliveryDateTime;
@@ -339,13 +357,17 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
           },
         };
       }
-      if (phone && String(phone).trim() !== "") {
+      if (
+        (phone && String(phone).trim() !== "") ||
+        resCustomerUid
+      ) {
         await sendNotificationToUser(
           phone,
           content,
           orderId,
           `reservation_${newReservationStatus}`,
-          deliveryMethod || "eat_in"
+          deliveryMethod || "eat_in",
+          resCustomerUid
         );
       }
       console.log(
@@ -369,6 +391,7 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
   // If table was assigned for a future reservation, send notification
   if (isFutureReservation) {
     const { phone, uid: orderUid, tableNumber, deliveryMethod } = after;
+    const tableCustomerUid = orderCustomerAuthUid(after as Record<string, unknown>);
     console.log(`Table ${tableNumber} assigned for future reservation ${orderUid}`);
 
     const tableContent: LocalizedPushContent = {
@@ -387,7 +410,8 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
       tableContent,
       orderUid || event.params.orderId,
       "reservation_confirmed",
-      deliveryMethod || ""
+      deliveryMethod || "",
+      tableCustomerUid
     );
     return null;
   }
@@ -405,6 +429,7 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
     }
 
     const { status, phone, uid: orderId, deliveryMethod } = after;
+    const statusChangeCustomerUid = orderCustomerAuthUid(after as Record<string, unknown>);
 
     const wasFutureOrder = isFutureOrderNowDue(after);
 
@@ -547,8 +572,13 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
       return null;
     }
 
-    if (!phone || String(phone).trim() === "") {
-      console.warn("onOrderStatusChange: no phone on order, skip customer push");
+    if (
+      (!phone || String(phone).trim() === "") &&
+      !statusChangeCustomerUid
+    ) {
+      console.warn(
+        "onOrderStatusChange: no phone and no userId on order, skip customer push"
+      );
       return null;
     }
 
@@ -557,7 +587,8 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
       notif,
       orderId || event.params.orderId,
       status,
-      deliveryMethod || ""
+      deliveryMethod || "",
+      statusChangeCustomerUid
     );
     
     return null;

@@ -1,5 +1,5 @@
 import * as admin from "firebase-admin";
-import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
+import type { DocumentSnapshot, QueryDocumentSnapshot } from "firebase-admin/firestore";
 
 /**
  * Single source of truth for customer (menu / marketplace) Expo push delivery.
@@ -62,6 +62,36 @@ export async function findUserDocByPhone(
     "(tried variants:",
     variants.join(", "),
     ")"
+  );
+  return null;
+}
+
+/**
+ * Prefer Firebase Auth uid (order.userId) — push tokens live on that document.
+ * Phone index can miss when user doc phone is out of sync with order.phone.
+ */
+export async function resolveCustomerUserForPush(options: {
+  firebaseUserId?: string | null;
+  phone?: string | null;
+}): Promise<DocumentSnapshot | null> {
+  const uidRaw = options.firebaseUserId;
+  const uid =
+    uidRaw != null && String(uidRaw).trim() !== "" ? String(uidRaw).trim() : "";
+  if (uid) {
+    const snap = await admin.firestore().collection("users").doc(uid).get();
+    if (snap.exists) {
+      console.log(`[customerExpoPush] Resolved customer users/${uid}`);
+      return snap;
+    }
+    console.log(
+      `[customerExpoPush] users/${uid} does not exist, falling back to phone lookup`
+    );
+  }
+  if (options.phone != null && String(options.phone).trim() !== "") {
+    return findUserDocByPhone(options.phone);
+  }
+  console.log(
+    "[customerExpoPush] Cannot resolve user: no valid firebaseUserId and no phone"
   );
   return null;
 }
@@ -129,10 +159,11 @@ export type CustomerExpoPushLog = {
 };
 
 /**
- * Send localized Expo notification to all non-driver Expo tokens for the user with this phone.
+ * Send localized Expo push to the customer. Prefer firebaseUserId (order.userId).
  */
 export async function sendLocalizedExpoToCustomerByPhone(options: {
-  phone: string | undefined | null;
+  phone?: string | null;
+  firebaseUserId?: string | null;
   content: LocalizedPushContent;
   data: {
     orderId: string;
@@ -143,12 +174,25 @@ export async function sendLocalizedExpoToCustomerByPhone(options: {
   /** When set, writes notificationLogs entry (same shape as legacy functions). */
   log?: CustomerExpoPushLog | null;
 }): Promise<void> {
-  const { phone, content, data, log } = options;
-  const userSnap = await findUserDocByPhone(phone);
-  if (!userSnap) return;
+  const { phone, content, data, log, firebaseUserId } = options;
+  if (
+    (!phone || String(phone).trim() === "") &&
+    (!firebaseUserId || String(firebaseUserId).trim() === "")
+  ) {
+    console.log("[customerExpoPush] Skipping: neither phone nor firebaseUserId");
+    return;
+  }
+
+  const userSnap = await resolveCustomerUserForPush({ firebaseUserId, phone });
+  if (!userSnap || !userSnap.exists) return;
+
+  const userData = userSnap.data();
+  if (!userData) {
+    console.log("[customerExpoPush] User doc exists but data() is empty");
+    return;
+  }
 
   const userId = userSnap.id;
-  const userData = userSnap.data();
 
   const pushTokenObjs: PushTokenObj[] = ((userData.pushTokens || []) as PushTokenObj[]).filter(
     (t) =>
@@ -171,7 +215,7 @@ export async function sendLocalizedExpoToCustomerByPhone(options: {
 
   if (menuTokenObjs.length === 0 && legacyTokenStrings.length === 0) {
     console.log(
-      `No active Expo (non-driver) push tokens for user ${userId} (phone: ${phone})`
+      `No active Expo (non-driver) push tokens for user ${userId} (phone=${phone || "n/a"} uidHint=${firebaseUserId || "n/a"})`
     );
     return;
   }

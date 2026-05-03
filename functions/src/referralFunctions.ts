@@ -104,6 +104,7 @@ export const onReferralCodeApplied = onDocumentUpdated(
     try {
       await sendLocalizedExpoToCustomerByPhone({
         phone: referrerPhone,
+        firebaseUserId: after.referredByUserId,
         content: notification,
         data: {
           orderId: "",
