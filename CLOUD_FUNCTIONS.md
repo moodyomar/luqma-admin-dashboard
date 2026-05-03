@@ -1,6 +1,8 @@
-# Cloud Functions — single source of truth (Luqma / QBMenu / Jeeb)
+# Cloud Functions — single source of truth (Luqma / QBMenu)
 
-This document applies to the **shared Firebase project** used by the Luqma menu app, Refresh, and other brands on **`qbmenu-7963c`** (see `.firebaserc` `default`). White-label apps that use **their own** Firebase project follow `MenuAppTemplate/SCALABLE_MENU_APP_WORKFLOW.md` for **their** deploys.
+This document applies **only** to the Firebase project **`qbmenu-7963c`** (Luqma menu, Jeeb if configured on this project, etc.). See `.firebaserc` `default` in this repo.
+
+Clients with **their own** `projectId` (Refresh, Risto, Safaa, …) do **not** use this deploy path — they follow `MenuAppTemplate/SCALABLE_MENU_APP_WORKFLOW.md` and deploy template functions to **their** project.
 
 ## What to deploy (order + customer push + referral)
 
@@ -36,7 +38,7 @@ npm run deploy:functions
 ## Do **not** do this (causes drift and silent breakage)
 
 1. **Do not deploy `luqma/menu-app/functions` to `qbmenu-7963c`**  
-   That package still defines `exports.onOrderCreated` / `exports.onOrderStatusChange`. A second deploy **replaces** the same trigger names with older or divergent logic (phone-only lookup, wrong status filters, no `userId` resolution). Symptom: **no `notificationLogs` / no push on Luqma or Refresh while Risto (other project) still works.**
+   That package still defines `exports.onOrderCreated` / `exports.onOrderStatusChange`. A second deploy **replaces** the same trigger names with older or divergent logic (phone-only lookup, wrong status filters, no `userId` resolution). Symptom: **no `notificationLogs` / no push for apps on `qbmenu-7963c`**, while another client’s app on **its own** project still works.
 
 2. **Do not “fix” push in the mobile repo only** for this backend — the menu app only registers tokens; **delivery** is server-side here.
 
@@ -47,7 +49,7 @@ npm run deploy:functions
 3. Smoke-test on a **physical device**: new order → ready → delivered (pickup and delivery).  
 4. Check **Firestore `notificationLogs`** and **Functions → Logs** for `[customerExpoPush]`.
 
-## Per-brand white-label clients (Risto, Safaa, …)
+## Per-brand white-label clients (Refresh, Risto, Safaa, …)
 
 Each client **Firebase project** should deploy the **template** functions copied by `update-client.sh` (dashboard + optional mobile bundle per `SCALABLE_MENU_APP_WORKFLOW.md`). They do **not** use this file’s deploy commands unless their `projectId` is this same backend.
 
