@@ -12,6 +12,8 @@
     "sync:firestore-tenant-rules": "bash scripts/sync-firebase-tenant-rules.sh",
     "sync:firestore-tenant-rules:dry": "bash scripts/sync-firebase-tenant-rules.sh --dry-run",
     "rules:deploy": "firebase deploy --only firestore:rules",
+    "deploy:functions:core": "firebase deploy --only functions:onOrderCreated,functions:onOrderStatusChange,functions:onReferralCodeApplied",
+    "deploy:functions": "firebase deploy --only functions",
     "dev": "vite",
     "build": "vite build",
     "build:production": "npm run ensure:advanced-settings-env && vite build",
@@ -39,6 +41,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "firebase-tools": "^13.35.1"
   }
 }
