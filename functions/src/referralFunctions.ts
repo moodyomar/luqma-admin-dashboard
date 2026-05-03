@@ -3,128 +3,12 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
 import { adminSpaCallableOpts } from "./adminSpaCallableOptions";
+import { sendLocalizedExpoToCustomerByPhone } from "./customerExpoPush";
 
 /**
  * REFERRAL FUNCTIONS
  * Handles referral code application and data management
  */
-
-// ==========================================
-// HELPER: SEND NOTIFICATION TO USER
-// ==========================================
-async function sendNotificationToUser(
-  phone: string,
-  content: { ar: { title: string; body: string }; he: { title: string; body: string } },
-  orderId: string,
-  status: string,
-  deliveryMethod: string
-) {
-  // Find user by phone
-  const usersSnapshot = await admin
-    .firestore()
-    .collection("users")
-    .where("phone", "==", phone)
-    .limit(1)
-    .get();
-
-  if (usersSnapshot.empty) {
-    logger.warn(`No user found for phone: ${phone}`);
-    return;
-  }
-
-  const userDoc = usersSnapshot.docs[0];
-  const userData = userDoc.data();
-  const userId = userDoc.id;
-
-  // Get active push tokens (customer app tokens)
-  const tokens = (userData.pushTokens || [])
-    .filter((t: any) => t.active && (!t.appType || t.appType === "customer"))
-    .map((t: any) => t.token);
-
-  if (tokens.length === 0) {
-    logger.info(`No active Expo push tokens for user ${userId} (phone: ${phone})`);
-    return;
-  }
-
-  logger.info(`Found ${tokens.length} active push token(s) for user ${userId}`);
-
-  // Get user's preferred language (default to Arabic)
-  const language = userData.language || "ar";
-  const localizedContent = content[language as keyof typeof content] || content.ar;
-
-  // Prepare push notification messages
-  const messages = tokens.map((token: string) => ({
-    to: token,
-    sound: "default",
-    title: localizedContent.title,
-    body: localizedContent.body,
-    data: {
-      orderId: orderId || "",
-      status,
-      screen: orderId ? "MyOrdersScreen" : "ProfileTab",
-    },
-    channelId: "default",
-  }));
-
-  // Send push notifications via Expo Push API
-  await sendPushNotifications(messages);
-
-  // Log notification sent
-  await admin.firestore().collection("notificationLogs").add({
-    userId,
-    orderId: orderId || "",
-    status,
-    deliveryMethod,
-    sentAt: admin.firestore.FieldValue.serverTimestamp(),
-    tokensCount: tokens.length,
-  });
-
-  logger.info(`Sent ${messages.length} notifications for ${orderId ? `order ${orderId}` : "referral event"}`);
-}
-
-// ==========================================
-// HELPER: SEND PUSH NOTIFICATIONS VIA EXPO
-// ==========================================
-async function sendPushNotifications(messages: any[]) {
-  if (messages.length === 0) {
-    logger.info("No messages to send");
-    return;
-  }
-
-  // Expo limits to 100 notifications per request
-  const chunks = [];
-  for (let i = 0; i < messages.length; i += 100) {
-    chunks.push(messages.slice(i, i + 100));
-  }
-
-  for (const chunk of chunks) {
-    try {
-      const response = await fetch("https://exp.host/--/api/v2/push/send", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Accept-Encoding": "gzip, deflate",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(chunk),
-      });
-
-      const data = await response.json();
-      logger.info("Expo push response:", JSON.stringify(data, null, 2));
-
-      // Check for errors in response
-      if (data.data) {
-        const errors = data.data.filter((item: any) => item.status === "error");
-        if (errors.length > 0) {
-          logger.error("Some notifications failed:", errors);
-        }
-      }
-    } catch (error: any) {
-      logger.error("Error sending push notifications:", error);
-      // Continue with next chunk even if one fails
-    }
-  }
-}
 
 // ==========================================
 // 1. ON REFERRAL CODE APPLIED
@@ -218,7 +102,21 @@ export const onReferralCodeApplied = onDocumentUpdated(
 
     // Send notification to referrer
     try {
-      await sendNotificationToUser(referrerPhone, notification, "", "referral_code_used", "referral");
+      await sendLocalizedExpoToCustomerByPhone({
+        phone: referrerPhone,
+        content: notification,
+        data: {
+          orderId: "",
+          status: "referral_code_used",
+          deliveryMethod: "referral",
+          screen: "ProfileTab",
+        },
+        log: {
+          orderId: "",
+          status: "referral_code_used",
+          deliveryMethod: "referral",
+        },
+      });
       logger.info(`✅ [ReferralCodeApplied] Sent notification to referrer ${referrerPhone} about code usage`);
     } catch (notifError: any) {
       logger.error(`❌ [ReferralCodeApplied] Error sending notification:`, notifError);

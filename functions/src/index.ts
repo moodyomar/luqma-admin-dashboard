@@ -3,6 +3,15 @@ import * as admin from "firebase-admin";
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 
+/**
+ * Cloud Functions — deploy ONLY this package to the Luqma Firebase project.
+ * Customer push delivery is implemented in `customerExpoPush.ts` (shared by
+ * order + referral). Do not deploy `menu-app/functions` to the same project:
+ * duplicate triggers (onOrderCreated / onOrderStatusChange) cause undefined
+ * behavior and version drift. White-label apps on this backend inherit behavior
+ * from whatever is deployed here.
+ */
+
 // Export Cloud Functions
 export { inviteUser } from "./inviteUser";
 // setClaims helpers are imported by inviteUser/removeDriver only — not Cloud Functions (do not re-export).

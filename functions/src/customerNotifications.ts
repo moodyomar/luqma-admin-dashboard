@@ -1,9 +1,14 @@
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
-import * as admin from "firebase-admin";
+import {
+  sendLocalizedExpoToCustomerByPhone,
+  type LocalizedPushContent,
+} from "./customerExpoPush";
 
 /**
- * CUSTOMER NOTIFICATIONS - Restored from Menu-reactnative
- * These send notifications to customers about their orders
+ * CUSTOMER NOTIFICATIONS — single deployed implementation (admin-dashboard/functions).
+ * Behavior is kept in parity with menu-app/functions (order create + status + reservations).
+ * Deploy with: `firebase deploy --only functions:onOrderCreated,functions:onOrderStatusChange`
+ * Do not deploy menu-app Cloud Functions to the same project (duplicate triggers / drift).
  */
 
 // ==========================================
@@ -102,106 +107,19 @@ function isFutureOrderNowDue(orderData: any): boolean {
   }
 }
 
-// ==========================================
-// HELPER: SEND NOTIFICATION TO USER (CUSTOMER)
-// ==========================================
 async function sendNotificationToUser(
   phone: string,
-  content: any,
+  content: LocalizedPushContent,
   orderId: string,
   status: string,
   deliveryMethod: string
 ) {
-  // Get user document by phone number
-  const usersSnapshot = await admin
-    .firestore()
-    .collection("users")
-    .where("phone", "==", phone)
-    .limit(1)
-    .get();
-
-  if (usersSnapshot.empty) {
-    console.log("No user found with phone:", phone);
-    return;
-  }
-
-  const userDoc = usersSnapshot.docs[0];
-  const userData = userDoc.data();
-  const userId = userDoc.id;
-
-  // Get active push tokens (customer app tokens)
-  const tokens = (userData.pushTokens || [])
-    .filter((t: any) => t.active && (!t.appType || t.appType === "customer"))
-    .map((t: any) => t.token);
-
-  if (tokens.length === 0) {
-    console.log("No active push tokens for user");
-    return;
-  }
-
-  // Get user's preferred language (default to Arabic)
-  const language = userData.language || "ar";
-  const localizedContent = content[language] || content.ar;
-
-  // Prepare push notification messages
-  const messages = tokens.map((token: string) => ({
-    to: token,
-    sound: "default",
-    title: localizedContent.title,
-    body: localizedContent.body,
-    data: {
-      orderId,
-      status,
-      screen: "MyOrdersScreen",
-    },
-    channelId: "default",
-  }));
-
-  // Send push notifications via Expo Push API
-  await sendPushNotifications(messages);
-
-  // Log notification sent
-  await admin
-    .firestore()
-    .collection("notificationLogs")
-    .add({
-      userId,
-      orderId,
-      status,
-      deliveryMethod,
-      sentAt: admin.firestore.FieldValue.serverTimestamp(),
-      tokensCount: tokens.length,
-    });
-
-  console.log(`✅ Sent ${messages.length} notifications for order ${orderId}`);
-}
-
-// ==========================================
-// HELPER: SEND PUSH NOTIFICATIONS VIA EXPO
-// ==========================================
-async function sendPushNotifications(messages: any[]) {
-  const fetch = require("node-fetch");
-
-  // Expo limits to 100 notifications per request
-  const chunks = [];
-  for (let i = 0; i < messages.length; i += 100) {
-    chunks.push(messages.slice(i, i + 100));
-  }
-
-  for (const chunk of chunks) {
-    const response = await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip, deflate",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(chunk),
-    });
-
-    const data = await response.json();
-    console.log("Expo push response:", JSON.stringify(data, null, 2));
-  }
+  await sendLocalizedExpoToCustomerByPhone({
+    phone,
+    content,
+    data: { orderId, status, deliveryMethod, screen: orderId ? "MyOrdersScreen" : "ProfileTab" },
+    log: { orderId, status, deliveryMethod },
+  });
 }
 
 // ==========================================
@@ -209,88 +127,132 @@ async function sendPushNotifications(messages: any[]) {
 // ==========================================
 export const onOrderCreated = onDocumentCreated("menus/{brandId}/orders/{orderId}", async (event) => {
   if (!event.data) return null;
-  
+
   const snap = event.data;
   const order = snap.data();
-    const { phone, deliveryMethod, uid: orderId } = order;
+  const orderId = event.params.orderId;
+  const { phone, deliveryMethod } = order;
 
-    console.log(`New order created: ${orderId}`);
+  console.log(`New order created: ${orderId}`);
 
-    // FUTURE ORDER LOGIC:
-    // - If order has deliveryDateTime in the future → Skip notification now
-    // - If order has no deliveryDateTime OR deliveryDateTime has passed → Send notification (normal behavior)
-    // - Regular orders (no deliveryDateTime) work exactly as before
-    if (isFutureOrderNotYetDue(order)) {
-      console.log(`Order ${orderId} is a future order (scheduled for later), skipping immediate notification. Will notify when scheduled time arrives.`);
-      return null;
+  if (!phone || String(phone).trim() === "") {
+    console.warn("onOrderCreated: Order has no phone — cannot send customer notification");
+    return null;
+  }
+
+  // Table reservation request (eat-in flow): different copy from standard "order confirmed"
+  if (order.reservationStatus === "reservation_request") {
+    const dt = order.deliveryDateTime;
+    let dateTimeStr = "";
+    if (dt) {
+      try {
+        const d =
+          dt && typeof dt.toDate === "function" ? dt.toDate() : new Date(dt);
+        if (!isNaN(d.getTime())) {
+          const date = d.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          });
+          const time = d.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+          dateTimeStr = ` ${date} ${time}`;
+        }
+      } catch {
+        /* ignore */
+      }
     }
-
-    // Check if this was a future order that is now due
-    const wasFutureOrder = isFutureOrderNowDue(order);
-
-    // REGULAR ORDER: Send "Order Confirmed" notification immediately (normal behavior)
-    let content: any;
-
-    if (wasFutureOrder) {
-      // Future order that is now due - use special messages
-      content = {
-        ar: {
-          title: "تم تأكيد طلبك المجدول 🎉",
-          body: "رح نبدأ بتحضير طلبك حسب الموعد المحدد",
-        },
-        he: {
-          title: "ההזמנה המתוזמנת אושרה 🎉",
-          body: "נתחיל בהכנת ההזמנה שלך במועד שנקבע",
-        },
-      };
-    } else if (deliveryMethod === "eat_in") {
-      // Eat-in orders - no delivery/pickup time estimates
-      content = {
-        ar: {
-          title: "تم تأكيد طلبك 🎉",
-          body: "سنبدأ بتحضير طلبك قريباً",
-        },
-        he: {
-          title: "ההזמנה אושרה 🎉",
-          body: "נתחיל בהכנת ההזמנה שלך בקרוב",
-        },
-      };
-    } else if (deliveryMethod === "pickup") {
-      // Pickup orders - ready for pickup time
-      content = {
-        ar: {
-          title: "تم تأكيد طلبك 🎉",
-          body: "جاهز للاستلام خلال 30 دقيقة",
-        },
-        he: {
-          title: "ההזמנה אושרה 🎉",
-          body: "מוכן לאיסוף תוך 30 דקות",
-        },
-      };
-    } else {
-      // Delivery orders - delivery time estimate
-      content = {
-        ar: {
-          title: "تم تأكيد طلبك 🎉",
-          body: "يصلك خلال 45 دقيقة",
-        },
-        he: {
-          title: "ההזמנה אושרה 🎉",
-          body: "מגיע תוך 45 דקות",
-        },
-      };
-    }
-
+    const content: LocalizedPushContent = {
+      ar: {
+        title: "تم إرسال طلب حجز الطاولة",
+        body: `طلب حجز الطاولة لـ${dateTimeStr} تم إرساله. سنعلمك عندما يرد المطعم.`,
+      },
+      he: {
+        title: "נשלחה בקשת הזמנת שולחן",
+        body: `בקשת הזמנת השולחן ל${dateTimeStr} נשלחה. נעדכן כשהמסעדה תאשר.`,
+      },
+    };
     await sendNotificationToUser(
       phone,
       content,
-      orderId || event.params.orderId,
-      "pending",
-      deliveryMethod
+      orderId,
+      "reservation_request_sent",
+      "eat_in"
     );
-    
     return null;
-  });
+  }
+
+  // FUTURE ORDER: skip immediate "30 min / 45 min" notifications until due
+  if (isFutureOrderNotYetDue(order)) {
+    console.log(
+      `Order ${orderId} is a future order (scheduled for later), skipping immediate notification.`
+    );
+    return null;
+  }
+
+  const wasFutureOrder = isFutureOrderNowDue(order);
+
+  let content: LocalizedPushContent;
+
+  if (wasFutureOrder) {
+    content = {
+      ar: {
+        title: "تم تأكيد طلبك المجدول 🎉",
+        body: "رح نبدأ بتحضير طلبك حسب الموعد المحدد",
+      },
+      he: {
+        title: "ההזמנה המתוזמנת אושרה 🎉",
+        body: "נתחיל בהכנת ההזמנה שלך במועד שנקבע",
+      },
+    };
+  } else if (deliveryMethod === "eat_in") {
+    content = {
+      ar: {
+        title: "تم تأكيد طلبك 🎉",
+        body: "سنبدأ بتحضير طلبك قريباً",
+      },
+      he: {
+        title: "ההזמנה אושרה 🎉",
+        body: "נתחיל בהכנת ההזמנה שלך בקרוב",
+      },
+    };
+  } else if (deliveryMethod === "pickup") {
+    content = {
+      ar: {
+        title: "تم تأكيد طلبك 🎉",
+        body: "جاهز للاستلام خلال 30 دقيقة",
+      },
+      he: {
+        title: "ההזמנה אושרה 🎉",
+        body: "מוכן לאיסוף תוך 30 דקות",
+      },
+    };
+  } else {
+    content = {
+      ar: {
+        title: "تم تأكيد طلبك 🎉",
+        body: "يصلك خلال 45 دقيقة",
+      },
+      he: {
+        title: "ההזמנה אושרה 🎉",
+        body: "מגיע תוך 45 דקות",
+      },
+    };
+  }
+
+  await sendNotificationToUser(
+    phone,
+    content,
+    orderId,
+    "pending",
+    deliveryMethod || ""
+  );
+
+  return null;
+});
 
 // ==========================================
 // 2. ORDER STATUS CHANGES → SEND STATUS UPDATE TO CUSTOMER
@@ -303,95 +265,187 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
   const before = change.before.data();
   const after = change.after.data();
 
-    // Check if table was assigned (for future order reservations)
-    const tableWasAssigned = !before.tableNumber && after.tableNumber && after.reservationConfirmed;
-    const isFutureReservation = tableWasAssigned && isFutureOrderNotYetDue(after);
-    
-    // Only trigger if status actually changed OR table was assigned
-    if (before.status === after.status && !tableWasAssigned) {
-      console.log("Status unchanged and no table assigned, skipping notification");
-      return;
-    }
-
-    // If table was assigned for a future reservation, send notification
-    if (isFutureReservation) {
-      const { phone, uid: orderId, tableNumber, deliveryMethod } = after;
-      console.log(`Table ${tableNumber} assigned for future reservation ${orderId}`);
-      
-      const content = {
-        ar: {
-          title: "تم تأكيد حجزك 🎉",
-          body: `تم تعيين طاولة رقم ${tableNumber} لك. سنبدأ التحضير حسب الموعد المحدد.`,
-        },
-        he: {
-          title: "ההזמנה אושרה 🎉",
-          body: `שולחן מספר ${tableNumber} הוקצה עבורך. נתחיל בהכנה במועד שנקבע.`,
-        },
-      };
-      
-      await sendNotificationToUser(phone, content, orderId || event.params.orderId, "reservation_confirmed", deliveryMethod);
+  // --- Reservation workflow (eat-in): notify on reservationStatus alone ---
+  if (before.reservationStatus !== after.reservationStatus) {
+    const newReservationStatus = after.reservationStatus;
+    if (
+      newReservationStatus === "reservation_confirmed" ||
+      newReservationStatus === "alternatives_sent" ||
+      newReservationStatus === "reservation_declined"
+    ) {
+      const orderId = event.params.orderId;
+      const { phone, deliveryMethod } = after;
+      let content: LocalizedPushContent;
+      if (newReservationStatus === "reservation_confirmed") {
+        const dt = after.deliveryDateTime;
+        let dateTimeStr = "";
+        if (dt) {
+          try {
+            const d =
+              dt && typeof dt.toDate === "function"
+                ? dt.toDate()
+                : new Date(dt);
+            if (!isNaN(d.getTime())) {
+              const date = d.toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              });
+              const time = d.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+              dateTimeStr = ` ${date} ${time}`;
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        content = {
+          ar: {
+            title: "تم تأكيد حجز الطاولة",
+            body: `حجز طاولتك لـ${dateTimeStr} مؤكد. افتح التطبيق واختر طريقة الدفع.`,
+          },
+          he: {
+            title: "הזמנת השולחן אושרה",
+            body: `הזמנת השולחן שלך ל${dateTimeStr} אושרה. פתח את האפליקציה ובחר אמצעי תשלום.`,
+          },
+        };
+      } else if (newReservationStatus === "alternatives_sent") {
+        content = {
+          ar: {
+            title: "المطعم اقترح أوقاتاً بديلة",
+            body:
+              "الوقت المطلوب غير متاح. افتح التطبيق واختر أحد الأوقات المقترحة ثم ادفع.",
+          },
+          he: {
+            title: "המסעדה הציעה מועדים חלופיים",
+            body:
+              "המועד המבוקש לא זמין. פתח את האפליקציה ובחר אחד מהמועדים ואז שלם.",
+          },
+        };
+      } else {
+        content = {
+          ar: {
+            title: "لم نتمكن من تأكيد حجزك",
+            body:
+              "للأسف لم نتمكن من تلبية الموعد المطلوب. جرب تاريخاً آخر أو تواصل معنا.",
+          },
+          he: {
+            title: "לא הצלחנו לאשר את ההזמנה",
+            body:
+              "לצערנו לא יכולנו לעמוד במועד המבוקש. נסה תאריך אחר או צור קשר.",
+          },
+        };
+      }
+      if (phone && String(phone).trim() !== "") {
+        await sendNotificationToUser(
+          phone,
+          content,
+          orderId,
+          `reservation_${newReservationStatus}`,
+          deliveryMethod || "eat_in"
+        );
+      }
+      console.log(
+        `✅ Sent reservation notification for order ${orderId}, reservationStatus: ${newReservationStatus}`
+      );
       return null;
     }
+  }
+
+  // Check if table was assigned (for future order reservations)
+  const tableWasAssigned =
+    !before.tableNumber && after.tableNumber && after.reservationConfirmed;
+  const isFutureReservation = tableWasAssigned && isFutureOrderNotYetDue(after);
+
+  // Only trigger if status actually changed OR table was assigned
+  if (before.status === after.status && !tableWasAssigned) {
+    console.log("Status unchanged and no table assigned, skipping notification");
+    return null;
+  }
+
+  // If table was assigned for a future reservation, send notification
+  if (isFutureReservation) {
+    const { phone, uid: orderUid, tableNumber, deliveryMethod } = after;
+    console.log(`Table ${tableNumber} assigned for future reservation ${orderUid}`);
+
+    const tableContent: LocalizedPushContent = {
+      ar: {
+        title: "تم تأكيد حجزك 🎉",
+        body: `تم تعيين طاولة رقم ${tableNumber} لك. سنبدأ التحضير حسب الموعد المحدد.`,
+      },
+      he: {
+        title: "ההזמנה אושרה 🎉",
+        body: `שולחן מספר ${tableNumber} הוקצה עבורך. נתחיל בהכנה במועד שנקבע.`,
+      },
+    };
+
+    await sendNotificationToUser(
+      phone,
+      tableContent,
+      orderUid || event.params.orderId,
+      "reservation_confirmed",
+      deliveryMethod || ""
+    );
+    return null;
+  }
 
     console.log(
       `Order ${event.params.orderId} status changed: ${before.status} → ${after.status}`
     );
 
-    // FUTURE ORDER LOGIC:
-    // - If order has deliveryDateTime that is STILL in the future → Skip notification
-    // - If order has deliveryDateTime that has PASSED (now due) → Send notification (normal behavior)
-    // - If order has no deliveryDateTime → Send notification (normal behavior, regular order)
-    // This ensures future orders only get notifications when their scheduled time arrives
+    // FUTURE ORDER: skip until scheduled time
     if (isFutureOrderNotYetDue(after)) {
-      console.log(`Order ${event.params.orderId} is a future order (scheduled time hasn't arrived yet), skipping notification. Will notify when scheduled time arrives.`);
+      console.log(
+        `Order ${event.params.orderId} is a future order (scheduled time hasn't arrived yet), skipping notification.`
+      );
       return null;
     }
 
     const { status, phone, uid: orderId, deliveryMethod } = after;
 
-    // Check if this was a future order that is now due
     const wasFutureOrder = isFutureOrderNowDue(after);
 
-    // ==========================================
-    // SMART NOTIFICATION LOGIC FOR CUSTOMERS
-    // Only send important notifications based on delivery method
-    // ==========================================
-
-    // Skip "preparing" status (too much noise, not actionable for customer)
     if (status === "preparing") {
       console.log('Skipping "preparing" notification (not important)');
       return null;
     }
 
-    // For PICKUP: Only send "pending" and "ready"
-    if (
-      deliveryMethod === "pickup" &&
-      !["pending", "ready"].includes(status)
-    ) {
-      console.log(`Skipping "${status}" for pickup order (not relevant)`);
-      return null;
-    }
-
-    // For EAT_IN: Only send "pending" and "ready"
+    // menu-app parity: eat-in includes completed/served; pickup & delivery include terminal states
     if (
       deliveryMethod === "eat_in" &&
-      !["pending", "ready"].includes(status)
+      !["pending", "ready", "served", "completed"].includes(status)
     ) {
       console.log(`Skipping "${status}" for eat-in order (not relevant)`);
       return null;
     }
 
-    // For DELIVERY: Only send "pending", "out_for_delivery", and optionally "delivered"
+    if (
+      deliveryMethod === "pickup" &&
+      !["pending", "ready", "completed", "delivered", "served"].includes(status)
+    ) {
+      console.log(`Skipping "${status}" for pickup order (not relevant)`);
+      return null;
+    }
+
     if (
       deliveryMethod === "delivery" &&
-      !["pending", "out_for_delivery", "delivered"].includes(status)
+      ![
+        "pending",
+        "out_for_delivery",
+        "delivered",
+        "completed",
+        "served",
+      ].includes(status)
     ) {
       console.log(`Skipping "${status}" for delivery order (not relevant)`);
       return null;
     }
 
-    // Notification content (Arabic & Hebrew) for CUSTOMERS
-    const notifications: any = {
+    // Notification content (Arabic & Hebrew) for CUSTOMERS — keep in sync with menu-app/functions
+    const notifications: Record<string, LocalizedPushContent> = {
       // For ALL orders: Confirmation
       pending: (() => {
         if (wasFutureOrder) {
@@ -465,21 +519,45 @@ export const onOrderStatusChange = onDocumentUpdated("menus/{brandId}/orders/{or
           body: "תודה! נקווה שתיהנה מהארוחה",
         },
       },
+      completed: {
+        ar: {
+          title: "تم إكمال طلبك ✅",
+          body: "شكراً لك! نتمنى أن تستمتع بوجبتك",
+        },
+        he: {
+          title: "ההזמנה הושלמה ✅",
+          body: "תודה! נקווה שתיהנה מהארוחה",
+        },
+      },
+      served: {
+        ar: {
+          title: "تم تقديم طلبك ✅",
+          body: "شكراً لك! نتمنى أن تستمتع بوجبتك",
+        },
+        he: {
+          title: "ההזמנה הוגשה ✅",
+          body: "תודה! נקווה שתיהנה מהארוחה",
+        },
+      },
     };
 
-    const notif = notifications[status];
+    let notif: LocalizedPushContent | undefined = notifications[status];
     if (!notif) {
       console.log("No notification template for status:", status);
       return null;
     }
 
-    // Send notification to CUSTOMER using helper function
+    if (!phone || String(phone).trim() === "") {
+      console.warn("onOrderStatusChange: no phone on order, skip customer push");
+      return null;
+    }
+
     await sendNotificationToUser(
       phone,
       notif,
       orderId || event.params.orderId,
       status,
-      deliveryMethod
+      deliveryMethod || ""
     );
     
     return null;
