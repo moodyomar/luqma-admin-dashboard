@@ -2,7 +2,7 @@
 
 Firebase project **`qbmenu-7963c`** (**QBMenu** in the console) is shared **only** by **Luqma** and **Jeeb**. Every other menu app—existing clients and future ones—uses **its own** Firebase project and does **not** use this document’s deploy commands.
 
-White-label clients follow `MenuAppTemplate/SCALABLE_MENU_APP_WORKFLOW.md` and deploy template functions to **their** `projectId`. See `.firebaserc` `default` in this repo for QBMenu.
+White-label clients follow `MenuAppTemplate/SCALABLE_MENU_APP_WORKFLOW.md` and deploy template functions to **their** `projectId`. See **`MenuAppTemplate/FIREBASE_DEPLOY.md`** and **`update-client.sh`** (dashboard deploy omits `sendPromotionalNotification` + menu-owned triggers so Gen1/Gen2 and SOT stay consistent). Those clients **do not** use this document’s deploy commands.
 
 ## What to deploy (order + customer push + referral)
 
