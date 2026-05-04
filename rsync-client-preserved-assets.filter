@@ -1,0 +1,13 @@
+# Rsync filter merge file — use when copying MenuAppTemplate/Dashboard-reactjs → a client dashboard
+# with `rsync ... --delete` so per-client media is not removed if the template omits those files.
+#
+# In MenuAppTemplate/update-client.sh, add (adjust DASHBOARD_SRC to your dashboard path variable):
+#   --filter="merge $DASHBOARD_SRC/rsync-client-preserved-assets.filter"
+#
+# Patterns are relative to the dashboard root (the rsync source root).
+
+protect public/*.mp3
+# Nested sounds (e.g. public/sounds/x.mp3): add another line, e.g. protect public/sounds/*.mp3
+protect public/receipt_logo.png
+protect public/receipt*.png
+protect dist/*.mp3

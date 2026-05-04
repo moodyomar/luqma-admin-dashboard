@@ -8,7 +8,8 @@ Receipt style is **identical for all apps** and driven from Firebase (`config.re
 - **Logo**: Each business keeps its own receipt logo.  
   - **Sync** (luqma → template): excludes `pos-print-sdk/.../res/drawable`.  
   - **Update** (template → client): preserves and restores `pos-print-sdk/.../res/drawable` so the client’s logo is never replaced.
-- **Sounds**: Same file names in every app (`new-order-arrived.mp3`, `order-not-accepted-yet.mp3`, `future-order-due.mp3`). Sync excludes `public/*.mp3`; update preserves and restores `public/`, so each app keeps its own audio files.
+- **Sounds**: Same file names in every app (`new-order-arrived.mp3`, `order-not-accepted-yet.mp3`, `future-order-due.mp3`). `sync-template.sh` excludes `public/*.mp3` and `public/**/*.mp3`. **`update-client.sh`** should merge `rsync-client-preserved-assets.filter` so `--delete` does not strip a client’s `public/*.mp3` when the template has no copy.
+- **Web receipt logo**: `public/receipt_logo.png` (and `public/receipt*.png`) are excluded from luqma→template sync and listed in **`rsync-client-preserved-assets.filter`** for template→client updates. Android drawable logo stays excluded via `pos-print-sdk/.../drawable` as before.
 
 ## Preview = print
 

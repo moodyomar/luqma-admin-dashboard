@@ -453,7 +453,6 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         <div>الهاتف: ${formatPhoneDisplay(order.phone) || 'غير محدد'}</div>
         <div>${driver || ''}</div>
         <div>${addressBlock}</div>
-        ${order.extraNotes ? `<div>ملاحظات الموقع: ${order.extraNotes}</div>` : ''}
       </div>`;
 
     const deliverySectionHtml = `
@@ -780,10 +779,6 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         lines.push(`نوع الطلب: توصيل للمنزل`);
         const addressText = `العنوان: ${order.address || 'غير محدد'}`;
         wrapText(addressText, 38).forEach(line => lines.push(line));
-        if (order.extraNotes) {
-          const notesText = `ملاحظات: ${order.extraNotes}`;
-          wrapText(notesText, 38).forEach(line => lines.push(line));
-        }
       } else if (order.deliveryMethod === 'eat_in') {
         lines.push(`نوع الطلب: أكل بالمطعم`);
         if (order.tableNumber) lines.push(`رقم الطاولة: ${order.tableNumber}`);
@@ -1677,13 +1672,6 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             )
           )}
         </>
-      )}
-
-      {/* Show extraNotes for delivery orders */}
-      {order.deliveryMethod === 'delivery' && order.extraNotes && (
-        <p style={{ marginTop: -10, color: '#999', fontSize: 13 }}>
-          📝 ملاحظات الموقع: {order.extraNotes}
-        </p>
       )}
 
       {order.cart?.length > 0 && (
