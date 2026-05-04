@@ -1,7 +1,7 @@
 /**
  * Single source of truth for receipt style.
  * Used by: ReceiptStylePage (UI + save to Firestore), OrdersPage (pass to print),
- *          Android MainActivity.applyReceiptStyleFromJson (parse and apply).
+ *          Android MainActivity (parse and apply layout-related fields as needed).
  * When adding a field: add here, add UI in ReceiptStylePage, add parse + use in MainActivity.java.
  */
 
@@ -22,9 +22,11 @@ export const RECEIPT_STYLE_KEYS = [
   'footerTextEn',
   'footerTextAr',
   'titlesBoldOnly',
+  /** When true, POS text receipt prints products before customer + delivery sections. */
+  'customerAfterProducts',
 ];
 
-/** Default values — must match Java defaults in MainActivity.applyReceiptStyleFromJson */
+/** Default values — numeric/font fields should stay aligned with MainActivity.java defaults where applicable */
 export const DEFAULT_RECEIPT_STYLE = Object.freeze({
   bodyFont: 22,
   lineHeight: 32,
@@ -43,6 +45,8 @@ export const DEFAULT_RECEIPT_STYLE = Object.freeze({
   footerTextAr: 'شكراً لاستخدامكم تطبيق {brandName}',
   /** When true, only section headers and item titles are bold; body/quantity/extras use normal weight. */
   titlesBoldOnly: false,
+  /** When true: «تفاصيل المنتجات» أولاً ثم «معلومات العميل» و«تفاصيل التوصيل». */
+  customerAfterProducts: false,
 });
 
 /** Min/max for numeric fields (clamped in Java too) — used for sliders and validation */

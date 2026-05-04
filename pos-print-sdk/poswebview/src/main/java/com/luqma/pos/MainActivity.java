@@ -389,11 +389,11 @@ public class MainActivity extends AppCompatActivity {
         int width = 384; // 58mm paper = 384 pixels
         int lineHeight = style.lineHeight;
         int padding = style.padding;
-        int headerSpace = includeHeader ? 80 : 20; // Space for logo/brand
+        int headerSpace = includeHeader ? 80 : 20; // Upper bound for logo/brand (actual height trimmed after draw)
         
-        // Calculate height
+        // Upper-bound height (per-line uses lineHeight; real layout uses less for empty lines / separators — we crop after draw)
         int numLines = lines != null ? lines.length : 0;
-        int height = Math.max(100, (numLines * lineHeight) + headerSpace + 40);
+        int height = Math.max(100, (numLines * lineHeight) + headerSpace + 24);
         
         android.util.Log.i("POS", "🖼️ Creating beautiful RTL receipt: " + width + "x" + height);
         
@@ -469,13 +469,8 @@ public class MainActivity extends AppCompatActivity {
                 currentY += 75;
             }
             
-            // Decorative line under header
-            Paint linePaint = new Paint();
-            linePaint.setColor(Color.BLACK);
-            linePaint.setStrokeWidth(2);
-            canvas.drawLine(padding, currentY + 5, width - padding, currentY + 5, linePaint);
-            
-            currentY += 25;
+            // Spacing after logo / text header (no horizontal rule — order lines follow directly)
+            currentY += 18;
         }
         
         // ============ BODY TEXT (RTL with selected font) ============
@@ -642,6 +637,16 @@ public class MainActivity extends AppCompatActivity {
         }
         
         android.util.Log.i("POS", "🖼️ Beautiful RTL receipt created!");
+        
+        // Trim excess white: layout uses emptyGap / sepMargin for many lines, not full lineHeight
+        int bottomPad = Math.max(12, style.lineHeight / 2 + 4);
+        int cropHeight = Math.min(height, Math.max(1, currentY + bottomPad));
+        if (cropHeight < height) {
+            Bitmap trimmed = Bitmap.createBitmap(bitmap, 0, 0, width, cropHeight);
+            bitmap.recycle();
+            bitmap = trimmed;
+            android.util.Log.i("POS", "🖼️ Trimmed receipt bitmap height " + height + " → " + cropHeight);
+        }
         
         return bitmap;
     }

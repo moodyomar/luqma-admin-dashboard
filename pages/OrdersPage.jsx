@@ -427,7 +427,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       const extras = Array.isArray(item.selectedExtras)
         ? item.selectedExtras
             .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
-            .map(extra => (typeof extra === 'object' ? extra.label?.ar || '' : ''))
+            .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : ''))
             .filter(Boolean)
         : [];
 
@@ -437,11 +437,102 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             <span>${index + 1} - ${name}${size}</span>
             <span>× ${qty}</span>
           </div>
-          ${extras.length ? `<div class="item-extras">إضافات: ${extras.join('، ')}</div>` : ''}
+          ${extras.length
+            ? `<div class="item-extras item-extras-label">إضافات:</div>${extras.map((e) => `<div class="item-extras">   • ${e}</div>`).join('')}`
+            : ''}
           ${item.note ? `<div class="item-note">ملاحظة: ${item.note}</div>` : ''}
         </div>
       `;
     }).join('');
+
+    const customerAfterProducts = !!(receiptStyle && receiptStyle.customerAfterProducts);
+
+    const customerSectionHtml = `
+      <div class="section">
+        <div>الاسم: ${order.name || 'غير محدد'}</div>
+        <div>الهاتف: ${formatPhoneDisplay(order.phone) || 'غير محدد'}</div>
+        <div>${driver || ''}</div>
+        <div>${addressBlock}</div>
+        ${order.extraNotes ? `<div>ملاحظات الموقع: ${order.extraNotes}</div>` : ''}
+      </div>`;
+
+    const deliverySectionHtml = `
+      <div class="section">
+        <div>طريقة التوصيل: ${deliveryString}</div>
+        ${order.deliveryMethod === 'eat_in' && order.numberOfPeople ? `<div>عدد الأشخاص: ${order.numberOfPeople}</div>` : ''}
+        <div>الدفع: ${(order.reservationStatus && order.reservationStatus !== 'reservation_paid')
+          ? 'بأنتظار الدفع'
+          : (paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString)}</div>
+        <div>عدد المنتجات: ${order.cart?.length || 0}</div>
+      </div>`;
+
+    const itemsSectionHtml = `
+      <div class="section">
+        <div class="section-title">تفاصيل الطلب</div>
+        ${items || '<div>لا توجد منتجات</div>'}
+      </div>`;
+
+    const noteSectionHtml = order.note ? `
+        <div class="section">
+          <div class="section-title">ملاحظة الزبون</div>
+          <div>${order.note}</div>
+        </div>` : '';
+
+    const futureOrderHtml = !order.deliveryDateTime ? '' : (() => {
+      try {
+        let deliveryDate;
+        if (order.deliveryDateTime.toDate && typeof order.deliveryDateTime.toDate === 'function') {
+          deliveryDate = order.deliveryDateTime.toDate();
+        } else if (order.deliveryDateTime instanceof Date) {
+          deliveryDate = order.deliveryDateTime;
+        } else {
+          deliveryDate = new Date(order.deliveryDateTime);
+        }
+
+        if (!isNaN(deliveryDate.getTime())) {
+          const now = new Date();
+          if (deliveryDate > now) {
+            const year = deliveryDate.getFullYear();
+            const month = String(deliveryDate.getMonth() + 1).padStart(2, '0');
+            const day = String(deliveryDate.getDate()).padStart(2, '0');
+            const hours = String(deliveryDate.getHours()).padStart(2, '0');
+            const minutes = String(deliveryDate.getMinutes()).padStart(2, '0');
+
+            const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const dayName = dayNames[deliveryDate.getDay()];
+
+            const dateStr = `${day}-${month}-${year}`;
+            const timeStr = `${hours}:${minutes}`;
+
+            return `
+        <div class="section" style="background-color: #fff3cd; padding: 8px; border-radius: 4px; border: 1px solid #ffc107; margin-bottom: 10px;">
+          <div class="section-title" style="color: #856404;">⚠️ طلب مستقبلي ليوم ${dayName}</div>
+          <div style="color: #856404;">تاريخ: ${dateStr}</div>
+          <div style="color: #856404;">الساعه: ${timeStr}</div>
+        </div>`;
+          }
+        }
+      } catch (error) {
+        console.error('Error formatting future order date:', error);
+      }
+      return '';
+    })();
+
+    let receiptCartSubtotal = 0;
+    if (order.cart && Array.isArray(order.cart)) {
+      receiptCartSubtotal = order.cart.reduce((sum, item) => {
+        const itemPrice = parseFloat(item.totalPrice || item.price || 0);
+        const quantity = parseInt(item.quantity || 1, 10);
+        return sum + (itemPrice * quantity);
+      }, 0);
+    }
+    const totalSectionHtml = `<div class="section">
+          <div>الإجمالي: ₪${receiptCartSubtotal.toFixed(2)}</div>
+        </div>`;
+
+    const mainSectionsHtml = customerAfterProducts
+      ? `${itemsSectionHtml}${noteSectionHtml}${customerSectionHtml}${deliverySectionHtml}`
+      : `${customerSectionHtml}${deliverySectionHtml}${itemsSectionHtml}${noteSectionHtml}`;
 
     return `
   <html lang="ar" dir="rtl">
@@ -459,6 +550,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         .item:last-child { border-bottom: none; }
         .item-header { display: flex; justify-content: space-between; font-weight: bold; }
         .item-extras, .item-note { font-size: 12px; color: #444; margin-top: 2px; }
+        .item-extras-label { font-weight: 700; }
         .footer { text-align: center; margin-top: 12px; font-size: 12px; }
       </style>
     </head>
@@ -467,91 +559,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         <h1>طلب #${orderId}</h1>
         <div>${order.date || ''}</div>
       </div>
-      <div class="section">
-        <div>الاسم: ${order.name || 'غير محدد'}</div>
-        <div>الهاتف: ${formatPhoneDisplay(order.phone) || 'غير محدد'}</div>
-        <div>${driver || ''}</div>
-        <div>${addressBlock}</div>
-        ${order.extraNotes ? `<div>ملاحظات الموقع: ${order.extraNotes}</div>` : ''}
-      </div>
-      <div class="section">
-        <div>طريقة التوصيل: ${deliveryString}</div>
-        ${order.deliveryMethod === 'eat_in' && order.numberOfPeople ? `<div>عدد الأشخاص: ${order.numberOfPeople}</div>` : ''}
-        <div>الدفع: ${(order.reservationStatus && order.reservationStatus !== 'reservation_paid')
-          ? 'بأنتظار الدفع'
-          : (paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString)}</div>
-        <div>عدد المنتجات: ${order.cart?.length || 0}</div>
-      </div>
-      ${(() => {
-        // Future Order Indicator - Show if order is scheduled for future (Arabic format, before total)
-        if (!order.deliveryDateTime) return '';
-        try {
-          let deliveryDate;
-          // Handle Firestore Timestamp
-          if (order.deliveryDateTime.toDate && typeof order.deliveryDateTime.toDate === 'function') {
-            deliveryDate = order.deliveryDateTime.toDate();
-          } else if (order.deliveryDateTime instanceof Date) {
-            deliveryDate = order.deliveryDateTime;
-          } else {
-            deliveryDate = new Date(order.deliveryDateTime);
-          }
-          
-          if (!isNaN(deliveryDate.getTime())) {
-            const now = new Date();
-            if (deliveryDate > now) {
-              // Format date and time in Arabic format (DD-MM-YYYY HH:MM)
-              const year = deliveryDate.getFullYear();
-              const month = String(deliveryDate.getMonth() + 1).padStart(2, '0');
-              const day = String(deliveryDate.getDate()).padStart(2, '0');
-              const hours = String(deliveryDate.getHours()).padStart(2, '0');
-              const minutes = String(deliveryDate.getMinutes()).padStart(2, '0');
-              
-              // Get Arabic day name
-              const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-              const dayName = dayNames[deliveryDate.getDay()];
-              
-              const dateStr = `${day}-${month}-${year}`;
-              const timeStr = `${hours}:${minutes}`;
-              
-              return `
-        <div class="section" style="background-color: #fff3cd; padding: 8px; border-radius: 4px; border: 1px solid #ffc107; margin-bottom: 10px;">
-          <div class="section-title" style="color: #856404;">⚠️ طلب مستقبلي ليوم ${dayName}</div>
-          <div style="color: #856404;">تاريخ: ${dateStr}</div>
-          <div style="color: #856404;">الساعه: ${timeStr}</div>
-        </div>`;
-            }
-          }
-        } catch (error) {
-          console.error('Error formatting future order date:', error);
-        }
-        return '';
-      })()}
-      ${(() => {
-        // Calculate total excluding delivery fee for receipt
-        const orderTotal = parseFloat(order.total || order.price || 0);
-        let cartSubtotal = 0;
-        if (order.cart && Array.isArray(order.cart)) {
-          cartSubtotal = order.cart.reduce((sum, item) => {
-            const itemPrice = parseFloat(item.totalPrice || item.price || 0);
-            const quantity = parseInt(item.quantity || 1);
-            return sum + (itemPrice * quantity);
-          }, 0);
-        }
-        // Receipt total = cart subtotal only (excludes delivery fee)
-        const receiptTotal = cartSubtotal;
-        return `<div class="section">
-          <div>الإجمالي: ₪${receiptTotal.toFixed(2)}</div>
-        </div>`;
-      })()}
-      <div class="section">
-        <div class="section-title">تفاصيل الطلب</div>
-        ${items || '<div>لا توجد منتجات</div>'}
-      </div>
-      ${order.note ? `
-        <div class="section">
-          <div class="section-title">ملاحظة الزبون</div>
-          <div>${order.note}</div>
-        </div>` : ''}
+      ${mainSectionsHtml}
+      ${futureOrderHtml}
+      ${totalSectionHtml}
       <div class="footer">شكراً لاستخدامكم تطبيق ${brandConfig.name || 'لقمة'}</div>
     </body>
   </html>
@@ -747,95 +757,104 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       return finalLines.filter(line => line && line.length > 0);
     };
 
-    // Order Header
-    lines.push('================================');
+    // Order header (no solid line under logo — logo is drawn in POS bitmap header only)
     lines.push(`طلب رقم #${shortId}`);
     if (order.date) lines.push(order.date);
     lines.push('- - - - - - - - - - - - - - - -');
-    
-    // Customer Information
-    lines.push('');
-    lines.push('--- معلومات العميل ---');
-    if (order.name) lines.push(`الاسم: ${order.name}`);
-    if (order.phone) lines.push(`الهاتف: ${formatPhoneDisplay(order.phone)}`);
-    lines.push('- - - - - - - - - - - - - - - -');
-    
-    // Delivery Details
-    lines.push('');
-    lines.push('--- تفاصيل التوصيل ---');
-      if (order.deliveryMethod === 'delivery') {
-      lines.push(`نوع الطلب: توصيل للمنزل`);
-      const addressText = `العنوان: ${order.address || 'غير محدد'}`;
-      wrapText(addressText, 38).forEach(line => lines.push(line));
-      if (order.extraNotes) {
-        const notesText = `ملاحظات: ${order.extraNotes}`;
-        wrapText(notesText, 38).forEach(line => lines.push(line));
-      }
-    } else if (order.deliveryMethod === 'eat_in') {
-      lines.push(`نوع الطلب: أكل بالمطعم`);
-      if (order.tableNumber) lines.push(`رقم الطاولة: ${order.tableNumber}`);
-      if (order.numberOfPeople) lines.push(`عدد الأشخاص: ${order.numberOfPeople}`);
-    } else {
-      lines.push(`نوع الطلب: استلام من المطعم`);
-    }
-    
-    if (order.paymentMethod) {
-      const isAwaiting = order.reservationStatus && order.reservationStatus !== 'reservation_paid';
-      const paymentLabel = isAwaiting ? 'بأنتظار الدفع' : (order.paymentMethod === 'cash' ? 'نقداً (كاش)' : 'مدفوع اونلاين');
-      lines.push(`طريقة الدفع: ${paymentLabel}`);
-    }
-    lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
-    lines.push('- - - - - - - - - - - - - - - -');
-    
-    // Product Details
-    lines.push('');
-    lines.push('--- تفاصيل المنتجات ---');
-    lines.push('');
 
-    (order.cart || []).forEach((item, index) => {
-      const name = item.name?.ar || item.name || `منتج ${index + 1}`;
-      const qty = item.quantity || 1;
-      const price = money(item.totalPrice || item.price || 0);
-      const options = item.optionsText ? ` (${item.optionsText})` : '';
-      
-      // Item line with clear formatting (wrap if too long)
-      const itemLine = `${index + 1}. ${name}${options}`;
-      const wrappedItemLine = wrapText(itemLine, 38);
-      wrappedItemLine.forEach(line => lines.push(line));
-      lines.push(`   الكمية: ${qty} × ${price}`);
+    const customerAfterProducts = !!(receiptStyle && receiptStyle.customerAfterProducts);
+    const dashedSep = '- - - - - - - - - - - - - - - -';
 
-      if (Array.isArray(item.selectedExtras) && item.selectedExtras.length) {
-        const extras = item.selectedExtras
-          .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
-          .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : extra))
-          .filter(Boolean);
-        if (extras.length) {
-          // Build extras text with proper spacing
-          const extrasText = `   إضافات: ${extras.join(' + ')}`;
-          // Wrap extras text, keeping indentation for continuation lines
-          // Use 35 chars max (more conservative for 384px width)
-          const wrappedExtras = wrapText(extrasText, 35, '   ');
-          wrappedExtras.forEach(line => {
-            // Ensure each line is properly formatted
-            lines.push(line);
-          });
-        }
-      }
-
-      if (item.note) {
-        const noteText = `   ملاحظة خاصة: ${item.note}`;
-        const wrappedNote = wrapText(noteText, 38, '   ');
-        wrappedNote.forEach(line => lines.push(line));
-      }
-      
-      lines.push(''); // Space between items
-    });
-
-    if (order.note) {
-      lines.push('--- ملاحظة العميل ---');
-      const wrappedCustomerNote = wrapText(order.note, 38);
-      wrappedCustomerNote.forEach(line => lines.push(line));
+    const pushCustomerSection = () => {
       lines.push('');
+      lines.push('--- معلومات العميل ---');
+      if (order.name) lines.push(`الاسم: ${order.name}`);
+      if (order.phone) lines.push(`الهاتف: ${formatPhoneDisplay(order.phone)}`);
+      lines.push(dashedSep);
+    };
+
+    const pushDeliverySection = () => {
+      lines.push('');
+      lines.push('--- تفاصيل التوصيل ---');
+      if (order.deliveryMethod === 'delivery') {
+        lines.push(`نوع الطلب: توصيل للمنزل`);
+        const addressText = `العنوان: ${order.address || 'غير محدد'}`;
+        wrapText(addressText, 38).forEach(line => lines.push(line));
+        if (order.extraNotes) {
+          const notesText = `ملاحظات: ${order.extraNotes}`;
+          wrapText(notesText, 38).forEach(line => lines.push(line));
+        }
+      } else if (order.deliveryMethod === 'eat_in') {
+        lines.push(`نوع الطلب: أكل بالمطعم`);
+        if (order.tableNumber) lines.push(`رقم الطاولة: ${order.tableNumber}`);
+        if (order.numberOfPeople) lines.push(`عدد الأشخاص: ${order.numberOfPeople}`);
+      } else {
+        lines.push(`نوع الطلب: استلام من المطعم`);
+      }
+      if (order.paymentMethod) {
+        const isAwaiting = order.reservationStatus && order.reservationStatus !== 'reservation_paid';
+        const paymentLabel = isAwaiting ? 'بأنتظار الدفع' : (order.paymentMethod === 'cash' ? 'نقداً (كاش)' : 'مدفوع اونلاين');
+        lines.push(`طريقة الدفع: ${paymentLabel}`);
+      }
+      lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
+      lines.push(dashedSep);
+    };
+
+    const pushProductsSection = () => {
+      lines.push('');
+      lines.push('--- تفاصيل المنتجات ---');
+      lines.push('');
+
+      (order.cart || []).forEach((item, index) => {
+        const name = item.name?.ar || item.name || `منتج ${index + 1}`;
+        const qty = item.quantity || 1;
+        const price = money(item.totalPrice || item.price || 0);
+        const options = item.optionsText ? ` (${item.optionsText})` : '';
+
+        const itemLine = `${index + 1}. ${name}${options}`;
+        const wrappedItemLine = wrapText(itemLine, 38);
+        wrappedItemLine.forEach(line => lines.push(line));
+        lines.push(`   الكمية: ${qty} × ${price}`);
+
+        if (Array.isArray(item.selectedExtras) && item.selectedExtras.length) {
+          const extras = item.selectedExtras
+            .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
+            .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : extra))
+            .filter(Boolean);
+          if (extras.length) {
+            lines.push('   إضافات:');
+            extras.forEach((label) => {
+              wrapText(`   • ${label}`, 35, '   ').forEach((line) => lines.push(line));
+            });
+          }
+        }
+
+        if (item.note) {
+          const noteText = `   ملاحظة خاصة: ${item.note}`;
+          const wrappedNote = wrapText(noteText, 38, '   ');
+          wrappedNote.forEach(line => lines.push(line));
+        }
+
+        lines.push('');
+      });
+
+      if (order.note) {
+        lines.push('--- ملاحظة العميل ---');
+        const wrappedCustomerNote = wrapText(order.note, 38);
+        wrappedCustomerNote.forEach(line => lines.push(line));
+        lines.push('');
+      }
+    };
+
+    if (customerAfterProducts) {
+      pushProductsSection();
+      lines.push(dashedSep);
+      pushCustomerSection();
+      pushDeliverySection();
+    } else {
+      pushCustomerSection();
+      pushDeliverySection();
+      pushProductsSection();
     }
 
     // Future Order Indicator - Show if order is scheduled for future (Arabic format, before total)
@@ -903,7 +922,6 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     if (receiptStyle) {
       const footerEn = receiptStyle.footerTextEn || 'Thank you for using {brandName} App';
       const footerAr = receiptStyle.footerTextAr || 'شكراً لاستخدامكم تطبيق {brandName}';
-      lines.push('');
       lines.push(replaceBrandName(footerEn));
       lines.push(replaceBrandName(footerAr));
     }
@@ -920,6 +938,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         if (line.includes('طلب رقم')) return true;
         if (index === 1 && lines[0] && lines[0].includes('طلب رقم')) return true;
         if (/^\d+\.\s/.test(t)) return true;
+        if (t.startsWith('إضافات') || t.includes('إضافات:')) return true;
         if (line.includes('المبلغ الإجمالي') || line.includes('Total Amount')) return true;
         if (index >= lines.length - 2) return true; // footer
         return false;
@@ -1688,7 +1707,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
                   </div>
                   {Array.isArray(item.selectedExtras) && item.selectedExtras.some(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without') && (
                     <div style={{ fontSize: 13, color: '#999' }}>
-                      إضافات:{' '}
+                      <div style={{ fontWeight: 700 }}>إضافات:</div>
                       {item.selectedExtras
                         .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
                         .map(extra => {
@@ -1698,7 +1717,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
                           return '';
                         })
                         .filter(Boolean)
-                        .join('، ')}
+                        .map((label, i) => (
+                          <div key={i} style={{ marginTop: 2 }}>• {label}</div>
+                        ))}
                     </div>
                   )}
                 </div>

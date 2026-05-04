@@ -103,9 +103,13 @@ const ReceiptStylePage = () => {
   const getFontFamily = () => style.fontFamily || "'Tahoma', 'Arial', sans-serif";
   
   // Build container style - CSS variable will be set via useEffect and ref
+  const p = Number(style.padding) || 15;
   const receiptContainerStyle = {
     width: 384,
-    padding: px(style.padding),
+    paddingTop: px(p),
+    paddingLeft: px(p),
+    paddingRight: px(p),
+    paddingBottom: px(Math.max(6, Math.round(p * 0.4))),
     fontSize: px(style.bodyFont),
     lineHeight: px(style.lineHeight),
     color: '#000',
@@ -173,11 +177,8 @@ const ReceiptStylePage = () => {
               <img src="/receipt_logo.png" alt="" style={{ maxWidth: px(style.logoMaxWidth ?? 150), height: 'auto', display: 'block', margin: '0 auto' }} onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
             
-            {/* Separator line matching Java: 2px solid black (matches "================================") */}
-            <div style={sepStyle} />
-            
-            {/* Order header - matching buildReceiptText structure exactly */}
-            <div style={itemTitleLineStyle}>طلب رقم #a1b2c3</div>
+            {/* Order header — no solid line under logo (matches POS / buildReceiptText) */}
+            <div style={itemTitleLineStyle}>طلب رقم #100042</div>
             <div style={lineStyle}>06.03.2025, 14:35:22</div>
             
             {/* Dashed separator matching Java (matches "- - - - - - - - - - - - - - - -") */}
@@ -185,31 +186,54 @@ const ReceiptStylePage = () => {
             
             {/* Empty line matching buildReceiptText */}
             <div style={emptyStyle} />
-            
-            {/* Customer info section */}
-            <div style={headerStyle}>--- معلومات العميل ---</div>
-            <div style={lineStyle}>الاسم: محمد أحمد</div>
-            <div style={lineStyle}>الهاتف: 0501234567</div>
-            
-            {/* Dashed separator */}
-            <div style={sepDashedStyle} />
-            
-            {/* Delivery details section */}
-            <div style={headerStyle}>--- تفاصيل التوصيل ---</div>
-            <div style={lineStyle}>نوع الطلب: استلام من المطعم</div>
-            <div style={lineStyle}>طريقة الدفع: نقداً (كاش)</div>
-            <div style={lineStyle}>عدد المنتجات: 1</div>
-            
-            {/* Dashed separator */}
-            <div style={sepDashedStyle} />
-            
-            {/* Products section */}
-            <div style={emptyStyle} />
-            <div style={headerStyle}>--- تفاصيل المنتجات ---</div>
-            <div style={emptyStyle} />
-            <div style={itemTitleLineStyle}>1. سلطة الجزر (M)</div>
-            <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   الكمية: 1 × ₪48.00</div>
-            <div style={emptyStyle} />
+
+            {style.customerAfterProducts ? (
+              <>
+                {/* Products first (matches POS when «انزل تفاصيل العميل») */}
+                <div style={emptyStyle} />
+                <div style={headerStyle}>--- تفاصيل المنتجات ---</div>
+                <div style={emptyStyle} />
+                <div style={itemTitleLineStyle}>1. برجر لحم كلاسيك (L)</div>
+                <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   الكمية: 1 × ₪55.00</div>
+                <div style={{ ...itemTitleLineStyle, paddingRight: px(style.padding) }}>   إضافات:</div>
+                <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   • جبنة شيدر</div>
+                <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   • بصل مكرمل</div>
+                <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   • صوص باربيكيو</div>
+                <div style={emptyStyle} />
+                <div style={sepDashedStyle} />
+                <div style={headerStyle}>--- معلومات العميل ---</div>
+                <div style={lineStyle}>الاسم: محمد أحمد</div>
+                <div style={lineStyle}>الهاتف: 0501234567</div>
+                <div style={sepDashedStyle} />
+                <div style={headerStyle}>--- تفاصيل التوصيل ---</div>
+                <div style={lineStyle}>نوع الطلب: استلام من المطعم</div>
+                <div style={lineStyle}>طريقة الدفع: نقداً (كاش)</div>
+                <div style={lineStyle}>عدد المنتجات: 1</div>
+                <div style={sepDashedStyle} />
+              </>
+            ) : (
+              <>
+                <div style={headerStyle}>--- معلومات العميل ---</div>
+                <div style={lineStyle}>الاسم: محمد أحمد</div>
+                <div style={lineStyle}>الهاتف: 0501234567</div>
+                <div style={sepDashedStyle} />
+                <div style={headerStyle}>--- تفاصيل التوصيل ---</div>
+                <div style={lineStyle}>نوع الطلب: استلام من المطعم</div>
+                <div style={lineStyle}>طريقة الدفع: نقداً (كاش)</div>
+                <div style={lineStyle}>عدد المنتجات: 1</div>
+                <div style={sepDashedStyle} />
+                <div style={emptyStyle} />
+                <div style={headerStyle}>--- تفاصيل المنتجات ---</div>
+                <div style={emptyStyle} />
+                <div style={itemTitleLineStyle}>1. برجر لحم كلاسيك (L)</div>
+                <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   الكمية: 1 × ₪55.00</div>
+                <div style={{ ...itemTitleLineStyle, paddingRight: px(style.padding) }}>   إضافات:</div>
+                <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   • جبنة شيدر</div>
+                <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   • بصل مكرمل</div>
+                <div style={{ ...lineStyle, paddingRight: px(style.padding) }}>   • صوص باربيكيو</div>
+                <div style={emptyStyle} />
+              </>
+            )}
             
             {/* Separator before total */}
             <div style={sepStyle} />
@@ -226,22 +250,22 @@ const ReceiptStylePage = () => {
               lineHeight: px(style.lineHeight)
               // fontFamily handled by CSS variable
             }}>
-              المبلغ الإجمالي: ₪172.00
+              المبلغ الإجمالي: ₪79.00
             </div>
             
-            {/* Separator after total */}
-            <div style={sepStyle} />
+            {/* Separator after total — tighter bottom margin than mid-receipt seps */}
+            <div style={{ ...sepStyle, marginBottom: px(Math.max(6, Math.round((style.sepMargin || 15) * 0.45))) }} />
             
             {/* Footer - matching Java rendering */}
             <div style={{ 
               textAlign: 'center', 
-              marginTop: px(style.sepMargin || 15), 
+              marginTop: px(Math.max(6, Math.round((style.sepMargin || 15) * 0.5))), 
               fontSize: px(style.footerFont), 
               fontWeight: 600, 
               lineHeight: px(style.lineHeight)
               // fontFamily handled by CSS variable
             }}>
-              <div style={{ marginBottom: px(style.emptyGap / 2) }}>{(style.footerTextEn || 'Thank you for using {brandName} App').replace('{brandName}', brandConfig?.name || 'Luqma')}</div>
+              <div style={{ marginBottom: px(Math.max(4, Math.round(style.emptyGap / 4))) }}>{(style.footerTextEn || 'Thank you for using {brandName} App').replace('{brandName}', brandConfig?.name || 'Luqma')}</div>
               <div>{(style.footerTextAr || 'شكراً لاستخدامكم تطبيق {brandName}').replace('{brandName}', brandConfig?.name || 'Luqma')}</div>
             </div>
           </div>
@@ -286,6 +310,20 @@ const ReceiptStylePage = () => {
             </label>
             <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6c757d' }}>
               عند التفعيل: العناوين وأسماء المنتجات بولد، وباقي النص (الكمية، الإضافات، الملاحظات) بخط عادي.
+            </p>
+          </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#495057' }}>
+              <input
+                type="checkbox"
+                checked={!!style.customerAfterProducts}
+                onChange={(e) => updateStyle('customerAfterProducts', e.target.checked)}
+              />
+              <span>انزل تفاصيل العميل — طباعة «معلومات العميل» و«تفاصيل التوصيل» بعد «تفاصيل المنتجات»</span>
+            </label>
+            <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6c757d' }}>
+              عند التفعيل: يظهر الطلب (المنتجات) أولاً ثم اسم الزبون والهاتف ونوع التوصيل والدفع، كما في المعاينة وطابعة الـ POS.
             </p>
           </div>
 
