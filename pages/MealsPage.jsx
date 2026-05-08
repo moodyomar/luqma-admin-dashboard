@@ -12,6 +12,12 @@ import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css'
 import SortableMealsList from '../src/components/SortableMealsList';
 import { FiLogOut } from 'react-icons/fi';
+import { toast, Toaster } from 'react-hot-toast';
+import {
+  normalizeMenuCategoriesForSave,
+  sanitizeItemsForSubcategoryIds,
+  buildMenuCategoryFirestorePayload,
+} from '../utils/menuCategoriesPersistence';
 
 const MealsPage = () => {
   const [mealsData, setMealsData] = useState({ categories: [], items: {} });
@@ -23,6 +29,7 @@ const MealsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedMeals, setExpandedMeals] = useState({});
   const [openFormCategory, setOpenFormCategory] = useState(null);
+  const [supermarketMode, setSupermarketMode] = useState(false);
   const formRefs = useRef({});
   const categoryRefs = useRef({});
   const { activeBusinessId } = useAuth();
@@ -100,6 +107,7 @@ const MealsPage = () => {
         }
         
         setMealsData(hasChanges ? { ...data, items: updatedItems } : data);
+        setSupermarketMode(!!data.config?.features?.supermarketMode);
 
         // Initialize all categories to collapsed (false)
         const initialExpanded = {};
@@ -112,6 +120,25 @@ const MealsPage = () => {
     };
     fetchData();
   }, [activeBusinessId]);
+
+  // Pick up supermarket toggle from business settings without full page reload
+  useEffect(() => {
+    if (!activeBusinessId || !showCategoryManager) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'menus', activeBusinessId));
+        if (!cancelled && snap.exists()) {
+          setSupermarketMode(!!snap.data().config?.features?.supermarketMode);
+        }
+      } catch (e) {
+        console.warn('[MealsPage] Could not refresh supermarket flag:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBusinessId, showCategoryManager]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -129,6 +156,32 @@ const MealsPage = () => {
     const updatedItems = { ...mealsData.items };
     updatedItems[categoryId].splice(index, 1);
     setMealsData({ ...mealsData, items: updatedItems });
+  };
+
+  const handleMealSubcategoryAssign = async (categoryId, mealId, subId) => {
+    const list = [...(mealsData.items[categoryId] || [])];
+    const idx = list.findIndex((m) => m.id === mealId);
+    if (idx === -1) return;
+    const meal = { ...list[idx] };
+    if (subId == null || subId === '') {
+      delete meal.subcategoryId;
+    } else {
+      meal.subcategoryId = String(subId);
+    }
+    list[idx] = meal;
+    setMealsData({
+      ...mealsData,
+      items: { ...mealsData.items, [categoryId]: list },
+    });
+    try {
+      await updateDoc(doc(db, 'menus', activeBusinessId), {
+        [`items.${categoryId}`]: list,
+      });
+      toast.success('تم تحديث ربط القسم الفرعي | עודכן שיוך לתת-קטגוריה');
+    } catch (err) {
+      console.error('[MealsPage] meal subcategory save failed:', err);
+      toast.error('فشل حفظ الربط | שמירת השיוך נכשלה');
+    }
   };
 
   const handleSave = async () => {
@@ -222,6 +275,10 @@ const MealsPage = () => {
               cleanedMeal.preorderHours = Number(meal.preorderHours);
             }
 
+            if (meal.subcategoryId != null && String(meal.subcategoryId).trim() !== '') {
+              cleanedMeal.subcategoryId = String(meal.subcategoryId).trim();
+            }
+
             return cleanedMeal;
           }),
         ])
@@ -229,16 +286,22 @@ const MealsPage = () => {
 
 
     try {
-      // Save only menu structures from this page. Avoid overwriting
-      // config.* fields (e.g. config.media.heroImages) with stale local data.
+      const normCats = normalizeMenuCategoriesForSave(mealsData.categories || []);
+      const { items: itemsSynced } = sanitizeItemsForSubcategoryIds(normCats, cleanedItems);
+
       await setDoc(
         ref,
         {
-          items: cleanedItems,
-          categories: mealsData.categories || [],
+          items: itemsSynced,
+          categories: normCats,
         },
         { merge: true }
       );
+      setMealsData((prev) => ({
+        ...prev,
+        categories: normCats,
+        items: itemsSynced,
+      }));
       alert('✅ كل الشيفات انبسطوا، تم الحفظ بنجاح!');
     } catch (err) {
       console.error('❌ Firebase Save Error:', err);
@@ -255,18 +318,6 @@ const MealsPage = () => {
     if (lang === 'ar') return cat.name.ar;
     if (lang === 'he') return cat.name.he;
     return `${cat.name.ar} | ${cat.name.he}`; // fallback
-  };
-
-  const handleCategoriesChange = async (updatedCategories) => {
-    setMealsData((prev) => ({ ...prev, categories: updatedCategories }));
-
-    try {
-      await updateDoc(doc(db, 'menus', activeBusinessId), {
-        categories: updatedCategories,
-      });
-    } catch (err) {
-      console.error('🔥 Error updating categories:', err);
-    }
   };
 
   // Add this function for instant hide/unhide
@@ -393,6 +444,7 @@ const MealsPage = () => {
       paddingBottom: window.innerWidth < 768 ? '100px' : '16px', // Space for mobile bottom nav
       position: 'relative' 
     }}>
+      <Toaster position="top-center" toastOptions={{ duration: 3500 }} />
       <div className="buttonsWrapper">
         <button
           onClick={() => setShowCategoryManager(prev => !prev)}
@@ -405,31 +457,65 @@ const MealsPage = () => {
       </div>
       {showCategoryManager && <CategoryManager
         categories={mealsData.categories}
+        items={mealsData.items}
+        onMealSubcategoryChange={handleMealSubcategoryAssign}
+        supermarketMode={supermarketMode}
+        onToggleSupermarketMode={async (next) => {
+          const prev = supermarketMode;
+          setSupermarketMode(next);
+          try {
+            await updateDoc(doc(db, 'menus', activeBusinessId), {
+              'config.features.supermarketMode': next,
+            });
+            toast.success(
+              next
+                ? 'تم تفعيل السوبرماركت | מצב סופרמרקט הופעל'
+                : 'تم إيقاف السوبرماركت | מצב סופרמרקט בוטל',
+            );
+          } catch (err) {
+            setSupermarketMode(prev);
+            console.error('Supermarket mode update failed:', err);
+            toast.error('فشل حفظ الإعداد | שמירה נכשלה');
+          }
+        }}
         onChange={async (updatedCategories) => {
           const updatedItems = { ...mealsData.items };
 
-          // اضف مفتاح جديد إذا ما كان موجود
           updatedCategories.forEach((cat) => {
             if (!updatedItems[cat.id]) {
               updatedItems[cat.id] = [];
             }
           });
 
-          // Update local state
+          const normalized = normalizeMenuCategoriesForSave(updatedCategories);
+          const { items: cleanedItems, touchedCategoryIds } = sanitizeItemsForSubcategoryIds(
+            normalized,
+            updatedItems,
+          );
+
           setMealsData({
             ...mealsData,
-            categories: updatedCategories,
-            items: updatedItems,
+            categories: normalized,
+            items: cleanedItems,
           });
 
-          // 🔥 Update in Firestore (menus/{businessId} document)
+          const ref = doc(db, 'menus', activeBusinessId);
+          const payload = buildMenuCategoryFirestorePayload(
+            normalized,
+            cleanedItems,
+            touchedCategoryIds,
+          );
+
           try {
-            await updateDoc(doc(db, 'menus', activeBusinessId), {
-              categories: updatedCategories,
-            });
-            console.log('✅ Categories order saved to Firestore');
+            await updateDoc(ref, payload);
+            toast.success(
+              touchedCategoryIds.size > 0
+                ? 'تم الحفظ: الأقسام وتصفية المنتجات | נשמרו קטגוריות ונוקו שיוכים'
+                : 'تم حفظ الأقسام | הקטגוריות נשמרו',
+            );
           } catch (err) {
             console.error('🔥 Failed to update categories in Firestore:', err);
+            toast.error('فشل الحفظ | השמירה נכשלה');
           }
         }}
       />}
@@ -481,10 +567,8 @@ const MealsPage = () => {
                     gap: 8,
                   }}
                 >
-                  {/* Item count */}
                   <span style={{ color: '#666', fontWeight: 600 }}>({meals.length})</span>
 
-                  {/* Text block */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <div style={{ fontWeight: 500 }}>
                       הקטגוריה:{' '}
@@ -573,6 +657,7 @@ const MealsPage = () => {
                     <SortableMealsList
                       meals={filteredMeals}
                       categoryId={categoryId}
+                      supermarketMode={supermarketMode}
                       onChangeMeal={(updatedMeal, idx) => {
                         const updated = [...mealsData.items[categoryId]];
                         updated[idx] = updatedMeal;
@@ -606,6 +691,7 @@ const MealsPage = () => {
                         const oldMeals = [...(mealsData.items[oldCategoryId] || [])].filter(m => m.id !== meal.id);
                         // Add to new (at end)
                         const newMeals = [...(mealsData.items[newCategoryId] || []), { ...meal }];
+                        delete newMeals[newMeals.length - 1].subcategoryId;
                         // Reassign order
                         const orderedOld = oldMeals.map((m, idx) => ({ ...m, order: idx }));
                         const orderedNew = newMeals.map((m, idx) => ({ ...m, order: idx }));

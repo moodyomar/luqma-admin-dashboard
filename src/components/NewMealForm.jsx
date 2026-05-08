@@ -52,7 +52,7 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
             nameAr: '', nameHe: '', price: '',
             descAr: '', descHe: '', image: '', image2: '', image3: '',
             available: true,
-            preorderHours: ''
+            preorderHours: '',
         });
         setVisible(false);
     };
@@ -95,6 +95,11 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
                 />
               
             </div>
+            <p style={{ fontSize: 12, color: '#666', margin: '8px 0 0', textAlign: 'center' }}>
+                ربط المنتج بقسم فرعي: من «إدارة الأقسام» ← أقسام فرعية (سوبرماركت).
+                {' · '}
+                שיוך לתת-קטגוריה: «ניהול קטגוריות» ← תתי-קטגוריות.
+            </p>
             <p style={{ fontSize: 12, color: '#666', margin: '8px 0 0', textAlign: 'center' }}>
                 💡 اترك فارغًا للوجبات الفورية | השאר ריק למנות מיידיות
             </p>

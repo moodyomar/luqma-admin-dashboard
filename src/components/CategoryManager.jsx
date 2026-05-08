@@ -12,12 +12,17 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import SortableCategoryCard from '../components/SortableCategoryCard'
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase/firebaseConfig';
+import SortableCategoryCard from './SortableCategoryCard';
+import CategorySubcategoriesPanel from './CategorySubcategoriesPanel';
 
-
-const CategoryManager = ({ categories = [], onChange }) => {
+const CategoryManager = ({
+  categories = [],
+  items = {},
+  onChange,
+  onMealSubcategoryChange,
+  supermarketMode = false,
+  onToggleSupermarketMode,
+}) => {
   const [form, setForm] = useState({ 
     id: '', 
     nameAr: '', 
@@ -64,9 +69,15 @@ const CategoryManager = ({ categories = [], onChange }) => {
     };
 
     if (index >= 0) {
-      updated[index] = { ...updated[index], ...newCategory };
+      updated[index] = {
+        ...updated[index],
+        ...newCategory,
+        subcategories: Array.isArray(updated[index].subcategories)
+          ? updated[index].subcategories
+          : [],
+      };
     } else {
-      updated.push(newCategory);
+      updated.push({ ...newCategory, subcategories: [] });
     }
 
     onChange(updated);
@@ -135,6 +146,46 @@ const handleDragEnd = async (event) => {
       overflowX: 'hidden',
       maxWidth: '100%'
     }}>
+      {typeof onToggleSupermarketMode === 'function' && (
+        <div
+          style={{
+            marginBottom: isMobile ? 14 : 18,
+            padding: isMobile ? '12px' : '14px',
+            background: 'linear-gradient(135deg, #e8f4fd 0%, #f5f9ff 100%)',
+            borderRadius: 10,
+            border: '1px solid #90caf9',
+          }}
+        >
+          <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#1565c0', marginBottom: 6 }}>
+            وضع السوפרماركت | מצב סופרמרקט
+          </div>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              cursor: 'pointer',
+              fontSize: isMobile ? 12 : 13,
+              color: '#333',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={!!supermarketMode}
+              onChange={(e) => onToggleSupermarketMode(e.target.checked)}
+              style={{ width: 18, height: 18, marginTop: 2, cursor: 'pointer', flexShrink: 0 }}
+            />
+            <span style={{ lineHeight: 1.45 }}>
+              <strong>تفعيل</strong> — شريط تسميات للأقسام الفرعية تحت كل قسم، شبكة منتجات، وشريط بحث أوضح في التطبيق (مثل Haat).
+              <br />
+              <span style={{ color: '#555', fontSize: isMobile ? 11 : 12 }}>
+                بعد التفعيل أضف الأقسام الفرعية تحت كل تصنيف من القائمة أدناه، ثم اربط المنتجات من «إدارة المنتجات».
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
+
          <div className="categoryAddWrapper">
       <h4
         style={{ 
@@ -348,14 +399,32 @@ const handleDragEnd = async (event) => {
           strategy={verticalListSortingStrategy}
         >
           {visibleCategories.map((cat) => (
-            <SortableCategoryCard
-              key={cat.id}
-              id={cat.id}
-              cat={cat}
-              onEdit={() => handleEdit(cat)}
-              onHide={() => handleHide(cat.id)}
-              onDelete={() => handleDelete(cat.id)}
-            />
+            <React.Fragment key={cat.id}>
+              <SortableCategoryCard
+                id={cat.id}
+                cat={cat}
+                onEdit={() => handleEdit(cat)}
+                onHide={() => handleHide(cat.id)}
+                onDelete={() => handleDelete(cat.id)}
+              />
+              {supermarketMode && (
+                <CategorySubcategoriesPanel
+                  cat={cat}
+                  meals={items[cat.id] || []}
+                  onChangeSubs={(subcategories) => {
+                    const updated = categories.map((c) =>
+                      c.id === cat.id ? { ...c, subcategories } : c
+                    );
+                    onChange(updated);
+                  }}
+                  onMealSubcategoryChange={
+                    onMealSubcategoryChange
+                      ? (mealId, subId) => onMealSubcategoryChange(cat.id, mealId, subId)
+                      : undefined
+                  }
+                />
+              )}
+            </React.Fragment>
           ))}
         </SortableContext>
       </DndContext>

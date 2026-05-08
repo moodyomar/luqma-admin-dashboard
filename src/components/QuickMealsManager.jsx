@@ -4,6 +4,11 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import SimpleSortableMealsList from './SimpleSortableMealsList';
 import { FiX, FiEye, FiEyeOff } from 'react-icons/fi';
+import {
+  normalizeMenuCategoriesForSave,
+  sanitizeItemsForSubcategoryIds,
+  buildMenuCategoryFirestorePayload,
+} from '../../utils/menuCategoriesPersistence';
 
 const QuickMealsManager = ({ isOpen, onClose }) => {
   const [mealsData, setMealsData] = useState({ categories: [], items: {} });
@@ -112,14 +117,17 @@ const QuickMealsManager = ({ isOpen, onClose }) => {
       return cat;
     });
 
-    // Update local state
-    setMealsData({ ...mealsData, categories: updatedCategories });
+    const normalized = normalizeMenuCategoriesForSave(updatedCategories);
+    const { items: cleanedItems, touchedCategoryIds } = sanitizeItemsForSubcategoryIds(
+      normalized,
+      { ...mealsData.items },
+    );
 
-    // Save to Firestore
+    setMealsData({ ...mealsData, categories: normalized, items: cleanedItems });
+
     try {
-      await updateDoc(doc(db, 'menus', activeBusinessId), {
-        categories: updatedCategories
-      });
+      const ref = doc(db, 'menus', activeBusinessId);
+      await updateDoc(ref, buildMenuCategoryFirestorePayload(normalized, cleanedItems, touchedCategoryIds));
       setEditingTimeVisibility(null);
       setTimeVisibilityForm({ enabled: false, start: '', end: '' });
     } catch (err) {
@@ -136,14 +144,17 @@ const QuickMealsManager = ({ isOpen, onClose }) => {
       return cat;
     });
 
-    // Update local state
-    setMealsData({ ...mealsData, categories: updatedCategories });
+    const normalized = normalizeMenuCategoriesForSave(updatedCategories);
+    const { items: cleanedItems, touchedCategoryIds } = sanitizeItemsForSubcategoryIds(
+      normalized,
+      { ...mealsData.items },
+    );
 
-    // Save to Firestore
+    setMealsData({ ...mealsData, categories: normalized, items: cleanedItems });
+
     try {
-      await updateDoc(doc(db, 'menus', activeBusinessId), {
-        categories: updatedCategories
-      });
+      const ref = doc(db, 'menus', activeBusinessId);
+      await updateDoc(ref, buildMenuCategoryFirestorePayload(normalized, cleanedItems, touchedCategoryIds));
     } catch (err) {
       console.error('Error toggling category visibility:', err);
       alert('خطأ في حفظ الإعدادات');

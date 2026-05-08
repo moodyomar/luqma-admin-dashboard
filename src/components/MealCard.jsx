@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import HideMealModal from './HideMealModal';
 
-const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, allMealsData, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow, onMarkUnavailable }) => {
+const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, allMealsData, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow, onMarkUnavailable, supermarketMode = false }) => {
   const [imagesExpanded, setImagesExpanded] = useState(false);
   const [showHideModal, setShowHideModal] = useState(false);
 
@@ -81,6 +81,35 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
                 ⏰ {meal.preorderHours}h
               </span>
             )}
+            {supermarketMode &&
+              meal.subcategoryId != null &&
+              meal.subcategoryId !== '' &&
+              (() => {
+                const catMeta = categories?.find((c) => c.id === categoryId);
+                const sub = catMeta?.subcategories?.find(
+                  (s) => String(s.id) === String(meal.subcategoryId),
+                );
+                if (!sub) return null;
+                return (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      background: '#e3f2fd',
+                      color: '#1565c0',
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      fontWeight: 600,
+                      maxWidth: 100,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={`תת-קטגוריה | قسم فرعي: ${sub.name?.he || sub.name?.ar || sub.id}`}
+                  >
+                    {sub.name?.ar || sub.name?.he || sub.id}
+                  </span>
+                );
+              })()}
             {meal.unavailable === true && (
               <span style={{ 
                 fontSize: 10, 
@@ -180,7 +209,7 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               <span>الاعدادات:</span>
             </h3>
             {/* Move to category select and delete button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {categories && categories.length > 1 && (
                 <select
                   value={categoryId}

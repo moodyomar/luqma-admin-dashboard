@@ -133,7 +133,8 @@ const BusinessManagePage = () => {
       enableVisa: false,
       enableWhatsAppOrders: false,
       showPrices: false,
-      showSplash: false
+      showSplash: false,
+      supermarketMode: false,
     },
     loyalty: DEFAULT_LOYALTY,
     referral: DEFAULT_REFERRAL,
@@ -238,7 +239,8 @@ const BusinessManagePage = () => {
           enableVisa: existingFeatures.enableVisa ?? false,
           enableWhatsAppOrders: existingFeatures.enableWhatsAppOrders ?? false,
           showPrices: existingFeatures.showPrices ?? false,
-          showSplash: existingFeatures.showSplash ?? false
+          showSplash: existingFeatures.showSplash ?? false,
+          supermarketMode: existingFeatures.supermarketMode ?? false,
         };
         console.log('Final processed features for form:', features);
 
@@ -631,6 +633,13 @@ const BusinessManagePage = () => {
       console.log('Active Business ID:', activeBusinessId);
       console.log('Current form features:', form.features);
       console.log('About to save to Firebase path: menus/' + activeBusinessId);
+
+      const preSnap = await getDoc(ref);
+      const remoteFeatures = preSnap.exists() ? (preSnap.data().config?.features || {}) : {};
+      const featuresToSave = {
+        ...form.features,
+        supermarketMode: !!remoteFeatures.supermarketMode,
+      };
       
       const updateData = {
         'config.deliveryFee': deleteField(),
@@ -642,7 +651,7 @@ const BusinessManagePage = () => {
         'config.storeStatusMode': form.storeStatusMode,
         // Capacity UI removed; keep 0 so menu-app dine-in logic does not block on stale values
         'config.tablesCapacity': 0,
-        'config.features': form.features,
+        'config.features': featuresToSave,
         'config.heroTagline': form.heroTagline,
         'config.loyalty': {
           enabled: !!form.loyalty.enabled,
