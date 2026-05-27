@@ -2934,7 +2934,11 @@ const CouponForm = ({ coupon, onSave, onCancel, isOpen, activeBusinessId }) => {
         type: coupon.discountType || COUPON_TYPES.PERCENTAGE,
         value: coupon.discountValue || '',
         description: coupon.description || '',
-        expiresAt: coupon.expiryDate ? new Date(coupon.expiryDate).toISOString().split('T')[0] : '',
+        expiresAt: coupon.expiryDate
+          ? (typeof coupon.expiryDate.toDate === 'function'
+              ? coupon.expiryDate.toDate().toISOString().split('T')[0]
+              : String(coupon.expiryDate).split('T')[0])
+          : '',
         usageLimit: coupon.maxUsage || '',
         maxUsagePerUser: coupon.maxUsagePerUser ?? '',
         minOrderAmount: coupon.minimumOrder || '',
