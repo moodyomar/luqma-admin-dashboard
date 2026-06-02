@@ -31,6 +31,129 @@ function nameKeys(meal) {
   return keys;
 }
 
+function displayName(meal) {
+  return meal?.name?.he?.trim() || meal?.name?.ar?.trim() || meal?.id || '—';
+}
+
+function levenshteinRatio(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const matrix = Array.from({ length: rows }, () => Array(cols).fill(0));
+  for (let i = 0; i < rows; i += 1) matrix[i][0] = i;
+  for (let j = 0; j < cols; j += 1) matrix[0][j] = j;
+  for (let i = 1; i < rows; i += 1) {
+    for (let j = 1; j < cols; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost,
+      );
+    }
+  }
+  const dist = matrix[rows - 1][cols - 1];
+  return 1 - dist / Math.max(a.length, b.length);
+}
+
+function nameSimilarity(importMeal, firebaseMeal) {
+  const scores = [];
+  const pairs = [
+    [normText(importMeal?.name?.he), normText(firebaseMeal?.name?.he)],
+    [normText(importMeal?.name?.ar), normText(firebaseMeal?.name?.ar)],
+    [normText(importMeal?.name?.he), normText(firebaseMeal?.name?.ar)],
+    [normText(importMeal?.name?.ar), normText(firebaseMeal?.name?.he)],
+  ];
+  for (const [a, b] of pairs) {
+    if (a.length < 2 || b.length < 2) continue;
+    if (a === b) scores.push(1);
+    else if (a.includes(b) || b.includes(a)) scores.push(0.88);
+    else scores.push(levenshteinRatio(a, b));
+  }
+  return scores.length ? Math.max(...scores) : 0;
+}
+
+export function importRowKey(categoryId, meal) {
+  return `${categoryId}:${meal?.id || displayName(meal)}`;
+}
+
+/** Flat list of Firebase meals for pickers. */
+export function listFirebaseMeals(firebaseData) {
+  const categories = firebaseData?.categories || [];
+  const catName = (id) => {
+    const c = categories.find((x) => x.id === id);
+    if (!c) return id;
+    return c.name?.he?.trim() || c.name?.ar?.trim() || id;
+  };
+  const out = [];
+  for (const [categoryId, meals] of Object.entries(firebaseData?.items || {})) {
+    if (!Array.isArray(meals)) continue;
+    for (const meal of meals) {
+      out.push({
+        categoryId,
+        mealId: meal.id,
+        nameHe: meal?.name?.he?.trim() || '',
+        nameAr: meal?.name?.ar?.trim() || '',
+        categoryName: catName(categoryId),
+        label: `${displayName(meal)} · ${catName(categoryId)}`,
+      });
+    }
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label, 'he'));
+}
+
+export function getFirebaseCategoryOptions(firebaseData) {
+  const cats = firebaseData?.categories || [];
+  if (cats.length > 0) {
+    return cats
+      .filter((c) => !c.hidden)
+      .map((c) => ({
+        id: c.id,
+        label: `${c.name?.he?.trim() || c.name?.ar?.trim() || c.id}`,
+      }));
+  }
+  return Object.keys(firebaseData?.items || {}).map((id) => ({ id, label: id }));
+}
+
+export function suggestFirebaseMatches(importMeal, firebaseData, limit = 5) {
+  const minScore = 0.55;
+  const candidates = [];
+  for (const fb of listFirebaseMeals(firebaseData)) {
+    const meal = (firebaseData.items[fb.categoryId] || []).find((m) => m.id === fb.mealId);
+    if (!meal) continue;
+    const score = nameSimilarity(importMeal, meal);
+    if (score >= minScore) {
+      candidates.push({
+        categoryId: fb.categoryId,
+        mealId: fb.mealId,
+        nameHe: fb.nameHe,
+        nameAr: fb.nameAr,
+        categoryName: fb.categoryName,
+        label: fb.label,
+        score,
+      });
+    }
+  }
+  return candidates.sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
+/** Default Firebase category for an import category (by id, then by name). */
+export function resolveFirebaseCategoryId(importCategoryId, importData, firebaseData) {
+  const items = firebaseData?.items || {};
+  if (items[importCategoryId]) return importCategoryId;
+
+  const importCat = (importData.categories || []).find((c) => c.id === importCategoryId);
+  if (!importCat) return getFirebaseCategoryOptions(firebaseData)[0]?.id || importCategoryId;
+
+  const he = normText(importCat.name?.he);
+  const ar = normText(importCat.name?.ar);
+  for (const fc of firebaseData.categories || []) {
+    if (normText(fc.name?.he) === he || normText(fc.name?.ar) === ar) return fc.id;
+  }
+  return getFirebaseCategoryOptions(firebaseData)[0]?.id || importCategoryId;
+}
+
 export function parseMenuImportJson(raw) {
   let parsed;
   try {
@@ -66,40 +189,96 @@ function indexFirebaseItems(items) {
   return { byId, byName };
 }
 
-function findFirebaseMatch(importMeal, index) {
+function firebaseMealKey(categoryId, mealId) {
+  return `${categoryId}:${mealId}`;
+}
+
+function findBestFirebaseMatch(importMeal, index, firebaseData, usedFirebase) {
   const id = importMeal?.id?.trim();
   if (id) {
     const hit = index.byId.get(id.toLowerCase());
-    if (hit) return { ...hit, matchedBy: 'id' };
+    const key = hit ? firebaseMealKey(hit.categoryId, hit.meal.id) : '';
+    if (hit && !usedFirebase.has(key)) {
+      usedFirebase.add(key);
+      return { ...hit, matchedBy: 'id' };
+    }
   }
+
   for (const nk of nameKeys(importMeal)) {
     const hit = index.byName.get(nk);
-    if (hit) return { ...hit, matchedBy: 'name' };
+    const key = hit ? firebaseMealKey(hit.categoryId, hit.meal.id) : '';
+    if (hit && !usedFirebase.has(key)) {
+      usedFirebase.add(key);
+      return { ...hit, matchedBy: 'name' };
+    }
   }
+
+  const FUZZY_MIN = 0.82;
+  let best = null;
+  let bestScore = FUZZY_MIN;
+  for (const fb of listFirebaseMeals(firebaseData)) {
+    const key = firebaseMealKey(fb.categoryId, fb.mealId);
+    if (usedFirebase.has(key)) continue;
+    const meal = (firebaseData.items[fb.categoryId] || []).find((m) => m.id === fb.mealId);
+    if (!meal) continue;
+    const score = nameSimilarity(importMeal, meal);
+    if (score >= bestScore) {
+      bestScore = score;
+      best = { categoryId: fb.categoryId, meal, matchedBy: 'fuzzy' };
+    }
+  }
+
+  if (best) {
+    usedFirebase.add(firebaseMealKey(best.categoryId, best.meal.id));
+    return best;
+  }
+
   return null;
 }
 
-function hasImportValue(field, value) {
+function hasLocaleText(value) {
+  return normText(value).length > 0;
+}
+
+/** Either side has text and they differ (Hebrew names, descriptions). */
+function localeTextsDiffer(left, right) {
+  const l = normText(left);
+  const r = normText(right);
+  if (!l && !r) return false;
+  return l !== r;
+}
+
+/** Both sides have Arabic text and they differ (e.g. برجر vs برغر). */
+function arTextsDiffer(left, right) {
+  if (!hasLocaleText(left) || !hasLocaleText(right)) return false;
+  return normText(left) !== normText(right);
+}
+
+function fieldValuesDiffer(field, importVal, firebaseVal) {
+  if (field === 'price') return Number(importVal) !== Number(firebaseVal);
+  if (field === 'image') return normImage(importVal) !== normImage(firebaseVal);
+  if (field === 'nameHe' || field === 'descHe') return localeTextsDiffer(importVal, firebaseVal);
+  if (field === 'nameAr') return arTextsDiffer(importVal, firebaseVal);
+  if (field === 'descAr') return arTextsDiffer(importVal, firebaseVal);
+  return normText(importVal) !== normText(firebaseVal);
+}
+
+function hasTextValue(field, value) {
   if (field === 'price') {
     const n = Number(value);
     return !Number.isNaN(n) && n > 0;
   }
-  return normText(value).length > 0;
+  return hasLocaleText(value);
+}
+
+function shouldReportDiff(field, importVal, firebaseVal) {
+  if (!hasTextValue(field, importVal)) return false;
+  if (!hasTextValue(field, firebaseVal)) return true;
+  return fieldValuesDiffer(field, importVal, firebaseVal);
 }
 
 function hasFirebaseValue(field, value) {
-  if (field === 'price') {
-    const n = Number(value);
-    return !Number.isNaN(n) && n > 0;
-  }
-  if (field === 'image') return normImage(value).length > 0;
-  return normText(value).length > 0;
-}
-
-function valuesDiffer(field, importVal, firebaseVal) {
-  if (field === 'price') return Number(importVal) !== Number(firebaseVal);
-  if (field === 'image') return normImage(importVal) !== normImage(firebaseVal);
-  return normText(importVal) !== normText(firebaseVal);
+  return hasTextValue(field, value);
 }
 
 function formatDisplay(field, value) {
@@ -117,6 +296,26 @@ function formatDisplay(field, value) {
 }
 
 const FIELD_DEFS = [
+  {
+    field: 'nameHe',
+    label: 'Name (HE) | שם (עברית)',
+    getImport: (m) => m.name?.he,
+    getFirebase: (m) => m.name?.he,
+    apply: (meal, value) => ({
+      ...meal,
+      name: { ...(meal.name || {}), he: String(value).trim() },
+    }),
+  },
+  {
+    field: 'nameAr',
+    label: 'Name (AR) | שם (ערבית)',
+    getImport: (m) => m.name?.ar,
+    getFirebase: (m) => m.name?.ar,
+    apply: (meal, value) => ({
+      ...meal,
+      name: { ...(meal.name || {}), ar: String(value).trim() },
+    }),
+  },
   {
     field: 'price',
     label: 'Price | السعر',
@@ -179,7 +378,7 @@ export function compareMenuWithImport(firebaseData, importData) {
   const index = indexFirebaseItems(firebaseData?.items);
   const diffs = [];
   const onlyInImport = [];
-  const matchedFirebaseKeys = new Set();
+  const usedFirebase = new Set();
   let matchedCount = 0;
   let inSyncCount = 0;
 
@@ -187,61 +386,61 @@ export function compareMenuWithImport(firebaseData, importData) {
     if (!Array.isArray(importMeals)) continue;
 
     for (const importMeal of importMeals) {
-      const match = findFirebaseMatch(importMeal, index);
+      const match = findBestFirebaseMatch(importMeal, index, firebaseData, usedFirebase);
       const nameHe = importMeal?.name?.he?.trim() || '';
       const nameAr = importMeal?.name?.ar?.trim() || '';
 
       if (!match) {
         onlyInImport.push({
+          rowKey: importRowKey(importCategoryId, importMeal),
           categoryId: importCategoryId,
           meal: importMeal,
           nameHe,
           nameAr,
+          suggestions: suggestFirebaseMatches(importMeal, firebaseData),
         });
         continue;
       }
 
       matchedCount += 1;
-      matchedFirebaseKeys.add(`${match.categoryId}:${match.meal.id}`);
       let mealHadDiff = false;
 
       for (const def of FIELD_DEFS) {
         const importVal = def.getImport(importMeal);
         const firebaseVal = def.getFirebase(match.meal);
 
-        if (!hasImportValue(def.field, importVal)) continue;
-        if (
-          !hasFirebaseValue(def.field, firebaseVal) ||
-          valuesDiffer(def.field, importVal, firebaseVal)
-        ) {
-          mealHadDiff = true;
-          diffs.push({
-            patchId: `${match.categoryId}:${match.meal.id}:${def.field}`,
-            categoryId: match.categoryId,
-            mealId: match.meal.id,
-            mealNameHe: nameHe || match.meal?.name?.he || '',
-            mealNameAr: nameAr || match.meal?.name?.ar || '',
-            field: def.field,
-            fieldLabel: def.label,
-            kind: hasFirebaseValue(def.field, firebaseVal) ? 'different' : 'missing',
-            importValue: importVal,
-            firebaseValue: firebaseVal,
-            importDisplay: formatDisplay(def.field, importVal),
-            firebaseDisplay: formatDisplay(def.field, firebaseVal),
-            matchedBy: match.matchedBy,
-          });
-        }
+        if (!shouldReportDiff(def.field, importVal, firebaseVal)) continue;
+
+        mealHadDiff = true;
+        diffs.push({
+          patchId: `${match.categoryId}:${match.meal.id}:${def.field}`,
+          categoryId: match.categoryId,
+          mealId: match.meal.id,
+          mealNameHe: nameHe || match.meal?.name?.he || '',
+          mealNameAr: nameAr || match.meal?.name?.ar || '',
+          field: def.field,
+          fieldLabel: def.label,
+          kind: hasFirebaseValue(def.field, firebaseVal) ? 'different' : 'missing',
+          importValue: importVal,
+          firebaseValue: firebaseVal,
+          importDisplay: formatDisplay(def.field, importVal),
+          firebaseDisplay: formatDisplay(def.field, firebaseVal),
+          matchedBy: match.matchedBy,
+        });
       }
 
       if (!mealHadDiff) inSyncCount += 1;
     }
   }
 
+  const nameDiffs = diffs.filter((d) => d.field === 'nameHe' || d.field === 'nameAr').length;
+
   return {
     diffs,
     onlyInImport,
     matchedCount,
     inSyncCount,
+    nameDiffs,
   };
 }
 
@@ -270,4 +469,71 @@ export function countImportMeals(importData) {
     (sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
     0,
   );
+}
+
+/** Merge import meal fields onto an existing Firebase meal (map / link). */
+export function applyImportMealOntoFirebase(firebaseMeal, importMeal) {
+  const next = { ...firebaseMeal };
+  const price = Number(importMeal.price);
+  if (!Number.isNaN(price) && price > 0) next.price = price;
+  if (importMeal.image?.trim()) next.image = importMeal.image.trim();
+  if (importMeal.name?.he?.trim() || importMeal.name?.ar?.trim()) {
+    next.name = {
+      ...(next.name || {}),
+      ...(importMeal.name?.he?.trim() ? { he: importMeal.name.he.trim() } : {}),
+      ...(importMeal.name?.ar?.trim() ? { ar: importMeal.name.ar.trim() } : {}),
+    };
+  }
+  if (importMeal.description?.he?.trim() || importMeal.description?.ar?.trim()) {
+    next.description = {
+      ...(next.description || {}),
+      ...(importMeal.description?.he?.trim() ? { he: importMeal.description.he.trim() } : {}),
+      ...(importMeal.description?.ar?.trim() ? { ar: importMeal.description.ar.trim() } : {}),
+    };
+  }
+  if (Array.isArray(importMeal.options) && importMeal.options.length > 0) {
+    next.options = importMeal.options;
+  }
+  return next;
+}
+
+/**
+ * @param {Array<{ rowKey: string, mode: 'add', targetCategoryId: string } | { rowKey: string, mode: 'map', targetCategoryId: string, targetMealId: string }>} actions
+ * @param {object} onlyInImportRows from compare result
+ */
+export function applyImportOnlyActions(firebaseItems, actions, onlyInImportRows) {
+  const items = JSON.parse(JSON.stringify(firebaseItems || {}));
+  const rowByKey = new Map(onlyInImportRows.map((r) => [r.rowKey, r]));
+
+  for (const action of actions) {
+    const row = rowByKey.get(action.rowKey);
+    if (!row?.meal) continue;
+
+    if (action.mode === 'map') {
+      const list = items[action.targetCategoryId];
+      if (!Array.isArray(list)) continue;
+      const idx = list.findIndex((m) => m.id === action.targetMealId);
+      if (idx === -1) continue;
+      list[idx] = applyImportMealOntoFirebase(list[idx], row.meal);
+      continue;
+    }
+
+    if (action.mode === 'add') {
+      const catId = action.targetCategoryId;
+      if (!Array.isArray(items[catId])) items[catId] = [];
+      const mealId = row.meal.id?.trim() || `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const order = items[catId].length;
+      const meal = {
+        ...row.meal,
+        id: mealId,
+        order: row.meal.order ?? order,
+        available: row.meal.available !== false,
+        unavailable: row.meal.unavailable === true,
+      };
+      if (items[catId].some((m) => m.id === mealId)) continue;
+      items[catId].push(meal);
+    }
+  }
+
+  return items;
 }
