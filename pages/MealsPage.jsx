@@ -11,8 +11,7 @@ import { signOut } from 'firebase/auth';
 import { useAuth } from '../src/contexts/AuthContext';
 import './styles.css'
 import SortableMealsList from '../src/components/SortableMealsList';
-import { FiCopy, FiLogOut } from 'react-icons/fi';
-import { copyMenuJsonToClipboard } from '../utils/exportMenuJson';
+import { FiLogOut } from 'react-icons/fi';
 import { toast, Toaster } from 'react-hot-toast';
 import {
   normalizeMenuCategoriesForSave,
@@ -35,7 +34,6 @@ const MealsPage = () => {
   const categoryRefs = useRef({});
   const { activeBusinessId } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [copyingMenu, setCopyingMenu] = useState(false);
 
   const toggleMeal = (mealId) => {
     setExpandedMeals(prev => ({
@@ -147,24 +145,7 @@ const MealsPage = () => {
     navigate('/login'); // or wherever your login page is
   };
 
-  const handleCopyMenuJson = async () => {
-    if (!activeBusinessId) return;
-    setCopyingMenu(true);
-    try {
-      const snap = await getDoc(doc(db, 'menus', activeBusinessId));
-      if (!snap.exists()) {
-        toast.error('لا يوجد منيو | אין תפריט');
-        return;
-      }
-      await copyMenuJsonToClipboard(snap.data());
-      toast.success('تم نسخ المنيو | התפריט הועתק');
-    } catch (err) {
-      console.error('[MealsPage] menu JSON copy failed:', err);
-      toast.error('فشل النسخ | ההעתקה נכשלה');
-    } finally {
-      setCopyingMenu(false);
-    }
-  };
+
 
   const updateMeal = (categoryId, index, updatedMeal) => {
     const updatedItems = { ...mealsData.items };
@@ -474,16 +455,6 @@ const MealsPage = () => {
         </button>
         <button onClick={() => setShowMeals(prev => !prev)} style={{ marginBottom: 20 }}>
           {showMeals ? 'إغلاق إدارة المنتجات' : 'إدارة المنتجات'}
-        </button>
-        <button
-          type="button"
-          onClick={handleCopyMenuJson}
-          disabled={copyingMenu || !activeBusinessId}
-          style={{ marginBottom: 20, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          title="Copy full menu document as JSON"
-        >
-          <FiCopy size={16} aria-hidden />
-          {copyingMenu ? 'جاري النسخ…' : 'نسخ JSON'}
         </button>
       </div>
       {showCategoryManager && <CategoryManager

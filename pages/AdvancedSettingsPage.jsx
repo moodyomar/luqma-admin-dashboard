@@ -7,6 +7,7 @@ import { canAccessAdvancedSettings } from '../src/utils/advancedSettingsAccess';
 import { FiLock, FiCreditCard, FiSmartphone, FiSave, FiArrowRight, FiDroplet } from 'react-icons/fi';
 import { Toaster, toast } from 'react-hot-toast';
 import './styles.css';
+import MenuSyncTools from '../src/components/MenuSyncTools';
 
 const DEFAULT_TRANZILA = {
   terminalName: '',
@@ -466,6 +467,8 @@ const AdvancedSettingsPage = () => {
             ))}
           </div>
         </section>
+
+        <MenuSyncTools />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <button
