@@ -593,7 +593,7 @@ public class MainActivity extends AppCompatActivity {
             }
             
             // **SPECIAL: Draw border around total amount** (check displayLine so \u200B prefix doesn't break detection)
-            if (displayLine.contains("المبلغ الإجمالي") || displayLine.contains("Total Amount")) {
+            if (displayLine.contains("المبلغ الإجمالي") || displayLine.contains("المبلغ النهائي") || displayLine.contains("Total Amount")) {
                 // Draw filled background
                 Paint bgPaint = new Paint();
                 bgPaint.setColor(Color.rgb(245, 245, 245)); // Light gray background

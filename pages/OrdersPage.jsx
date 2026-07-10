@@ -255,6 +255,58 @@ const getOrderCardPriceParts = (order) => {
   };
 };
 
+/**
+ * Coupon / points price breakdown for admin card + receipts.
+ * Delivery fee is excluded from before/final (same kitchen view as today).
+ */
+const getOrderDiscountBreakdown = (order) => {
+  const couponDiscount = Math.max(0, Number(order.couponDiscount) || 0);
+  const pointsDiscount = Math.max(0, Number(order.pointsUsed) || 0);
+  const hasDiscounts = couponDiscount > 0.005 || pointsDiscount > 0.005;
+  const couponCode = (order.couponCode && String(order.couponCode).trim()) || '';
+
+  const cartSum = sumOrderCartSubtotal(order);
+  const appFee = Number(order.appFee) || 0;
+  const cartPlusFee = Math.round((cartSum + appFee) * 100) / 100;
+
+  const paid = parseFloat(order.total ?? order.price ?? 0);
+  const safePaid = Number.isFinite(paid) ? paid : 0;
+  const priceParts = getOrderCardPriceParts(order);
+
+  let finalPrice = safePaid;
+  if (order.deliveryMethod === 'delivery') {
+    if (priceParts.subtotalExDelivery != null) {
+      finalPrice = priceParts.subtotalExDelivery;
+    } else if (cartPlusFee > 0.005) {
+      finalPrice = Math.max(
+        0,
+        Math.round((cartPlusFee - couponDiscount - pointsDiscount) * 100) / 100
+      );
+    }
+  }
+
+  let beforeDiscount =
+    cartPlusFee > 0.005
+      ? cartPlusFee
+      : Math.round((finalPrice + couponDiscount + pointsDiscount) * 100) / 100;
+
+  if (hasDiscounts && cartPlusFee > 0.005) {
+    finalPrice = Math.max(
+      0,
+      Math.round((beforeDiscount - couponDiscount - pointsDiscount) * 100) / 100
+    );
+  }
+
+  return {
+    beforeDiscount,
+    couponDiscount,
+    couponCode,
+    pointsDiscount,
+    finalPrice,
+    hasDiscounts,
+  };
+};
+
 const formatFutureOrderMeta = (deliveryDateTime) => {
   const scheduled = getScheduledDate(deliveryDateTime);
   if (!scheduled) return null;
@@ -342,6 +394,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     }
     return safePaid;
   }, [order, orderCardPrices]);
+
+  const orderDiscountBreakdown = useMemo(() => getOrderDiscountBreakdown(order), [order]);
 
   useEffect(() => {
     setDriverPopoverOpen(false);
@@ -525,8 +579,30 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         return sum + (itemPrice * quantity);
       }, 0);
     }
-    const totalSectionHtml = `<div class="section">
-          <div>الإجمالي: ₪${receiptCartSubtotal.toFixed(2)}</div>
+    const discountBreakdown = getOrderDiscountBreakdown(order);
+    const totalSectionHtml = discountBreakdown.hasDiscounts
+      ? `<div class="section">
+          <div>المبلغ قبل الخصم: ₪${discountBreakdown.beforeDiscount.toFixed(2)}</div>
+          ${
+            discountBreakdown.couponDiscount > 0.005
+              ? `<div style="color:#c62828;">كوبون${
+                  discountBreakdown.couponCode ? ` ${discountBreakdown.couponCode}` : ''
+                }: -₪${discountBreakdown.couponDiscount.toFixed(2)}</div>`
+              : ''
+          }
+          ${
+            discountBreakdown.pointsDiscount > 0.005
+              ? `<div style="color:#c62828;">نقاط: -₪${discountBreakdown.pointsDiscount.toFixed(2)}</div>`
+              : ''
+          }
+          <div style="font-weight:bold; margin-top:6px; border:2px solid #000; padding:6px; text-align:center;">
+            المبلغ الإجمالي: ₪${discountBreakdown.finalPrice.toFixed(2)}
+          </div>
+        </div>`
+      : `<div class="section">
+          <div style="font-weight:bold; border:2px solid #000; padding:6px; text-align:center;">
+            المبلغ الإجمالي: ₪${receiptCartSubtotal.toFixed(2)}
+          </div>
         </div>`;
 
     const mainSectionsHtml = customerAfterProducts
@@ -896,7 +972,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
     // Calculate total excluding delivery fee
     // Delivery fee should not appear on printed receipt
-    const orderTotal = parseFloat(order.total || order.price || 0);
+    const discountBreakdown = getOrderDiscountBreakdown(order);
     let cartSubtotal = 0;
     if (order.cart && Array.isArray(order.cart)) {
       cartSubtotal = order.cart.reduce((sum, item) => {
@@ -905,12 +981,25 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         return sum + (itemPrice * quantity);
       }, 0);
     }
-    // Receipt total = cart subtotal only (excludes delivery fee)
-    const receiptTotal = cartSubtotal;
 
-    // Total with border
     lines.push('================================');
-    lines.push(`المبلغ الإجمالي: ${money(receiptTotal)}`);
+    if (discountBreakdown.hasDiscounts) {
+      lines.push(`المبلغ قبل الخصم: ${money(discountBreakdown.beforeDiscount)}`);
+      if (discountBreakdown.couponDiscount > 0.005) {
+        const couponLabel = discountBreakdown.couponCode
+          ? `كوبون ${discountBreakdown.couponCode}`
+          : 'كوبون';
+        lines.push(`${couponLabel}: -${money(discountBreakdown.couponDiscount)}`);
+      }
+      if (discountBreakdown.pointsDiscount > 0.005) {
+        lines.push(`نقاط: -${money(discountBreakdown.pointsDiscount)}`);
+      }
+      // Use المبلغ الإجمالي so H10 borders THIS line — always the paid/final amount after discounts
+      lines.push(`المبلغ الإجمالي: ${money(discountBreakdown.finalPrice)}`);
+    } else {
+      const receiptTotal = cartSubtotal;
+      lines.push(`المبلغ الإجمالي: ${money(receiptTotal)}`);
+    }
     lines.push('================================');
     
     // Footer text from receiptStyle (if available)
@@ -934,7 +1023,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         if (index === 1 && lines[0] && lines[0].includes('طلب رقم')) return true;
         if (/^\d+\.\s/.test(t)) return true;
         if (t.startsWith('إضافات') || t.includes('إضافات:')) return true;
-        if (line.includes('المبلغ الإجمالي') || line.includes('Total Amount')) return true;
+        if (line.includes('المبلغ الإجمالي') || line.includes('المبلغ النهائي') || line.includes('Total Amount')) return true;
         if (index >= lines.length - 2) return true; // footer
         return false;
       };
@@ -1538,7 +1627,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           <span className="value">{deliveryString || '—'}</span>
         </div>
         <div>
-          <span className="label">💳 {showAsPaid || isReservationPaid ? 'وضع الطلب:' : paymentString === 'اونلاين' ? 'وضع الطلب:' : 'الدفع:'}</span>
+          <span className="label">💳 الدفع:</span>
           <span className="value">
             {showAsPaid || isReservationPaid ? (isReservationPaid && order.paymentMethod === 'cash' ? 'مدفوع (كاش عند الوصول)' : 'مدفوع') : paymentString === 'اونلاين' ? 'بأنتظار الدفع' : paymentString || '—'}
           </span>
@@ -1546,16 +1635,71 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       </div>
 
       {/* Products and Price row */}
-      <div className="row">
-        <div>
+      <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap', minWidth: 0 }}>
           <span className="label">📦 عدد المنتجات:</span>
           <span className="value">{order.cart?.length || 0}</span>
         </div>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap', minWidth: 0 }}>
           <span className="label">💰 السعر:</span>
-          <span className="value order-price">₪{formatPrice(orderCardDisplayPrice)}</span>
+          <span className="value order-price">
+            ₪
+            {formatPrice(
+              orderDiscountBreakdown.hasDiscounts
+                ? orderDiscountBreakdown.beforeDiscount
+                : orderCardDisplayPrice
+            )}
+          </span>
         </div>
       </div>
+
+      {orderDiscountBreakdown.hasDiscounts && (
+        <>
+          {orderDiscountBreakdown.couponDiscount > 0.005 && (
+            <div className="row" style={{ alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, minWidth: 0 }}>
+                <span className="label">🎟️ كوبون:</span>
+                {orderDiscountBreakdown.couponCode ? (
+                  <span
+                    className="value"
+                    style={{
+                      fontWeight: 700,
+                      background: '#fff3e0',
+                      color: '#e65100',
+                      padding: '1px 8px',
+                      borderRadius: 6,
+                      fontSize: 13,
+                    }}
+                  >
+                    {orderDiscountBreakdown.couponCode}
+                  </span>
+                ) : null}
+              </div>
+              <div style={{ whiteSpace: 'nowrap', color: '#c62828', fontWeight: 700, fontSize: 14 }}>
+                −{formatPrice(orderDiscountBreakdown.couponDiscount)}₪
+              </div>
+            </div>
+          )}
+          <div className="row" style={{ alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            {orderDiscountBreakdown.pointsDiscount > 0.005 ? (
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap', minWidth: 0 }}>
+                <span className="label" style={{ color: '#c62828' }}>⭐ نقاط:</span>
+                <span className="value" style={{ color: '#c62828', fontWeight: 700 }}>
+                  −{formatPrice(orderDiscountBreakdown.pointsDiscount)}₪
+                </span>
+              </div>
+            ) : (
+              <div />
+            )}
+            <div
+              className="order-price"
+              style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap', minWidth: 0, fontWeight: 700, fontSize: 15 }}
+            >
+              السعر النهائي: {formatPrice(orderDiscountBreakdown.finalPrice)}₪
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Show address for delivery orders */}
       {order.deliveryMethod === 'delivery' && (
