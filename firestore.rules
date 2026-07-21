@@ -133,6 +133,14 @@ service cloud.firestore {
         // Only admins can delete referral stats (for debug/cleanup tools)
         allow delete: if isAdmin();
       }
+
+      // ========================================
+      // LUCKY WHEEL SPIN HISTORY (written by spinLuckyWheel CF)
+      // ========================================
+      match /wheelSpins/{spinId} {
+        allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
+        allow create, update, delete: if isAdmin();
+      }
     }
 
     // ========================================
@@ -319,6 +327,14 @@ service cloud.firestore {
         allow read: if true;
         // Only admins can manage media
         allow write: if isBusinessAdmin(businessId);
+      }
+
+      // ========================================
+      // LUCKY WHEEL SEGMENT STATS (win caps; written by spinLuckyWheel CF)
+      // ========================================
+      match /wheelSegmentStats/{segmentId} {
+        allow read: if isBusinessAdmin(businessId) || isAdmin();
+        allow write: if isBusinessAdmin(businessId) || isAdmin();
       }
 
       // ========================================
