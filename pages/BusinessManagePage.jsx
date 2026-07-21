@@ -31,6 +31,10 @@ import {
   COUPON_STATUS
 } from '../utils/couponUtils';
 import brandConfig from '../constants/brandConfig';
+import LuckyWheelSettingsSection, {
+  DEFAULT_LUCKY_WHEEL,
+  normalizeLuckyWheelForSave,
+} from '../components/LuckyWheelSettingsSection';
 import './styles.css';
 
 const DEFAULT_LOYALTY = {
@@ -138,6 +142,7 @@ const BusinessManagePage = () => {
     },
     loyalty: DEFAULT_LOYALTY,
     referral: DEFAULT_REFERRAL,
+    luckyWheel: DEFAULT_LUCKY_WHEEL,
     heroTagline: { ...DEFAULT_HERO_TAGLINE },
   });
   const [newPrepValue, setNewPrepValue] = useState('');
@@ -147,6 +152,7 @@ const BusinessManagePage = () => {
   const [showDeliveryCities, setShowDeliveryCities] = useState(false);
   const [editingCityIndex, setEditingCityIndex] = useState(null);
   const [showLoyaltyReferral, setShowLoyaltyReferral] = useState(false);
+  const [showLuckyWheel, setShowLuckyWheel] = useState(false);
   const [showHeroTagline, setShowHeroTagline] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
   const [showPrepTimeOptions, setShowPrepTimeOptions] = useState(true);
@@ -273,6 +279,16 @@ const BusinessManagePage = () => {
               ? data.config.referral.appLink
               : DEFAULT_REFERRAL.appLink
         };
+
+        const luckyWheelConfig = data.config?.luckyWheel
+          ? {
+              ...DEFAULT_LUCKY_WHEEL,
+              ...data.config.luckyWheel,
+              segments: Array.isArray(data.config.luckyWheel.segments)
+                ? data.config.luckyWheel.segments
+                : DEFAULT_LUCKY_WHEEL.segments,
+            }
+          : { ...DEFAULT_LUCKY_WHEEL, segments: [...DEFAULT_LUCKY_WHEEL.segments] };
         
         const heroTagline = {
           ...DEFAULT_HERO_TAGLINE,
@@ -290,6 +306,7 @@ const BusinessManagePage = () => {
           features,
           loyalty: loyaltyConfig,
           referral: referralConfig,
+          luckyWheel: luckyWheelConfig,
           heroTagline,
         });
         
@@ -662,7 +679,8 @@ const BusinessManagePage = () => {
           referrerAmount: Number(form.referral.referrerAmount) || DEFAULT_REFERRAL.referrerAmount,
           refereeAmount: Number(form.referral.refereeAmount) || DEFAULT_REFERRAL.refereeAmount,
           appLink: typeof form.referral.appLink === 'string' ? form.referral.appLink.trim() : DEFAULT_REFERRAL.appLink
-        }
+        },
+        'config.luckyWheel': normalizeLuckyWheelForSave(form.luckyWheel || DEFAULT_LUCKY_WHEEL),
       };
       
       console.log('Full update data being sent to Firebase:', updateData);
@@ -1912,6 +1930,14 @@ const BusinessManagePage = () => {
               </div>
             </>
           )}
+
+          <LuckyWheelSettingsSection
+            activeBusinessId={activeBusinessId}
+            value={form.luckyWheel || DEFAULT_LUCKY_WHEEL}
+            onChange={(luckyWheel) => setForm((prev) => ({ ...prev, luckyWheel }))}
+            open={showLuckyWheel}
+            onToggle={() => setShowLuckyWheel((v) => !v)}
+          />
         </div>
         
         {/* Prep time options row - moved to last row, styled */}
