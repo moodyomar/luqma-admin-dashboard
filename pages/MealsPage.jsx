@@ -272,6 +272,11 @@ const MealsPage = () => {
               options: cleanedOptions,
             };
 
+            // Preserve createdAt so the app "جديد" badge keeps working
+            if (meal.createdAt) {
+              cleanedMeal.createdAt = meal.createdAt;
+            }
+
             // Add preorderHours only if it's a valid positive number
             if (meal.preorderHours && !isNaN(meal.preorderHours) && Number(meal.preorderHours) > 0) {
               cleanedMeal.preorderHours = Number(meal.preorderHours);
@@ -407,6 +412,7 @@ const MealsPage = () => {
     const duplicatedMeal = {
       ...mealToDuplicate,
       id: `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate new unique ID
+      createdAt: new Date().toISOString(),
     };
 
     // Insert the duplicated meal right after the original (at actualIndex + 1)

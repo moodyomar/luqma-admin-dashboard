@@ -89,7 +89,10 @@ export function normalizeLuckyWheelForSave(wheel) {
     enabled: !!wheel?.enabled,
     spinCostPoints: Math.max(0, Math.floor(Number(wheel?.spinCostPoints) || 10)),
     cooldownHours: Math.max(0, Number(wheel?.cooldownHours) >= 0 ? Number(wheel.cooldownHours) : 24),
-    prizeExpiryDays: Math.max(1, Math.floor(Number(wheel?.prizeExpiryDays) || 14)),
+    prizeExpiryDays: Math.max(
+      0.5,
+      Number(wheel?.prizeExpiryDays) > 0 ? Number(wheel.prizeExpiryDays) : 14
+    ),
     segments,
   };
 }
@@ -247,15 +250,19 @@ export default function LuckyWheelSettingsSection({
               />
             </div>
             <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>תוקף קופון פרס (ימים)</span>
+              <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>תוקף פרס / קופון (ימים)</span>
               <input
                 type="number"
-                min={1}
+                min={0.5}
+                step={0.5}
                 value={wheel.prizeExpiryDays}
                 disabled={!wheel.enabled}
                 onChange={(e) => update({ prizeExpiryDays: e.target.value })}
                 style={inputStyle(!wheel.enabled)}
               />
+              <span style={{ fontSize: 11, color: '#888' }}>
+                לדוגמה: 2 = 48 שעות · 7 = שבוע · 14 = שבועיים
+              </span>
             </div>
           </div>
 

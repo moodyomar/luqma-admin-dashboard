@@ -32,6 +32,7 @@ const NewMealForm = ({ categoryId, onAdd, visible, setVisible }) => {
             image: form.image || '',
             available: form.available,
             order: 0,
+            createdAt: new Date().toISOString(),
         };
 
         // Add image2 and image3 only if provided

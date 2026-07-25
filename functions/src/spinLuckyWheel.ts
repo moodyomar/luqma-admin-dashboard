@@ -99,7 +99,11 @@ function normalizeConfig(raw: Record<string, unknown> | undefined): LuckyWheelCo
     enabled: typeof raw.enabled === "boolean" ? raw.enabled : false,
     spinCostPoints: Math.max(0, Math.floor(Number(raw.spinCostPoints) || 10)),
     cooldownHours: Math.max(0, Number(raw.cooldownHours) >= 0 ? Number(raw.cooldownHours) : 24),
-    prizeExpiryDays: Math.max(1, Math.floor(Number(raw.prizeExpiryDays) || 14)),
+    // Fractional days OK (2 = 48h). Floor was dropping useful values.
+    prizeExpiryDays: Math.max(
+      0.5,
+      Number(raw.prizeExpiryDays) > 0 ? Number(raw.prizeExpiryDays) : 14
+    ),
     segments,
   };
 }
@@ -241,8 +245,9 @@ export const spinLuckyWheel = onCall(adminSpaCallableOpts, async (request) => {
       won.type === SEGMENT_TYPES.FIXED_OFF ||
       won.type === SEGMENT_TYPES.FREE_ITEM
     ) {
-      const expiry = new Date();
-      expiry.setDate(expiry.getDate() + config.prizeExpiryDays);
+      const expiry = new Date(
+        Date.now() + config.prizeExpiryDays * 24 * 60 * 60 * 1000
+      );
       couponCode = couponCodeFor(uid);
       const couponRef = menuRef.collection("coupons").doc();
       couponId = couponRef.id;
@@ -294,6 +299,7 @@ export const spinLuckyWheel = onCall(adminSpaCallableOpts, async (request) => {
         discountValue,
         freeItemId: won.itemId || null,
         freeItemName: won.itemName || null,
+        freeItemCategoryId: won.categoryId || null,
         expiresAt: expiry.toISOString(),
       };
     }
