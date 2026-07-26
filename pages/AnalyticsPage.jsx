@@ -672,6 +672,51 @@ const AnalyticsPage = () => {
       ? (totalOrdersInPeriod / activeUsers.length).toFixed(1)
       : 0;
 
+    // Top 3 clients by number of orders in the selected period
+    const phoneToUser = new Map();
+    users.forEach((u) => {
+      if (u?.phone) phoneToUser.set(String(u.phone).trim(), u);
+    });
+
+    const clientStats = new Map();
+    filteredOrders.forEach((order) => {
+      if (order.status === 'cancelled' || order.status === 'canceled') return;
+      const phone = order.phone ? String(order.phone).trim() : '';
+      if (!phone) return;
+      const existing = clientStats.get(phone) || {
+        phone,
+        name: '',
+        orderCount: 0,
+        totalSpent: 0,
+      };
+      existing.orderCount += 1;
+      existing.totalSpent += getOrderRevenue(order);
+      const fromOrder =
+        order.customerName ||
+        order.name ||
+        order.userName ||
+        '';
+      const fromUser = phoneToUser.get(phone)?.name || phoneToUser.get(phone)?.displayName || '';
+      if (fromOrder && (!existing.name || existing.name === 'عميل')) {
+        existing.name = fromOrder;
+      } else if (!existing.name && fromUser) {
+        existing.name = fromUser;
+      }
+      clientStats.set(phone, existing);
+    });
+
+    const topClients = Array.from(clientStats.values())
+      .sort((a, b) => {
+        if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
+        return b.totalSpent - a.totalSpent;
+      })
+      .slice(0, 3)
+      .map((c, index) => ({
+        ...c,
+        rank: index + 1,
+        name: c.name || 'عميل',
+      }));
+
     return {
       totalUsers: users.length,
       activeUsers: activeUsers.length,
@@ -685,7 +730,9 @@ const AnalyticsPage = () => {
       totalActiveUsersChange,
       // Average orders per user
       averageOrdersPerUser: parseFloat(averageOrdersPerUser),
-      totalOrdersInPeriod
+      totalOrdersInPeriod,
+      // Top 3 clients by order count in the selected period
+      topClients,
     };
   }, [users, orders, timeRange, customDateStart, customDateEnd, authNewUserCounts]);
 
@@ -2709,9 +2756,139 @@ const AnalyticsPage = () => {
         </div>
       </div>
 
+      {/* Top 3 clients — above user analytics */}
+      <div style={{
+        marginTop: '40px',
+        marginBottom: '20px',
+        background: 'white',
+        borderRadius: '15px',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        border: '1px solid #eee',
+        overflow: 'hidden',
+        padding: '22px 25px',
+      }}>
+        <h2 style={{
+          margin: '0 0 18px 0',
+          color: '#333',
+          fontSize: '20px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}>
+          <span>🏆</span>
+          <span>أفضل 3 عملاء</span>
+          <span style={{
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#888',
+            marginRight: 'auto',
+          }}>
+            حسب عدد الطلبات في الفترة المحددة
+          </span>
+        </h2>
+
+        {userAnalytics.topClients?.length > 0 ? (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: window.innerWidth < 768
+              ? '1fr'
+              : 'repeat(3, 1fr)',
+            gap: '14px',
+          }}>
+            {userAnalytics.topClients.map((client) => {
+              const medal = client.rank === 1 ? '🥇' : client.rank === 2 ? '🥈' : '🥉';
+              const accent =
+                client.rank === 1
+                  ? 'linear-gradient(135deg, #b8860b 0%, #daa520 100%)'
+                  : client.rank === 2
+                    ? 'linear-gradient(135deg, #5a6268 0%, #868e96 100%)'
+                    : 'linear-gradient(135deg, #8b4513 0%, #cd853f 100%)';
+              const orderWord =
+                client.orderCount === 1
+                  ? 'طلب'
+                  : client.orderCount >= 2 && client.orderCount <= 10
+                    ? 'طلبات'
+                    : 'طلب';
+              return (
+                <div
+                  key={client.phone}
+                  style={{
+                    background: accent,
+                    borderRadius: '14px',
+                    padding: '16px 18px',
+                    color: 'white',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.12)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    minHeight: '140px',
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                  }}>
+                    <span style={{ fontSize: '22px' }}>{medal}</span>
+                    <span style={{
+                      fontSize: '12px',
+                      opacity: 0.9,
+                      background: 'rgba(255,255,255,0.2)',
+                      padding: '3px 10px',
+                      borderRadius: '999px',
+                      fontWeight: '600',
+                    }}>
+                      #{client.rank}
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize: '17px',
+                    fontWeight: '700',
+                    lineHeight: 1.3,
+                    wordBreak: 'break-word',
+                  }}>
+                    {client.name}
+                  </div>
+                  <div style={{ fontSize: '13px', opacity: 0.92, direction: 'ltr', textAlign: 'right' }}>
+                    {client.phone}
+                  </div>
+                  <div style={{
+                    marginTop: 'auto',
+                    paddingTop: '10px',
+                    borderTop: '1px solid rgba(255,255,255,0.25)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    flexWrap: 'wrap',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                  }}>
+                    <span>{client.orderCount} {orderWord}</span>
+                    <span>{client.totalSpent.toLocaleString('en-US', { maximumFractionDigits: 0 })}₪</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{
+            padding: '28px 16px',
+            textAlign: 'center',
+            color: '#888',
+            fontSize: '14px',
+            background: '#f8f9fa',
+            borderRadius: '12px',
+          }}>
+            لا توجد طلبات عملاء في هذه الفترة
+          </div>
+        )}
+      </div>
+
       {/* User Analytics Section - Collapsible */}
       <div style={{ 
-        marginTop: '40px', 
+        marginTop: '20px', 
         marginBottom: '40px',
         background: 'white',
         borderRadius: '15px',
