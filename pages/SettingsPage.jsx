@@ -57,8 +57,14 @@ const SettingsPage = () => {
     <div style={{
     //   padding: window.innerWidth < 768 ? '8px' : '16px',
       paddingBottom: window.innerWidth < 768 ? '50px' : '16px', 
+      paddingLeft: window.innerWidth < 768 ? '8px' : '16px',
+      paddingRight: window.innerWidth < 768 ? '8px' : '16px',
       backgroundColor: '#f8f9fa',
-      minHeight: '100vh'
+      minHeight: '100vh',
+      width: '100%',
+      maxWidth: '100%',
+      boxSizing: 'border-box',
+      overflowX: 'hidden',
     }}>
 
       {/* Tab Navigation */}

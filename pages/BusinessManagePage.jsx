@@ -151,11 +151,12 @@ const BusinessManagePage = () => {
   const [showContact, setShowContact] = useState(false);
   const [showDeliveryCities, setShowDeliveryCities] = useState(false);
   const [editingCityIndex, setEditingCityIndex] = useState(null);
-  const [showLoyaltyReferral, setShowLoyaltyReferral] = useState(false);
+  const [showLoyalty, setShowLoyalty] = useState(false);
+  const [showReferral, setShowReferral] = useState(false);
   const [showLuckyWheel, setShowLuckyWheel] = useState(false);
   const [showHeroTagline, setShowHeroTagline] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
-  const [showPrepTimeOptions, setShowPrepTimeOptions] = useState(true);
+  const [showPrepTimeOptions, setShowPrepTimeOptions] = useState(false);
   const [showDriverZones, setShowDriverZones] = useState(false);
   const [showPerDayHoursEditor, setShowPerDayHoursEditor] = useState(false);
   const [drivers, setDrivers] = useState([]);
@@ -1016,7 +1017,7 @@ const BusinessManagePage = () => {
   if (loading) return <p>טוען...</p>;
 
   return (
-    <div style={{ margin: '10px auto', padding: 20, background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px #e0e0e0', display: 'flex', flexDirection: 'column', gap: 15 }}>
+    <div style={{ margin: '10px auto', padding: '12px 10px', background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px #e0e0e0', display: 'flex', flexDirection: 'column', gap: 15, width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
       {/* Modern compact upper section */}
       <div
         style={{
@@ -1029,6 +1030,10 @@ const BusinessManagePage = () => {
           flexDirection: 'column',
           gap: 12,
           direction: 'rtl',
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
+          overflowX: 'hidden',
         }}
       >
         {/* Row 1: Store status + weekly off days (multi-select dropdown) */}
@@ -1287,17 +1292,252 @@ const BusinessManagePage = () => {
           )}
         </div>
 
-        {/* Hero tagline inputs */}
-        <div style={{ marginTop: 16, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
+        {/* === Customer rewards: wheel, points, referral === */}
+        <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', boxSizing: 'border-box', overflowX: 'hidden' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 4, textAlign: 'right' }}>
+            הטבות ללקוחות
+          </div>
+          <div style={{ fontSize: 12, color: '#777', marginBottom: 12, lineHeight: 1.45, textAlign: 'right' }}>
+            גלגל מזל, נקודות והפניית חברים
+          </div>
+
+          <div style={{ width: '100%', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 4, boxSizing: 'border-box' }}>
+            <LuckyWheelSettingsSection
+              activeBusinessId={activeBusinessId}
+              value={form.luckyWheel || DEFAULT_LUCKY_WHEEL}
+              onChange={(luckyWheel) => setForm((prev) => ({ ...prev, luckyWheel }))}
+              open={showLuckyWheel}
+              onToggle={() => setShowLuckyWheel((v) => !v)}
+            />
+
+            {/* Points */}
+            <div style={{ width: '100%', borderTop: '1px solid #f0f0f0', paddingTop: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setShowLoyalty((v) => !v)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#007bff',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: 8,
+                  gap: 6,
+                  padding: 0,
+                  width: '100%',
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
+                  textAlign: 'right',
+                  flexWrap: 'wrap',
+                }}
+              >
+                נקודות
+                <span style={{ fontSize: 14 }}>{showLoyalty ? '▲' : '▼'}</span>
+              </button>
+              {showLoyalty && (
+                <div style={{ marginTop: 8, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+                    שלוט בכמה נקודות הלקוחות צוברים וכמה הן שוות. השינויים מתעדכנים באפליקציה מידית.
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!form.loyalty.enabled}
+                        onChange={(e) => handleLoyaltyChange('enabled', e.target.checked)}
+                        style={{ width: 16, height: 16, cursor: 'pointer' }}
+                      />
+                      הפעל תוכנית נקודות
+                    </label>
+
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ flex: '1 1 140px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ לצבירת נקודה</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={form.loyalty.currencyPerPoint}
+                          onChange={(e) => handleLoyaltyChange('currencyPerPoint', e.target.value)}
+                          disabled={!form.loyalty.enabled}
+                          style={{
+                            height: 44,
+                            padding: '0 12px',
+                            borderRadius: 10,
+                            border: '1px solid #e0e0e0',
+                            fontSize: 16,
+                            background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
+                            textAlign: 'right',
+                            boxSizing: 'border-box',
+                            width: '100%',
+                            maxWidth: '100%',
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: '1 1 140px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ ערך נקודה בהחזר</span>
+                        <input
+                          type="number"
+                          min={0.1}
+                          step="0.1"
+                          value={form.loyalty.redeemValuePerPoint}
+                          onChange={(e) => handleLoyaltyChange('redeemValuePerPoint', e.target.value)}
+                          disabled={!form.loyalty.enabled}
+                          style={{
+                            height: 44,
+                            padding: '0 12px',
+                            borderRadius: 10,
+                            border: '1px solid #e0e0e0',
+                            fontSize: 16,
+                            background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
+                            textAlign: 'right',
+                            boxSizing: 'border-box',
+                            width: '100%',
+                            maxWidth: '100%',
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>
+                      לדוגמה: אם ההגדרה היא 100 ₪ = 1 נקודה ושווי נקודה הוא 1 ₪, אז על כל 100 ₪ המשתמש צובר נקודה אחת ויכול להשתמש בה כשקל אחד בהנחה.
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Referral */}
+            <div style={{ width: '100%', borderTop: '1px solid #f0f0f0', paddingTop: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setShowReferral((v) => !v)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#007bff',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: 8,
+                  gap: 6,
+                  padding: 0,
+                  width: '100%',
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
+                  textAlign: 'right',
+                  flexWrap: 'wrap',
+                }}
+              >
+                הפניית חברים
+                <span style={{ fontSize: 14 }}>{showReferral ? '▲' : '▼'}</span>
+              </button>
+              {showReferral && (
+                <div style={{ marginTop: 8, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+                    שלוט בסכומי התגמול הקבועים למשתפים ולמשתמשים החדשים שהם מביאים. התגמול הוא סכום קבוע ולא תלוי בגובה ההזמנה.
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ flex: '1 1 140px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>תגמול למשתף (₪)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="1"
+                          value={form.referral.referrerAmount || form.referral.referrerPercentage || DEFAULT_REFERRAL.referrerAmount}
+                          onChange={(e) => handleReferralChange('referrerAmount', e.target.value)}
+                          style={{
+                            height: 44,
+                            padding: '0 12px',
+                            borderRadius: 10,
+                            border: '1px solid #e0e0e0',
+                            fontSize: 16,
+                            background: '#fff',
+                            textAlign: 'right',
+                            boxSizing: 'border-box',
+                            width: '100%',
+                            maxWidth: '100%',
+                          }}
+                        />
+                        <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
+                          סכום קבוע שהמשתף יקבל כנקודות
+                        </div>
+                      </div>
+                      <div style={{ flex: '1 1 140px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>תגמול משתמש חדש (₪)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="1"
+                          value={form.referral.refereeAmount || form.referral.refereePercentage || DEFAULT_REFERRAL.refereeAmount}
+                          onChange={(e) => handleReferralChange('refereeAmount', e.target.value)}
+                          style={{
+                            height: 44,
+                            padding: '0 12px',
+                            borderRadius: 10,
+                            border: '1px solid #e0e0e0',
+                            fontSize: 16,
+                            background: '#fff',
+                            textAlign: 'right',
+                            boxSizing: 'border-box',
+                            width: '100%',
+                            maxWidth: '100%',
+                          }}
+                        />
+                        <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
+                          סכום קבוע שהמשתמש החדש יקבל כנקודות
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>קישור אפליקציה לשיתוף</span>
+                      <input
+                        type="url"
+                        value={form.referral.appLink || DEFAULT_REFERRAL.appLink}
+                        onChange={(e) => handleReferralChange('appLink', e.target.value)}
+                        placeholder="https://your-app-link.example"
+                        style={{
+                          height: 44,
+                          padding: '0 12px',
+                          borderRadius: 10,
+                          border: '1px solid #e0e0e0',
+                          fontSize: 15,
+                          background: '#fff',
+                          textAlign: 'left',
+                          boxSizing: 'border-box',
+                          width: '100%',
+                          maxWidth: '100%',
+                        }}
+                      />
+                      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
+                        הקישור שיופיע בהודעת השיתוף של קוד ההפניה באפליקציית הלקוח.
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4, padding: 8, background: '#f8f9fa', borderRadius: 6 }}>
+                      💡 <strong>דוגמה:</strong> אם ההגדרות הן 20 ₪ למשתף ו-10 ₪ למשתמש חדש, אז המשתף יקבל 20 ₪ נקודות והמשתמש החדש יקבל 10 ₪ נקודות, ללא תלות בגובה ההזמנה.
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Prep time options row - moved to last row, styled */}
+        <div style={{ marginTop: 18, width: '100%' }}>
           <button
             type="button"
-            onClick={() => setShowHeroTagline(v => !v)}
+            onClick={() => setShowPrepTimeOptions(v => !v)}
             style={{
               background: 'none',
               border: 'none',
               color: '#007bff',
               fontWeight: 600,
-              fontSize: 16,
+              fontSize: 18,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1306,50 +1546,692 @@ const BusinessManagePage = () => {
               padding: 0,
             }}
           >
-            כותרת פתיחה באפליקציה
-            <span style={{ fontSize: 16 }}>{showHeroTagline ? '▲' : '▼'}</span>
+            אפשריות זמני הכנה להזמנות
+            <span style={{ fontSize: 18 }}>{showPrepTimeOptions ? '▲' : '▼'}</span>
           </button>
-          {showHeroTagline && (
-            <div style={{ marginTop: 12, padding: '12px 14px', background: '#fff', borderRadius: 12, border: '1px solid #eee', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <span style={{ fontSize: 12, color: '#777', lineHeight: 1.4 }}>
-              המשפט שיופיע מעל הקטגוריות בהתחלה.
-              </span>
-              <div style={{ display: 'flex', gap: 10, flexDirection: 'column' }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500, color: '#444' }}>
-                  🇮🇱 עברית
-                  <input
-                    type="text"
-                    value={form.heroTagline.he || ''}
-                    onChange={(e) => handleHeroTaglineChange('he', e.target.value)}
-                    placeholder="מה בא לך לאכול היום?"
+
+          {showPrepTimeOptions && (
+            <>
+              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
+              <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
+                הוסף כל אפשרות שתרצה לקביעת זמן הכנת הזמנה, אחת בכל פעם. נתן דקות, שעות, וימים. תוכל להסיר אפשרות בלחיצה על ×.
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
+                <input
+                  type="number"
+                  min={1}
+                  value={newPrepValue}
+                  onChange={e => setNewPrepValue(e.target.value)}
+                  placeholder="מספר"
+                  style={{ width: '90px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}
+                />
+                <select value={newPrepUnit} onChange={e => setNewPrepUnit(e.target.value)} style={{ width: '100px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}>
+                  <option value="minutes">דקות</option>
+                  <option value="hours">שעות</option>
+                  <option value="days">ימים</option>
+                </select>
+                <button
+                  onClick={addPrepTimeOption}
+                  disabled={
+                    !newPrepValue ||
+                    isNaN(Number(newPrepValue)) ||
+                    Number(newPrepValue) <= 0 ||
+                    (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) ||
+                    (form.prepTimeOptions || []).length >= 6
+                  }
+                  style={{ width: '90px', height: 44, borderRadius: 10, background: '#007aff', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 0.5 : 1 }}
+                >הוסף</button>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: 12,
+                margin: '12px 0 8px',
+                width: '100%',
+                alignItems: 'stretch'
+              }}>
+                {(form.prepTimeOptions || []).map((opt, idx) => (
+                  <span
+                    key={idx}
                     style={{
-                      height: 40,
-                      borderRadius: 8,
-                      border: '1px solid #e0e0e0',
-                      padding: '0 12px',
-                      fontSize: 15,
-                      textAlign: 'right',
-                      direction: 'rtl',
+                      background: '#e0e0e0',
+                      borderRadius: 10,
+                      padding: '6px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: 13,
+                      justifyContent: 'space-between',
+                      minHeight: 44,
+                      boxSizing: 'border-box',
                     }}
-                  />
+                  >
+                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
+                    <button onClick={() => removePrepTimeOption(idx)} style={{ marginRight: 6, background: 'none', border: 'none', color: '#e00', fontWeight: 700, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+                  </span>
+                ))}
+              </div>
+              {(form.prepTimeOptions || []).length >= 6 && (
+                <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 6 אפשרויות</div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      {/* Contact info section */}
+      <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => setShowContact(v => !v)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#007bff',
+            fontWeight: 600,
+            fontSize: 18,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: 8,
+            gap: 6,
+          }}
+        >
+          {showContact ? 'הסתר פרטי יצירת קשר' : 'הצג פרטי יצירת קשר'}
+          <span style={{ fontSize: 18 }}>{showContact ? '▲' : '▼'}</span>
+        </button>
+        {showContact && (
+          <>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אינסטגרם:
+            <input
+              type="text"
+              name="instagram"
+              value={form.contact.instagram}
+              onChange={handleChange}
+              placeholder="@yourbusiness"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            טלפון:
+            <input
+              type="text"
+              name="phone"
+              value={form.contact.phone}
+              onChange={handleChange}
+              placeholder="04-000-0000"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אתר אינטרנט:
+            <input
+              type="text"
+              name="website"
+              value={form.contact.website}
+              onChange={handleChange}
+              placeholder="https://yourwebsite.com"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            Waze:
+            <input
+              type="text"
+              name="waze"
+              value={form.contact.waze}
+              onChange={handleChange}
+              placeholder="https://waze.com/ul/... או קואורדינטות: 32.0853,34.7818"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            <span style={{ color: '#d32f2f', fontWeight: 600 }}>⭐</span> קואורדינטות מדויקות (Latitude, Longitude):
+            <input
+              type="text"
+              name="coordinates"
+              value={form.contact.coordinates}
+              onChange={handleChange}
+              placeholder="32.0853,34.7818"
+              style={{ 
+                width: '100%', 
+                padding: 10, 
+                borderRadius: 8, 
+                border: form.contact.coordinates ? '2px solid #4caf50' : '1px solid #bbb', 
+                marginTop: 6, 
+                fontSize: 16,
+                backgroundColor: form.contact.coordinates ? '#f1f8f4' : '#fff'
+              }}
+            />
+            <div style={{ fontSize: 11, color: form.contact.coordinates ? '#4caf50' : '#666', marginTop: 4, fontWeight: form.contact.coordinates ? 500 : 400 }}>
+              {form.contact.coordinates ? (
+                <>✅ קואורדינטות מוגדרות: {form.contact.coordinates} - זה יעזור להצגת המיקום במפה</>
+              ) : (
+                <>💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה נדרש להצגת המיקום במפה. ניתן למצוא ב-Google Maps {'>'} לחץ על המיקום {'>'} העתק קואורדינטות</>
+              )}
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            כתובת לאיסוף (Pickup Address):
+            <input
+              type="text"
+              name="businessAddress"
+              value={form.contact.businessAddress || ''}
+              onChange={handleChange}
+              placeholder="بير الكسور شارع البير 10"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              הכתובת שמוצגת במסך התשלום באפשרות איסוף
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            הערת איסוף (Pickup Note):
+            <input
+              type="text"
+              name="pickupNote"
+              value={form.contact.pickupNote || ''}
+              onChange={handleChange}
+              placeholder="جاهز للاستلام خلال 30 دقيقة."
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              טקסט משני שמוצג מתחת לכתובת האיסוף
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            Google Maps:
+            <input
+              type="text"
+              name="googleMapsUrl"
+              value={form.contact.googleMapsUrl}
+              onChange={handleChange}
+              placeholder="https://maps.app.goo.gl/o3K3yXmw33nby6p27?g_st=ic"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              💡 הזן קישור Google Maps של העסק שלך. ניתן למצוא אותו ב-Google Maps {'>'} שתף {'>'} העתק קישור
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אימייל:
+            <input
+              type="email"
+              name="email"
+              value={form.contact.email}
+              onChange={handleChange}
+              placeholder="info@yourbusiness.com"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+        </div>
+          </>
+        )}
+      </div>
+
+      {/* === Marketing: coupons + push notifications === */}
+      <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', boxSizing: 'border-box', overflowX: 'hidden' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 4, textAlign: 'right' }}>
+          שיווק והודעות
+        </div>
+        <div style={{ fontSize: 12, color: '#777', marginBottom: 10, lineHeight: 1.45, textAlign: 'right' }}>
+          קופונים והודעות Push ללקוחות
+        </div>
+      {/* Coupons */}
+      <div style={{ paddingTop: 4, marginTop: 0 }}>
+        <button
+          type="button"
+          onClick={() => setShowCoupons(v => !v)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#007bff',
+            fontWeight: 600,
+            fontSize: 18,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: 8,
+            gap: 6,
+          }}
+        >
+          {showCoupons ? 'הסתר קופונים' : 'קופונים'}
+          <span style={{ fontSize: 18 }}>{showCoupons ? '▲' : '▼'}</span>
+        </button>
+        
+        {showCoupons && (
+          <div style={{ marginTop: 16 }}>
+            <Toaster position="top-center" />
+            
+            {/* Coupon filter buttons */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {[
+                { value: 'all', label: 'הכל' },
+                { value: 'active', label: 'פעיל' },
+                { value: 'inactive', label: 'לא פעיל' },
+                { value: 'expired', label: 'פג תוקף' }
+              ].map(filterOption => (
+                <button
+                  key={filterOption.value}
+                  onClick={() => setCouponFilter(filterOption.value)}
+                  style={{
+                    background: couponFilter === filterOption.value ? '#007aff' : '#f0f0f0',
+                    color: couponFilter === filterOption.value ? '#fff' : '#666',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {filterOption.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Create coupon button */}
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <button
+                onClick={handleCreateCoupon}
+                style={{
+                  background: '#34C759',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '10px 20px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <IoMdAdd size={16} />
+                יצירת קופון חדש
+              </button>
+            </div>
+
+            {/* Coupons list */}
+            {couponsLoading ? (
+              <div style={{ textAlign: 'center', padding: 20 }}>
+                <div style={{ fontSize: 14, color: '#666' }}>טוען...</div>
+              </div>
+            ) : coupons.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 20 }}>
+                <div style={{ fontSize: 14, color: '#666' }}>אין קופונים</div>
+              </div>
+            ) : (
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {coupons
+                  .filter(coupon => {
+                    switch (couponFilter) {
+                      case 'active':
+                        return getCouponStatus(coupon) === COUPON_STATUS.ACTIVE;
+                      case 'inactive':
+                        return getCouponStatus(coupon) === COUPON_STATUS.INACTIVE;
+                      case 'expired':
+                        return isCouponExpired(coupon);
+                      default:
+                        return true;
+                    }
+                  })
+                  .map(coupon => (
+                    <CouponCard
+                      key={coupon.id}
+                      coupon={coupon}
+                      onEdit={handleEditCoupon}
+                      onDelete={handleDeleteCoupon}
+                      onToggleStatus={handleToggleCouponStatus}
+                    />
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Notifications */}
+      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 14, marginTop: 10 }}>
+        <button
+          type="button"
+          onClick={() => setShowNotifications(v => !v)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#007bff',
+            fontWeight: 600,
+            fontSize: 18,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: 8,
+            gap: 6,
+          }}
+        >
+          <IoMdNotifications size={20} />
+          {showNotifications ? 'הסתר הודעות' : 'הודעות ללקוחות'}
+          <span style={{ fontSize: 18 }}>{showNotifications ? '▲' : '▼'}</span>
+        </button>
+        
+        {showNotifications && (
+          <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 12 }}>
+            <Toaster position="top-center" />
+            
+            <div style={{ fontSize: 13, color: '#666', marginBottom: 16, textAlign: 'right', lineHeight: 1.6 }}>
+              שלח הודעות Push לכל הלקוחות או למשתמשים ספציפיים בלחיצת כפתור
+            </div>
+
+            {/* Notification Form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Title Input */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
+                  כותרת ההודעה * ({notificationForm.title.length}/65)
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500, color: '#444' }}>
-                  🇵🇸 عربي
+                <input
+                  type="text"
+                  value={notificationForm.title}
+                  onChange={(e) => setNotificationForm(prev => ({ ...prev, title: e.target.value.slice(0, 65) }))}
+                  placeholder="עסקת השבוע! 🎉 | عرض الأسبوع!"
+                  maxLength={65}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    border: '2px solid ' + (notificationForm.title.length > 65 ? '#FF3B30' : '#e0e0e0'),
+                    borderRadius: 8,
+                    fontSize: 15,
+                    background: '#fff',
+                    textAlign: 'right',
+                    boxSizing: 'border-box',
+                    direction: 'rtl'
+                  }}
+                  required
+                />
+              </div>
+
+              {/* Body Textarea */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
+                  גוף ההודעה * ({notificationForm.body.length}/240)
+                </label>
+                <textarea
+                  value={notificationForm.body}
+                  onChange={(e) => setNotificationForm(prev => ({ ...prev, body: e.target.value.slice(0, 240) }))}
+                  placeholder="קבל 20% הנחה על כל המנות היום בלבד! | احصل على خصم 20% على جميع الأطباق اليوم فقط!"
+                  rows={4}
+                  maxLength={240}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    border: '2px solid ' + (notificationForm.body.length > 240 ? '#FF3B30' : '#e0e0e0'),
+                    borderRadius: 8,
+                    fontSize: 15,
+                    background: '#fff',
+                    textAlign: 'right',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                    direction: 'rtl'
+                  }}
+                  required
+                />
+              </div>
+
+              {/* Target Audience */}
+              <div>
+                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
+                  קהל יעד
+                </label>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'flex-start', direction: 'rtl' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '8px 12px', background: notificationForm.targetAudience === 'all' ? '#007aff' : '#fff', color: notificationForm.targetAudience === 'all' ? '#fff' : '#333', borderRadius: 8, border: '2px solid ' + (notificationForm.targetAudience === 'all' ? '#007aff' : '#e0e0e0'), fontWeight: 500, transition: 'all 0.2s' }}>
+                    <input
+                      type="radio"
+                      name="targetAudience"
+                      value="all"
+                      checked={notificationForm.targetAudience === 'all'}
+                      onChange={(e) => setNotificationForm(prev => ({ ...prev, targetAudience: e.target.value, selectedUsers: [] }))}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 14 }}>כל המשתמשים</span>
+                  </label>
+                  
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '8px 12px', background: notificationForm.targetAudience === 'specific' ? '#007aff' : '#fff', color: notificationForm.targetAudience === 'specific' ? '#fff' : '#333', borderRadius: 8, border: '2px solid ' + (notificationForm.targetAudience === 'specific' ? '#007aff' : '#e0e0e0'), fontWeight: 500, transition: 'all 0.2s' }}>
+                    <input
+                      type="radio"
+                      name="targetAudience"
+                      value="specific"
+                      checked={notificationForm.targetAudience === 'specific'}
+                      onChange={(e) => setNotificationForm(prev => ({ ...prev, targetAudience: e.target.value }))}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 14 }}>משתמשים ספציפיים</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Specific Users Selection */}
+              {notificationForm.targetAudience === 'specific' && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
+                    בחר משתמשים ({notificationForm.selectedUsers.length} נבחרו)
+                  </label>
+                  <div style={{ 
+                    maxHeight: 200, 
+                    overflowY: 'auto', 
+                    border: '2px solid #e0e0e0', 
+                    borderRadius: 8, 
+                    padding: 8,
+                    background: '#fff'
+                  }}>
+                    {allUsers.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: 16, color: '#666', fontSize: 13 }}>
+                        טוען משתמשים...
+                      </div>
+                    ) : (
+                      allUsers.map(user => (
+                        <label key={user.id} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 8, 
+                          padding: '8px 12px', 
+                          cursor: 'pointer',
+                          borderRadius: 6,
+                          background: notificationForm.selectedUsers.includes(user.id) ? '#e3f2fd' : 'transparent',
+                          transition: 'all 0.2s',
+                          direction: 'rtl'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={notificationForm.selectedUsers.includes(user.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNotificationForm(prev => ({ 
+                                  ...prev, 
+                                  selectedUsers: [...prev.selectedUsers, user.id] 
+                                }));
+                              } else {
+                                setNotificationForm(prev => ({ 
+                                  ...prev, 
+                                  selectedUsers: prev.selectedUsers.filter(id => id !== user.id) 
+                                }));
+                              }
+                            }}
+                            style={{ width: 16, height: 16, cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: 14, color: '#333', flex: 1 }}>
+                            {user.name || user.phone || user.email || user.displayName || user.id}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Section */}
+              <div style={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                borderRadius: 12, 
+                padding: 16,
+                marginTop: 8
+              }}>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 8, textAlign: 'right', fontWeight: 600 }}>
+                  👁️ תצוגה מקדימה
+                </div>
+                <div style={{ 
+                  background: 'rgba(255,255,255,0.15)', 
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: 10, 
+                  padding: 12,
+                  border: '1px solid rgba(255,255,255,0.2)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, direction: 'rtl' }}>
+                    <IoMdNotifications size={24} color="#fff" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 4, textAlign: 'right' }}>
+                        {notificationForm.title || 'כותרת ההודעה תופיע כאן'}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 1.4, textAlign: 'right' }}>
+                        {notificationForm.body || 'גוף ההודעה יופיע כאן'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Send Button */}
+              <button
+                onClick={handleSendNotification}
+                disabled={sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()}
+                style={{
+                  width: '100%',
+                  height: 50,
+                  background: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
+                    ? '#ccc' 
+                    : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'all 0.2s',
+                  boxShadow: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
+                    ? 'none' 
+                    : '0 4px 15px rgba(102, 126, 234, 0.4)',
+                  transform: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) ? 'scale(1)' : 'scale(1)'
+                }}
+                onMouseEnter={(e) => {
+                  if (!sendingNotification && notificationForm.title.trim() && notificationForm.body.trim()) {
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
+                    ? 'none' 
+                    : '0 4px 15px rgba(102, 126, 234, 0.4)';
+                }}
+              >
+                {sendingNotification ? (
+                  <>
+                    <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    שולח...
+                  </>
+                ) : (
+                  <>
+                    <IoMdSend size={18} />
+                    שלח הודעה לכל המשתמשים
+                  </>
+                )}
+              </button>
+
+              <div style={{ fontSize: 11, color: '#666', textAlign: 'center', marginTop: -8 }}>
+                💡 הודעות יישלחו רק למשתמשים עם הודעות Push מופעלות
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      </div>
+
+      {/* === Delivery & ordering (lower) === */}
+        {/* Features/Delivery Methods Section */}
+        <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxSizing: 'border-box', overflowX: 'hidden' }}>
+          <button
+            type="button"
+            onClick={() => setShowFeatures(v => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#1a1a1a',
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 6,
+              padding: 0,
+              width: '100%',
+              maxWidth: '100%',
+              justifyContent: 'space-between',
+              boxSizing: 'border-box',
+            }}
+          >
+            <span>אפשרויות הזמנה</span>
+            <span style={{ fontSize: 14, color: '#007bff' }}>{showFeatures ? '▲' : '▼'}</span>
+          </button>
+          {showFeatures && (
+            <div style={{ padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+                בחר אילו אפשרויות הזמנה יהיו זמינות ללקוחות שלך
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                   <input
-                    type="text"
-                    value={form.heroTagline.ar || ''}
-                    onChange={(e) => handleHeroTaglineChange('ar', e.target.value)}
-                    placeholder="ايش جاي عبالك تاكل اليوم؟"
-                    style={{
-                      height: 40,
-                      borderRadius: 8,
-                      border: '1px solid #e0e0e0',
-                      padding: '0 12px',
-                      fontSize: 15,
-                      textAlign: 'right',
-                      direction: 'rtl',
-                    }}
+                    type="checkbox"
+                    name="feature_enablePickup"
+                    checked={form.features.enablePickup}
+                    onChange={handleChange}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
                   />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                    איסוף עצמי
+                  </span>
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="feature_enableDelivery"
+                    checked={form.features.enableDelivery}
+                    onChange={handleChange}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                    משלוח
+                  </span>
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="feature_enableEatIn"
+                    checked={form.features.enableEatIn}
+                    onChange={handleChange}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                    אכילה במקום
+                  </span>
                 </label>
               </div>
             </div>
@@ -1357,7 +2239,7 @@ const BusinessManagePage = () => {
         </div>
 
         {/* Delivery Cities Section - Collapsible */}
-        <div style={{ marginTop: 18, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
+        <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxSizing: 'border-box', overflowX: 'hidden' }}>
           <button
             type="button"
             onClick={() => setShowDeliveryCities(v => !v)}
@@ -1366,13 +2248,17 @@ const BusinessManagePage = () => {
               border: 'none',
               color: '#007bff',
               fontWeight: 600,
-              fontSize: 16,
+              fontSize: 15,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               marginBottom: 8,
               gap: 6,
-              padding: 0
+              padding: 0,
+              width: '100%',
+              maxWidth: '100%',
+              flexWrap: 'wrap',
+              boxSizing: 'border-box',
             }}
           >
             ערים למשלוח (דו-לשוני)
@@ -1680,890 +2566,6 @@ const BusinessManagePage = () => {
           )}
         </div>
         
-        {/* Features/Delivery Methods Section */}
-        <div style={{ marginTop: 16, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
-          <button
-            type="button"
-            onClick={() => setShowFeatures(v => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#007bff',
-              fontWeight: 600,
-              fontSize: 16,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              marginBottom: 8,
-              gap: 6,
-              padding: 0,
-            }}
-          >
-            אפשרויות הזמנה זמינות
-            <span style={{ fontSize: 16 }}>{showFeatures ? '▲' : '▼'}</span>
-          </button>
-          {showFeatures && (
-            <div style={{ padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-              <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
-                בחר אילו אפשרויות הזמנה יהיו זמינות ללקוחות שלך
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    name="feature_enablePickup"
-                    checked={form.features.enablePickup}
-                    onChange={handleChange}
-                    style={{ width: 16, height: 16, cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
-                    איסוף עצמי
-                  </span>
-                </label>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    name="feature_enableDelivery"
-                    checked={form.features.enableDelivery}
-                    onChange={handleChange}
-                    style={{ width: 16, height: 16, cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
-                    משלוח
-                  </span>
-                </label>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    name="feature_enableEatIn"
-                    checked={form.features.enableEatIn}
-                    onChange={handleChange}
-                    style={{ width: 16, height: 16, cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
-                    אכילה במקום
-                  </span>
-                </label>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Loyalty & Referral configuration - Collapsible */}
-        <div style={{ marginTop: 16, width: '100%', borderTop: '1px solid #eee', paddingTop: 12 }}>
-          <button
-            type="button"
-            onClick={() => setShowLoyaltyReferral(v => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#007bff',
-              fontWeight: 600,
-              fontSize: 16,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              marginBottom: 8,
-              gap: 6,
-              padding: 0
-            }}
-          >
-            תוכנית נקודות ותוכנית שותפים
-            <span style={{ fontSize: 16 }}>{showLoyaltyReferral ? '▲' : '▼'}</span>
-          </button>
-          {showLoyaltyReferral && (
-            <>
-              {/* Loyalty configuration */}
-              <div style={{ marginTop: 12, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>
-                  תוכנית נקודות ללקוחות
-                </label>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
-                  שלוט בכמה נקודות הלקוחות צוברים וכמה הן שוות. השינויים מתעדכנים באפליקציה מידית.
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
-                    <input
-                      type="checkbox"
-                      checked={!!form.loyalty.enabled}
-                      onChange={(e) => handleLoyaltyChange('enabled', e.target.checked)}
-                      style={{ width: 16, height: 16, cursor: 'pointer' }}
-                    />
-                    הפעל תוכנית נקודות
-                  </label>
-
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ לצבירת נקודה</span>
-                      <input
-                        type="number"
-                        min={1}
-                        value={form.loyalty.currencyPerPoint}
-                        onChange={(e) => handleLoyaltyChange('currencyPerPoint', e.target.value)}
-                        disabled={!form.loyalty.enabled}
-                        style={{
-                          height: 44,
-                          padding: '0 12px',
-                          borderRadius: 10,
-                          border: '1px solid #e0e0e0',
-                          fontSize: 16,
-                          background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
-                          textAlign: 'right',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>₪ ערך נקודה בהחזר</span>
-                      <input
-                        type="number"
-                        min={0.1}
-                        step="0.1"
-                        value={form.loyalty.redeemValuePerPoint}
-                        onChange={(e) => handleLoyaltyChange('redeemValuePerPoint', e.target.value)}
-                        disabled={!form.loyalty.enabled}
-                        style={{
-                          height: 44,
-                          padding: '0 12px',
-                          borderRadius: 10,
-                          border: '1px solid #e0e0e0',
-                          fontSize: 16,
-                          background: form.loyalty.enabled ? '#fff' : '#f5f5f5',
-                          textAlign: 'right',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>
-                    לדוגמה: אם ההגדרה היא 100 ₪ = 1 נקודה ושווי נקודה הוא 1 ₪, אז על כל 100 ₪ המשתמש צובר נקודה אחת ויכול להשתמש בה כשקל אחד בהנחה.
-                  </div>
-                </div>
-              </div>
-
-              {/* Referral configuration */}
-              <div style={{ marginTop: 16, padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 8, display: 'block' }}>
-                  תוכנית שותפים (Referral Program)
-                </label>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
-                  שלוט בסכומי התגמול הקבועים למשתפים ולמשתמשים החדשים שהם מביאים. התגמול הוא סכום קבוע ולא תלוי בגובה ההזמנה.
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>תגמול למשתף (₪)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="1"
-                        value={form.referral.referrerAmount || form.referral.referrerPercentage || DEFAULT_REFERRAL.referrerAmount}
-                        onChange={(e) => handleReferralChange('referrerAmount', e.target.value)}
-                        style={{
-                          height: 44,
-                          padding: '0 12px',
-                          borderRadius: 10,
-                          border: '1px solid #e0e0e0',
-                          fontSize: 16,
-                          background: '#fff',
-                          textAlign: 'right',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
-                        סכום קבוע שהמשתף יקבל כנקודות
-                      </div>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>תגמול למשתמש חדש (₪)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="1"
-                        value={form.referral.refereeAmount || form.referral.refereePercentage || DEFAULT_REFERRAL.refereeAmount}
-                        onChange={(e) => handleReferralChange('refereeAmount', e.target.value)}
-                        style={{
-                          height: 44,
-                          padding: '0 12px',
-                          borderRadius: 10,
-                          border: '1px solid #e0e0e0',
-                          fontSize: 16,
-                          background: '#fff',
-                          textAlign: 'right',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
-                        סכום קבוע שהמשתמש החדש יקבל כנקודות
-                      </div>
-                    </div>
-                  </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span style={{ fontSize: 13, color: '#555', fontWeight: 500 }}>קישור אפליקציה לשיתוף</span>
-                      <input
-                        type="url"
-                        value={form.referral.appLink || DEFAULT_REFERRAL.appLink}
-                        onChange={(e) => handleReferralChange('appLink', e.target.value)}
-                        placeholder="https://your-app-link.example"
-                        style={{
-                          height: 44,
-                          padding: '0 12px',
-                          borderRadius: 10,
-                          border: '1px solid #e0e0e0',
-                          fontSize: 15,
-                          background: '#fff',
-                          textAlign: 'left',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                      <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>
-                        הקישור שיופיע בהודעת השיתוף של קוד ההפניה באפליקציית הלקוח.
-                      </div>
-                    </div>
-                  <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4, padding: 8, background: '#f8f9fa', borderRadius: 6 }}>
-                    💡 <strong>דוגמה:</strong> אם ההגדרות הן 20 ₪ למשתף ו-10 ₪ למשתמש חדש, אז המשתף יקבל 20 ₪ נקודות והמשתמש החדש יקבל 10 ₪ נקודות, ללא תלות בגובה ההזמנה.
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          <LuckyWheelSettingsSection
-            activeBusinessId={activeBusinessId}
-            value={form.luckyWheel || DEFAULT_LUCKY_WHEEL}
-            onChange={(luckyWheel) => setForm((prev) => ({ ...prev, luckyWheel }))}
-            open={showLuckyWheel}
-            onToggle={() => setShowLuckyWheel((v) => !v)}
-          />
-        </div>
-        
-        {/* Prep time options row - moved to last row, styled */}
-        <div style={{ marginTop: 18, width: '100%' }}>
-          <button
-            type="button"
-            onClick={() => setShowPrepTimeOptions(v => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#007bff',
-              fontWeight: 600,
-              fontSize: 18,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              marginBottom: 8,
-              gap: 6,
-              padding: 0,
-            }}
-          >
-            אפשריות זמני הכנה להזמנות
-            <span style={{ fontSize: 18 }}>{showPrepTimeOptions ? '▲' : '▼'}</span>
-          </button>
-
-          {showPrepTimeOptions && (
-            <>
-              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
-                הוסף כל אפשרות שתרצה לקביעת זמן הכנת הזמנה, אחת בכל פעם. נתן דקות, שעות, וימים. תוכל להסיר אפשרות בלחיצה על ×.
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
-                <input
-                  type="number"
-                  min={1}
-                  value={newPrepValue}
-                  onChange={e => setNewPrepValue(e.target.value)}
-                  placeholder="מספר"
-                  style={{ width: '90px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}
-                />
-                <select value={newPrepUnit} onChange={e => setNewPrepUnit(e.target.value)} style={{ width: '100px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}>
-                  <option value="minutes">דקות</option>
-                  <option value="hours">שעות</option>
-                  <option value="days">ימים</option>
-                </select>
-                <button
-                  onClick={addPrepTimeOption}
-                  disabled={
-                    !newPrepValue ||
-                    isNaN(Number(newPrepValue)) ||
-                    Number(newPrepValue) <= 0 ||
-                    (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) ||
-                    (form.prepTimeOptions || []).length >= 6
-                  }
-                  style={{ width: '90px', height: 44, borderRadius: 10, background: '#007aff', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 0.5 : 1 }}
-                >הוסף</button>
-              </div>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                gap: 12,
-                margin: '12px 0 8px',
-                width: '100%',
-                alignItems: 'stretch'
-              }}>
-                {(form.prepTimeOptions || []).map((opt, idx) => (
-                  <span
-                    key={idx}
-                    style={{
-                      background: '#e0e0e0',
-                      borderRadius: 10,
-                      padding: '6px 10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      fontSize: 13,
-                      justifyContent: 'space-between',
-                      minHeight: 44,
-                      boxSizing: 'border-box',
-                    }}
-                  >
-                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
-                    <button onClick={() => removePrepTimeOption(idx)} style={{ marginRight: 6, background: 'none', border: 'none', color: '#e00', fontWeight: 700, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
-                  </span>
-                ))}
-              </div>
-              {(form.prepTimeOptions || []).length >= 6 && (
-                <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 6 אפשרויות</div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-      {/* Contact info section */}
-      <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
-        <button
-          type="button"
-          onClick={() => setShowContact(v => !v)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#007bff',
-            fontWeight: 600,
-            fontSize: 18,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            marginBottom: 8,
-            gap: 6,
-          }}
-        >
-          {showContact ? 'הסתר פרטי יצירת קשר' : 'הצג פרטי יצירת קשר'}
-          <span style={{ fontSize: 18 }}>{showContact ? '▲' : '▼'}</span>
-        </button>
-        {showContact && (
-          <>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            אינסטגרם:
-            <input
-              type="text"
-              name="instagram"
-              value={form.contact.instagram}
-              onChange={handleChange}
-              placeholder="@yourbusiness"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            טלפון:
-            <input
-              type="text"
-              name="phone"
-              value={form.contact.phone}
-              onChange={handleChange}
-              placeholder="04-000-0000"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            אתר אינטרנט:
-            <input
-              type="text"
-              name="website"
-              value={form.contact.website}
-              onChange={handleChange}
-              placeholder="https://yourwebsite.com"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            Waze:
-            <input
-              type="text"
-              name="waze"
-              value={form.contact.waze}
-              onChange={handleChange}
-              placeholder="https://waze.com/ul/... או קואורדינטות: 32.0853,34.7818"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            <span style={{ color: '#d32f2f', fontWeight: 600 }}>⭐</span> קואורדינטות מדויקות (Latitude, Longitude):
-            <input
-              type="text"
-              name="coordinates"
-              value={form.contact.coordinates}
-              onChange={handleChange}
-              placeholder="32.0853,34.7818"
-              style={{ 
-                width: '100%', 
-                padding: 10, 
-                borderRadius: 8, 
-                border: form.contact.coordinates ? '2px solid #4caf50' : '1px solid #bbb', 
-                marginTop: 6, 
-                fontSize: 16,
-                backgroundColor: form.contact.coordinates ? '#f1f8f4' : '#fff'
-              }}
-            />
-            <div style={{ fontSize: 11, color: form.contact.coordinates ? '#4caf50' : '#666', marginTop: 4, fontWeight: form.contact.coordinates ? 500 : 400 }}>
-              {form.contact.coordinates ? (
-                <>✅ קואורדינטות מוגדרות: {form.contact.coordinates} - זה יעזור להצגת המיקום במפה</>
-              ) : (
-                <>💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה נדרש להצגת המיקום במפה. ניתן למצוא ב-Google Maps {'>'} לחץ על המיקום {'>'} העתק קואורדינטות</>
-              )}
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            כתובת לאיסוף (Pickup Address):
-            <input
-              type="text"
-              name="businessAddress"
-              value={form.contact.businessAddress || ''}
-              onChange={handleChange}
-              placeholder="بير الكسور شارع البير 10"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-              הכתובת שמוצגת במסך התשלום באפשרות איסוף
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            הערת איסוף (Pickup Note):
-            <input
-              type="text"
-              name="pickupNote"
-              value={form.contact.pickupNote || ''}
-              onChange={handleChange}
-              placeholder="جاهز للاستلام خلال 30 دقيقة."
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-              טקסט משני שמוצג מתחת לכתובת האיסוף
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            Google Maps:
-            <input
-              type="text"
-              name="googleMapsUrl"
-              value={form.contact.googleMapsUrl}
-              onChange={handleChange}
-              placeholder="https://maps.app.goo.gl/o3K3yXmw33nby6p27?g_st=ic"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-              💡 הזן קישור Google Maps של העסק שלך. ניתן למצוא אותו ב-Google Maps {'>'} שתף {'>'} העתק קישור
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            אימייל:
-            <input
-              type="email"
-              name="email"
-              value={form.contact.email}
-              onChange={handleChange}
-              placeholder="info@yourbusiness.com"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-        </div>
-          </>
-        )}
-      </div>
-
-      {/* Coupon Management Section */}
-      <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
-        <button
-          type="button"
-          onClick={() => setShowCoupons(v => !v)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#007bff',
-            fontWeight: 600,
-            fontSize: 18,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            marginBottom: 8,
-            gap: 6,
-          }}
-        >
-          {showCoupons ? 'הסתר ניהול קופונים' : 'ניהול קופונים'}
-          <span style={{ fontSize: 18 }}>{showCoupons ? '▲' : '▼'}</span>
-        </button>
-        
-        {showCoupons && (
-          <div style={{ marginTop: 16 }}>
-            <Toaster position="top-center" />
-            
-            {/* Coupon filter buttons */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {[
-                { value: 'all', label: 'הכל' },
-                { value: 'active', label: 'פעיל' },
-                { value: 'inactive', label: 'לא פעיל' },
-                { value: 'expired', label: 'פג תוקף' }
-              ].map(filterOption => (
-                <button
-                  key={filterOption.value}
-                  onClick={() => setCouponFilter(filterOption.value)}
-                  style={{
-                    background: couponFilter === filterOption.value ? '#007aff' : '#f0f0f0',
-                    color: couponFilter === filterOption.value ? '#fff' : '#666',
-                    border: 'none',
-                    borderRadius: 6,
-                    padding: '6px 12px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {filterOption.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Create coupon button */}
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <button
-                onClick={handleCreateCoupon}
-                style={{
-                  background: '#34C759',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 8,
-                  padding: '10px 20px',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
-              >
-                <IoMdAdd size={16} />
-                יצירת קופון חדש
-              </button>
-            </div>
-
-            {/* Coupons list */}
-            {couponsLoading ? (
-              <div style={{ textAlign: 'center', padding: 20 }}>
-                <div style={{ fontSize: 14, color: '#666' }}>טוען...</div>
-              </div>
-            ) : coupons.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 20 }}>
-                <div style={{ fontSize: 14, color: '#666' }}>אין קופונים</div>
-              </div>
-            ) : (
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {coupons
-                  .filter(coupon => {
-                    switch (couponFilter) {
-                      case 'active':
-                        return getCouponStatus(coupon) === COUPON_STATUS.ACTIVE;
-                      case 'inactive':
-                        return getCouponStatus(coupon) === COUPON_STATUS.INACTIVE;
-                      case 'expired':
-                        return isCouponExpired(coupon);
-                      default:
-                        return true;
-                    }
-                  })
-                  .map(coupon => (
-                    <CouponCard
-                      key={coupon.id}
-                      coupon={coupon}
-                      onEdit={handleEditCoupon}
-                      onDelete={handleDeleteCoupon}
-                      onToggleStatus={handleToggleCouponStatus}
-                    />
-                  ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Promotional Notifications Section */}
-      <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
-        <button
-          type="button"
-          onClick={() => setShowNotifications(v => !v)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#007bff',
-            fontWeight: 600,
-            fontSize: 18,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            marginBottom: 8,
-            gap: 6,
-          }}
-        >
-          <IoMdNotifications size={20} />
-          {showNotifications ? 'הסתר שליחת הודעות' : 'שליחת הודעות ללקוחות 📢'}
-          <span style={{ fontSize: 18 }}>{showNotifications ? '▲' : '▼'}</span>
-        </button>
-        
-        {showNotifications && (
-          <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 12 }}>
-            <Toaster position="top-center" />
-            
-            <div style={{ fontSize: 13, color: '#666', marginBottom: 16, textAlign: 'right', lineHeight: 1.6 }}>
-              שלח הודעות Push לכל הלקוחות או למשתמשים ספציפיים בלחיצת כפתור
-            </div>
-
-            {/* Notification Form */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Title Input */}
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
-                  כותרת ההודעה * ({notificationForm.title.length}/65)
-                </label>
-                <input
-                  type="text"
-                  value={notificationForm.title}
-                  onChange={(e) => setNotificationForm(prev => ({ ...prev, title: e.target.value.slice(0, 65) }))}
-                  placeholder="עסקת השבוע! 🎉 | عرض الأسبوع!"
-                  maxLength={65}
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    border: '2px solid ' + (notificationForm.title.length > 65 ? '#FF3B30' : '#e0e0e0'),
-                    borderRadius: 8,
-                    fontSize: 15,
-                    background: '#fff',
-                    textAlign: 'right',
-                    boxSizing: 'border-box',
-                    direction: 'rtl'
-                  }}
-                  required
-                />
-              </div>
-
-              {/* Body Textarea */}
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
-                  גוף ההודעה * ({notificationForm.body.length}/240)
-                </label>
-                <textarea
-                  value={notificationForm.body}
-                  onChange={(e) => setNotificationForm(prev => ({ ...prev, body: e.target.value.slice(0, 240) }))}
-                  placeholder="קבל 20% הנחה על כל המנות היום בלבד! | احصل على خصم 20% على جميع الأطباق اليوم فقط!"
-                  rows={4}
-                  maxLength={240}
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    border: '2px solid ' + (notificationForm.body.length > 240 ? '#FF3B30' : '#e0e0e0'),
-                    borderRadius: 8,
-                    fontSize: 15,
-                    background: '#fff',
-                    textAlign: 'right',
-                    resize: 'vertical',
-                    boxSizing: 'border-box',
-                    direction: 'rtl'
-                  }}
-                  required
-                />
-              </div>
-
-              {/* Target Audience */}
-              <div>
-                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
-                  קהל יעד
-                </label>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'flex-start', direction: 'rtl' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '8px 12px', background: notificationForm.targetAudience === 'all' ? '#007aff' : '#fff', color: notificationForm.targetAudience === 'all' ? '#fff' : '#333', borderRadius: 8, border: '2px solid ' + (notificationForm.targetAudience === 'all' ? '#007aff' : '#e0e0e0'), fontWeight: 500, transition: 'all 0.2s' }}>
-                    <input
-                      type="radio"
-                      name="targetAudience"
-                      value="all"
-                      checked={notificationForm.targetAudience === 'all'}
-                      onChange={(e) => setNotificationForm(prev => ({ ...prev, targetAudience: e.target.value, selectedUsers: [] }))}
-                      style={{ width: 16, height: 16, cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: 14 }}>כל המשתמשים</span>
-                  </label>
-                  
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '8px 12px', background: notificationForm.targetAudience === 'specific' ? '#007aff' : '#fff', color: notificationForm.targetAudience === 'specific' ? '#fff' : '#333', borderRadius: 8, border: '2px solid ' + (notificationForm.targetAudience === 'specific' ? '#007aff' : '#e0e0e0'), fontWeight: 500, transition: 'all 0.2s' }}>
-                    <input
-                      type="radio"
-                      name="targetAudience"
-                      value="specific"
-                      checked={notificationForm.targetAudience === 'specific'}
-                      onChange={(e) => setNotificationForm(prev => ({ ...prev, targetAudience: e.target.value }))}
-                      style={{ width: 16, height: 16, cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: 14 }}>משתמשים ספציפיים</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Specific Users Selection */}
-              {notificationForm.targetAudience === 'specific' && (
-                <div>
-                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
-                    בחר משתמשים ({notificationForm.selectedUsers.length} נבחרו)
-                  </label>
-                  <div style={{ 
-                    maxHeight: 200, 
-                    overflowY: 'auto', 
-                    border: '2px solid #e0e0e0', 
-                    borderRadius: 8, 
-                    padding: 8,
-                    background: '#fff'
-                  }}>
-                    {allUsers.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: 16, color: '#666', fontSize: 13 }}>
-                        טוען משתמשים...
-                      </div>
-                    ) : (
-                      allUsers.map(user => (
-                        <label key={user.id} style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 8, 
-                          padding: '8px 12px', 
-                          cursor: 'pointer',
-                          borderRadius: 6,
-                          background: notificationForm.selectedUsers.includes(user.id) ? '#e3f2fd' : 'transparent',
-                          transition: 'all 0.2s',
-                          direction: 'rtl'
-                        }}>
-                          <input
-                            type="checkbox"
-                            checked={notificationForm.selectedUsers.includes(user.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setNotificationForm(prev => ({ 
-                                  ...prev, 
-                                  selectedUsers: [...prev.selectedUsers, user.id] 
-                                }));
-                              } else {
-                                setNotificationForm(prev => ({ 
-                                  ...prev, 
-                                  selectedUsers: prev.selectedUsers.filter(id => id !== user.id) 
-                                }));
-                              }
-                            }}
-                            style={{ width: 16, height: 16, cursor: 'pointer' }}
-                          />
-                          <span style={{ fontSize: 14, color: '#333', flex: 1 }}>
-                            {user.name || user.phone || user.email || user.displayName || user.id}
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Preview Section */}
-              <div style={{ 
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-                borderRadius: 12, 
-                padding: 16,
-                marginTop: 8
-              }}>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 8, textAlign: 'right', fontWeight: 600 }}>
-                  👁️ תצוגה מקדימה
-                </div>
-                <div style={{ 
-                  background: 'rgba(255,255,255,0.15)', 
-                  backdropFilter: 'blur(10px)',
-                  borderRadius: 10, 
-                  padding: 12,
-                  border: '1px solid rgba(255,255,255,0.2)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, direction: 'rtl' }}>
-                    <IoMdNotifications size={24} color="#fff" style={{ flexShrink: 0, marginTop: 2 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 4, textAlign: 'right' }}>
-                        {notificationForm.title || 'כותרת ההודעה תופיע כאן'}
-                      </div>
-                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 1.4, textAlign: 'right' }}>
-                        {notificationForm.body || 'גוף ההודעה יופיע כאן'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Send Button */}
-              <button
-                onClick={handleSendNotification}
-                disabled={sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()}
-                style={{
-                  width: '100%',
-                  height: 50,
-                  background: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
-                    ? '#ccc' 
-                    : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 10,
-                  fontSize: 16,
-                  fontWeight: 700,
-                  cursor: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  transition: 'all 0.2s',
-                  boxShadow: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
-                    ? 'none' 
-                    : '0 4px 15px rgba(102, 126, 234, 0.4)',
-                  transform: (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) ? 'scale(1)' : 'scale(1)'
-                }}
-                onMouseEnter={(e) => {
-                  if (!sendingNotification && notificationForm.title.trim() && notificationForm.body.trim()) {
-                    e.currentTarget.style.transform = 'scale(1.02)';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = (sendingNotification || !notificationForm.title.trim() || !notificationForm.body.trim()) 
-                    ? 'none' 
-                    : '0 4px 15px rgba(102, 126, 234, 0.4)';
-                }}
-              >
-                {sendingNotification ? (
-                  <>
-                    <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                    שולח...
-                  </>
-                ) : (
-                  <>
-                    <IoMdSend size={18} />
-                    שלח הודעה לכל המשתמשים
-                  </>
-                )}
-              </button>
-
-              <div style={{ fontSize: 11, color: '#666', textAlign: 'center', marginTop: -8 }}>
-                💡 הודעות יישלחו רק למשתמשים עם הודעות Push מופעלות
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Driver Delivery Zones Section */}
       <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
@@ -2701,7 +2703,7 @@ const BusinessManagePage = () => {
                           color: '#856404',
                           textAlign: 'center'
                         }}>
-                          ⚠️ אין ערים מוגדרות. הגדר ערים למשלוח בחלק "ערים למשלוח" למעלה כדי לנהל אזורי משלוח לנהגים.
+                          ⚠️ אין ערים מוגדרות. הגדר ערים למשלוח בחלק "ערים למשלוח" כדי לנהל אזורי משלוח לנהגים.
                         </div>
                       )}
                     </div>
@@ -2712,6 +2714,80 @@ const BusinessManagePage = () => {
           </div>
         )}
       </div>
+
+        {/* Hero tagline — bottom */}
+        <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxSizing: 'border-box', overflowX: 'hidden' }}>
+          <button
+            type="button"
+            onClick={() => setShowHeroTagline(v => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#007bff',
+              fontWeight: 600,
+              fontSize: 15,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 6,
+              padding: 0,
+              width: '100%',
+              maxWidth: '100%',
+              flexWrap: 'wrap',
+              boxSizing: 'border-box',
+            }}
+          >
+            כותרת פתיחה באפליקציה
+            <span style={{ fontSize: 16 }}>{showHeroTagline ? '▲' : '▼'}</span>
+          </button>
+          {showHeroTagline && (
+            <div style={{ marginTop: 12, padding: '12px 14px', background: '#fff', borderRadius: 12, border: '1px solid #eee', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <span style={{ fontSize: 12, color: '#777', lineHeight: 1.4 }}>
+              המשפט שיופיע מעל הקטגוריות בהתחלה.
+              </span>
+              <div style={{ display: 'flex', gap: 10, flexDirection: 'column' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500, color: '#444' }}>
+                  🇮🇱 עברית
+                  <input
+                    type="text"
+                    value={form.heroTagline.he || ''}
+                    onChange={(e) => handleHeroTaglineChange('he', e.target.value)}
+                    placeholder="מה בא לך לאכול היום?"
+                    style={{
+                      height: 40,
+                      borderRadius: 8,
+                      border: '1px solid #e0e0e0',
+                      padding: '0 12px',
+                      fontSize: 15,
+                      textAlign: 'right',
+                      direction: 'rtl',
+                    }}
+                  />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontWeight: 500, color: '#444' }}>
+                  🇵🇸 عربي
+                  <input
+                    type="text"
+                    value={form.heroTagline.ar || ''}
+                    onChange={(e) => handleHeroTaglineChange('ar', e.target.value)}
+                    placeholder="ايش جاي عبالك تاكل اليوم؟"
+                    style={{
+                      height: 40,
+                      borderRadius: 8,
+                      border: '1px solid #e0e0e0',
+                      padding: '0 12px',
+                      fontSize: 15,
+                      textAlign: 'right',
+                      direction: 'rtl',
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+
 
       {/* Action buttons side by side */}
       <div style={{ display: 'flex', flexDirection: 'row', gap: 12, marginTop: 18, justifyContent: 'center' }}>
