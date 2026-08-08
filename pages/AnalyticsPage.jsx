@@ -1473,121 +1473,67 @@ const AnalyticsPage = () => {
               
               const buildReportText = () => {
                 const lines = [];
-                const maxWidth = 32; // Thermal printer width (conservative for Arabic)
-                
-                // Helper to center text
+                const maxWidth = 32;
                 const centerText = (text, width = maxWidth) => {
                   const padding = Math.max(0, Math.floor((width - text.length) / 2));
                   return ' '.repeat(padding) + text;
                 };
-                
-                // Helper to format numbers with proper spacing
                 const formatNumber = (num) => num.toLocaleString('en-US');
-                
-                // Header
+
+                // Cash vs card (visa / Apple / Google Pay)
+                const bucketPayment = (method) => {
+                  const m = String(method || 'unknown').toLowerCase();
+                  if (m === 'cash') return 'cash';
+                  if (m === 'visa' || m === 'apple_pay' || m === 'apple_google' || m === 'card') return 'visa';
+                  return null;
+                };
+
+                const todayForCalc = new Date(currentToday);
+                todayForCalc.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(todayForCalc);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const filteredOrdersForCalc = currentOrders.filter((order) => {
+                  const orderDate = new Date(order.createdAt);
+                  return orderDate >= todayForCalc && orderDate < tomorrow;
+                });
+
+                let cashTotal = 0;
+                let visaTotal = 0;
+                filteredOrdersForCalc.forEach((order) => {
+                  const bucket = bucketPayment(order.paymentMethod);
+                  const amount = getOrderRevenue(order);
+                  if (bucket === 'cash') cashTotal += amount;
+                  else if (bucket === 'visa') visaTotal += amount;
+                });
+
                 lines.push('================================');
                 lines.push(centerText('تقرير يومي'));
                 lines.push(centerText(currentTodayDateStr));
                 lines.push('================================');
                 lines.push('');
-                
-                // Date info
-                const dateInfo = currentToday.toLocaleDateString('ar-SA', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                });
-                lines.push(`التاريخ: ${dateInfo}`);
-                lines.push('- - - - - - - - - - - - - - - -');
+                lines.push(`التاريخ: ${currentTodayDateStr}`);
                 lines.push('');
-                
-                // Main Statistics
-                lines.push('--- الإحصائيات الرئيسية ---');
+                lines.push(`المبيعات: ${formatNumber(currentAnalytics.totalSales)}₪`);
+                lines.push(`الطلبات: ${currentAnalytics.orderCount}`);
                 lines.push('');
-                lines.push(`إجمالي المبيعات:`);
-                lines.push(`${formatNumber(currentAnalytics.totalSales)}₪`);
-                lines.push('');
-                lines.push(`عدد الطلبات: ${currentAnalytics.orderCount}`);
-                lines.push(`متوسط قيمة الطلب: ${currentAnalytics.avgOrderValue.toFixed(2)}₪`);
-                lines.push('');
-                lines.push('- - - - - - - - - - - - - - - -');
-                lines.push('');
-                
-                // Delivery Methods
-                lines.push('--- طرق التوصيل ---');
-                lines.push('');
-                const deliveryMethodNames = {
-                  'delivery': 'توصيل',
-                  'pickup': 'استلام',
-                  'eat_in': 'اكل بالمطعم',
-                  'unknown': 'غير محدد'
-                };
-                const deliveryTotal = Object.values(currentAnalytics.deliveryStats).reduce((a, b) => a + b, 0);
-                Object.entries(currentAnalytics.deliveryStats)
-                  .sort(([,a], [,b]) => b - a) // Sort by count descending
-                  .forEach(([method, count]) => {
-                    const percentage = deliveryTotal > 0 ? ((count / deliveryTotal) * 100).toFixed(1) : 0;
-                    const methodName = deliveryMethodNames[method] || method;
-                    lines.push(`${methodName}:`);
-                    lines.push(`  ${count} طلب (${percentage}%)`);
-                  });
-                lines.push('');
-                lines.push('- - - - - - - - - - - - - - - -');
-                lines.push('');
-                
-                // Payment Methods (with amounts)
-                lines.push('--- طرق الدفع ---');
-                lines.push('');
-                const paymentMethodNames = {
-                  'cash': 'كاش',
-                  'visa': 'فيزا',
-                  'apple_pay': 'Apple Pay',
-                  'unknown': 'غير محدد'
-                };
-                const paymentTotal = Object.values(currentAnalytics.paymentStats).reduce((a, b) => a + b, 0);
-                
-                // Calculate payment amounts from filtered orders (daily) — revenue only, no delivery fee
-                const todayForCalc = new Date(currentToday);
-                todayForCalc.setHours(0, 0, 0, 0);
-                const tomorrow = new Date(todayForCalc);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const filteredOrdersForCalc = currentOrders.filter(order => {
-                  const orderDate = new Date(order.createdAt);
-                  return orderDate >= todayForCalc && orderDate < tomorrow;
-                });
-                
-                const paymentAmounts = {};
-                filteredOrdersForCalc.forEach(order => {
-                  const method = order.paymentMethod || 'unknown';
-                  paymentAmounts[method] = (paymentAmounts[method] || 0) + getOrderRevenue(order);
-                });
-                
-                Object.entries(currentAnalytics.paymentStats)
-                  .sort(([,a], [,b]) => b - a) // Sort by count descending
-                  .forEach(([method, count]) => {
-                    const percentage = paymentTotal > 0 ? ((count / paymentTotal) * 100).toFixed(1) : 0;
-                    const amount = paymentAmounts[method] || 0;
-                    const methodName = paymentMethodNames[method] || method;
-                    lines.push(`${methodName}:`);
-                    lines.push(`  ${formatNumber(amount)}₪ - ${percentage}%`);
-                  });
+                lines.push(`كاش: ${formatNumber(cashTotal)}₪`);
+                lines.push(`فيزا: ${formatNumber(visaTotal)}₪`);
                 lines.push('');
                 lines.push('================================');
-                lines.push(''); // Extra blank line at end
-                
+                lines.push('');
+
                 return lines.join('\n');
               };
-              
-              // Try silent printing first (native POS printer)
+
+              // Same simple receipt for POS print and browser preview
+              const reportText = buildReportText();
+              console.log('📄 Daily POS receipt:\n', reportText);
+
+              // Silent print on POS thermal printer
               if (canUseNativePrinter()) {
                 try {
-                  console.log('✅ Using native POS printer (H10) for daily report');
-                  const reportText = buildReportText();
-                  console.log('📄 Report text length:', reportText.length);
-                  console.log('📄 Report text preview (first 200 chars):', reportText.substring(0, 200));
-                  
-                  const result = await window.PosPrinter.printText(reportText);
+                  console.log('✅ Printing daily report to POS (PosPrinter.printText)');
+                  const result = await window.PosPrinter.printText(reportText, '');
                   console.log('🖨️ Print result:', result, 'Type:', typeof result);
                   
                   if (result && typeof result === 'string' && result.includes('success')) {
@@ -1632,10 +1578,17 @@ const AnalyticsPage = () => {
                   return;
                 }
               } else {
-                // Native printer not available
-                console.warn('⚠️ Native printer not available');
-                toast.error('⚠️ الطابعة غير متاحة. يرجى التأكد من الاتصال بالطابعة.', {
-                  duration: 3000,
+                // No POS printer — open a text preview of the same receipt
+                console.warn('⚠️ Native printer not available — showing daily report preview');
+                const preview = window.open('', '_blank');
+                if (preview) {
+                  preview.document.write(
+                    `<pre style="font-family:monospace;white-space:pre;direction:rtl;padding:16px;font-size:16px">${reportText}</pre>`
+                  );
+                  preview.document.close();
+                }
+                toast('معاينة التقرير اليومي (الطابعة غير متاحة)', {
+                  duration: 2500,
                   position: 'top-center',
                 });
               }

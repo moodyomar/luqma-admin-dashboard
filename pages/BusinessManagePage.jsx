@@ -1527,248 +1527,7 @@ const BusinessManagePage = () => {
           </div>
         </div>
 
-        {/* Prep time options row - moved to last row, styled */}
-        <div style={{ marginTop: 18, width: '100%' }}>
-          <button
-            type="button"
-            onClick={() => setShowPrepTimeOptions(v => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#007bff',
-              fontWeight: 600,
-              fontSize: 18,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              marginBottom: 8,
-              gap: 6,
-              padding: 0,
-            }}
-          >
-            אפשריות זמני הכנה להזמנות
-            <span style={{ fontSize: 18 }}>{showPrepTimeOptions ? '▲' : '▼'}</span>
-          </button>
-
-          {showPrepTimeOptions && (
-            <>
-              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
-                הוסף כל אפשרות שתרצה לקביעת זמן הכנת הזמנה, אחת בכל פעם. נתן דקות, שעות, וימים. תוכל להסיר אפשרות בלחיצה על ×.
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
-                <input
-                  type="number"
-                  min={1}
-                  value={newPrepValue}
-                  onChange={e => setNewPrepValue(e.target.value)}
-                  placeholder="מספר"
-                  style={{ width: '90px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}
-                />
-                <select value={newPrepUnit} onChange={e => setNewPrepUnit(e.target.value)} style={{ width: '100px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}>
-                  <option value="minutes">דקות</option>
-                  <option value="hours">שעות</option>
-                  <option value="days">ימים</option>
-                </select>
-                <button
-                  onClick={addPrepTimeOption}
-                  disabled={
-                    !newPrepValue ||
-                    isNaN(Number(newPrepValue)) ||
-                    Number(newPrepValue) <= 0 ||
-                    (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) ||
-                    (form.prepTimeOptions || []).length >= 6
-                  }
-                  style={{ width: '90px', height: 44, borderRadius: 10, background: '#007aff', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 0.5 : 1 }}
-                >הוסף</button>
-              </div>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                gap: 12,
-                margin: '12px 0 8px',
-                width: '100%',
-                alignItems: 'stretch'
-              }}>
-                {(form.prepTimeOptions || []).map((opt, idx) => (
-                  <span
-                    key={idx}
-                    style={{
-                      background: '#e0e0e0',
-                      borderRadius: 10,
-                      padding: '6px 10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      fontSize: 13,
-                      justifyContent: 'space-between',
-                      minHeight: 44,
-                      boxSizing: 'border-box',
-                    }}
-                  >
-                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
-                    <button onClick={() => removePrepTimeOption(idx)} style={{ marginRight: 6, background: 'none', border: 'none', color: '#e00', fontWeight: 700, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
-                  </span>
-                ))}
-              </div>
-              {(form.prepTimeOptions || []).length >= 6 && (
-                <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 6 אפשרויות</div>
-              )}
-            </>
-          )}
-        </div>
       </div>
-      {/* Contact info section */}
-      <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
-        <button
-          type="button"
-          onClick={() => setShowContact(v => !v)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#007bff',
-            fontWeight: 600,
-            fontSize: 18,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            marginBottom: 8,
-            gap: 6,
-          }}
-        >
-          {showContact ? 'הסתר פרטי יצירת קשר' : 'הצג פרטי יצירת קשר'}
-          <span style={{ fontSize: 18 }}>{showContact ? '▲' : '▼'}</span>
-        </button>
-        {showContact && (
-          <>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            אינסטגרם:
-            <input
-              type="text"
-              name="instagram"
-              value={form.contact.instagram}
-              onChange={handleChange}
-              placeholder="@yourbusiness"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            טלפון:
-            <input
-              type="text"
-              name="phone"
-              value={form.contact.phone}
-              onChange={handleChange}
-              placeholder="04-000-0000"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            אתר אינטרנט:
-            <input
-              type="text"
-              name="website"
-              value={form.contact.website}
-              onChange={handleChange}
-              placeholder="https://yourwebsite.com"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            Waze:
-            <input
-              type="text"
-              name="waze"
-              value={form.contact.waze}
-              onChange={handleChange}
-              placeholder="https://waze.com/ul/... או קואורדינטות: 32.0853,34.7818"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            <span style={{ color: '#d32f2f', fontWeight: 600 }}>⭐</span> קואורדינטות מדויקות (Latitude, Longitude):
-            <input
-              type="text"
-              name="coordinates"
-              value={form.contact.coordinates}
-              onChange={handleChange}
-              placeholder="32.0853,34.7818"
-              style={{ 
-                width: '100%', 
-                padding: 10, 
-                borderRadius: 8, 
-                border: form.contact.coordinates ? '2px solid #4caf50' : '1px solid #bbb', 
-                marginTop: 6, 
-                fontSize: 16,
-                backgroundColor: form.contact.coordinates ? '#f1f8f4' : '#fff'
-              }}
-            />
-            <div style={{ fontSize: 11, color: form.contact.coordinates ? '#4caf50' : '#666', marginTop: 4, fontWeight: form.contact.coordinates ? 500 : 400 }}>
-              {form.contact.coordinates ? (
-                <>✅ קואורדינטות מוגדרות: {form.contact.coordinates} - זה יעזור להצגת המיקום במפה</>
-              ) : (
-                <>💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה נדרש להצגת המיקום במפה. ניתן למצוא ב-Google Maps {'>'} לחץ על המיקום {'>'} העתק קואורדינטות</>
-              )}
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            כתובת לאיסוף (Pickup Address):
-            <input
-              type="text"
-              name="businessAddress"
-              value={form.contact.businessAddress || ''}
-              onChange={handleChange}
-              placeholder="بير الكسور شارع البير 10"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-              הכתובת שמוצגת במסך התשלום באפשרות איסוף
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            הערת איסוף (Pickup Note):
-            <input
-              type="text"
-              name="pickupNote"
-              value={form.contact.pickupNote || ''}
-              onChange={handleChange}
-              placeholder="جاهز للاستلام خلال 30 دقيقة."
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-              טקסט משני שמוצג מתחת לכתובת האיסוף
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            Google Maps:
-            <input
-              type="text"
-              name="googleMapsUrl"
-              value={form.contact.googleMapsUrl}
-              onChange={handleChange}
-              placeholder="https://maps.app.goo.gl/o3K3yXmw33nby6p27?g_st=ic"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-              💡 הזן קישור Google Maps של העסק שלך. ניתן למצוא אותו ב-Google Maps {'>'} שתף {'>'} העתק קישור
-            </div>
-          </label>
-          <label style={{ fontWeight: 500, color: '#444' }}>
-            אימייל:
-            <input
-              type="email"
-              name="email"
-              value={form.contact.email}
-              onChange={handleChange}
-              placeholder="info@yourbusiness.com"
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
-            />
-          </label>
-        </div>
-          </>
-        )}
-      </div>
-
       {/* === Marketing: coupons + push notifications === */}
       <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', boxSizing: 'border-box', overflowX: 'hidden' }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 4, textAlign: 'right' }}>
@@ -2161,17 +1920,24 @@ const BusinessManagePage = () => {
       </div>
       </div>
 
-      {/* === Delivery & ordering (lower) === */}
-        {/* Features/Delivery Methods Section */}
-        <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxSizing: 'border-box', overflowX: 'hidden' }}>
+      {/* === Ordering: types + prep times === */}
+      <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', boxSizing: 'border-box', overflowX: 'hidden' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 4, textAlign: 'right' }}>
+          הזמנות
+        </div>
+        <div style={{ fontSize: 12, color: '#777', marginBottom: 10, lineHeight: 1.45, textAlign: 'right' }}>
+          סוגי הזמנה וזמני הכנה
+        </div>
+        {/* Order type options */}
+        <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <button
             type="button"
             onClick={() => setShowFeatures(v => !v)}
             style={{
               background: 'none',
               border: 'none',
-              color: '#1a1a1a',
-              fontWeight: 700,
+              color: '#007bff',
+              fontWeight: 600,
               fontSize: 15,
               cursor: 'pointer',
               display: 'flex',
@@ -2181,12 +1947,12 @@ const BusinessManagePage = () => {
               padding: 0,
               width: '100%',
               maxWidth: '100%',
-              justifyContent: 'space-between',
+              flexWrap: 'wrap',
               boxSizing: 'border-box',
             }}
           >
-            <span>אפשרויות הזמנה</span>
-            <span style={{ fontSize: 14, color: '#007bff' }}>{showFeatures ? '▲' : '▼'}</span>
+            אפשרויות הזמנה
+            <span style={{ fontSize: 14 }}>{showFeatures ? '▲' : '▼'}</span>
           </button>
           {showFeatures && (
             <div style={{ padding: 12, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
@@ -2238,8 +2004,111 @@ const BusinessManagePage = () => {
           )}
         </div>
 
-        {/* Delivery Cities Section - Collapsible */}
-        <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxSizing: 'border-box', overflowX: 'hidden' }}>
+        {/* Prep time options */}
+        <div style={{ width: '100%', borderTop: '1px solid #f0f0f0', paddingTop: 14, marginTop: 10, boxSizing: 'border-box' }}>
+          <button
+            type="button"
+            onClick={() => setShowPrepTimeOptions(v => !v)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#007bff',
+              fontWeight: 600,
+              fontSize: 15,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 6,
+              padding: 0,
+              width: '100%',
+              maxWidth: '100%',
+              flexWrap: 'wrap',
+              boxSizing: 'border-box',
+            }}
+          >
+            זמני הכנה להזמנות
+            <span style={{ fontSize: 14 }}>{showPrepTimeOptions ? '▲' : '▼'}</span>
+          </button>
+
+          {showPrepTimeOptions && (
+            <>
+              <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, display: 'block' }}>אפשרויות זמן הכנה</label>
+              <div style={{ fontSize: 12, color: '#666', marginBottom: 6, marginRight: 2 }}>
+                הוסף כל אפשרות שתרצה לקביעת זמן הכנת הזמנה, אחת בכל פעם. נתן דקות, שעות, וימים. תוכל להסיר אפשרות בלחיצה על ×.
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, width: '100%', justifyContent: 'space-between', paddingRight: 2, paddingLeft: 2 }}>
+                <input
+                  type="number"
+                  min={1}
+                  value={newPrepValue}
+                  onChange={e => setNewPrepValue(e.target.value)}
+                  placeholder="מספר"
+                  style={{ width: '90px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}
+                />
+                <select value={newPrepUnit} onChange={e => setNewPrepUnit(e.target.value)} style={{ width: '100px', height: 44, padding: '0 12px', borderRadius: 10, border: '1px solid #e0e0e0', fontSize: 16, background: '#fff', textAlign: 'right', boxSizing: 'border-box' }}>
+                  <option value="minutes">דקות</option>
+                  <option value="hours">שעות</option>
+                  <option value="days">ימים</option>
+                </select>
+                <button
+                  onClick={addPrepTimeOption}
+                  disabled={
+                    !newPrepValue ||
+                    isNaN(Number(newPrepValue)) ||
+                    Number(newPrepValue) <= 0 ||
+                    (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) ||
+                    (form.prepTimeOptions || []).length >= 6
+                  }
+                  style={{ width: '90px', height: 44, borderRadius: 10, background: '#007aff', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!newPrepValue || isNaN(Number(newPrepValue)) || Number(newPrepValue) <= 0 || (form.prepTimeOptions || []).some(opt => opt.value === Number(newPrepValue) && opt.unit === newPrepUnit) || (form.prepTimeOptions || []).length >= 6) ? 0.5 : 1 }}
+                >הוסף</button>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: 12,
+                margin: '12px 0 8px',
+                width: '100%',
+                alignItems: 'stretch'
+              }}>
+                {(form.prepTimeOptions || []).map((opt, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      background: '#e0e0e0',
+                      borderRadius: 10,
+                      padding: '6px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: 13,
+                      justifyContent: 'space-between',
+                      minHeight: 44,
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {opt.value} {opt.unit === 'minutes' ? 'דקות' : opt.unit === 'hours' ? 'שעה' : 'יום'}
+                    <button onClick={() => removePrepTimeOption(idx)} style={{ marginRight: 6, background: 'none', border: 'none', color: '#e00', fontWeight: 700, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+                  </span>
+                ))}
+              </div>
+              {(form.prepTimeOptions || []).length >= 6 && (
+                <div style={{ color: '#e00', fontSize: 13, marginTop: 4, textAlign: 'center' }}>מקסימום 6 אפשרויות</div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* === Delivery: cities + driver zones === */}
+      <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', boxSizing: 'border-box', overflowX: 'hidden' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 4, textAlign: 'right' }}>
+          משלוחים
+        </div>
+        <div style={{ fontSize: 12, color: '#777', marginBottom: 10, lineHeight: 1.45, textAlign: 'right' }}>
+          ערים למשלוח ואזורי נהגים
+        </div>
+        {/* Delivery Cities */}
+        <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <button
             type="button"
             onClick={() => setShowDeliveryCities(v => !v)}
@@ -2567,8 +2436,8 @@ const BusinessManagePage = () => {
         </div>
         
 
-      {/* Driver Delivery Zones Section */}
-      <div style={{ borderTop: '1px solid #eee', paddingTop: 18, marginTop: 8 }}>
+      {/* Driver Delivery Zones */}
+      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 14, marginTop: 10, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
         <button
           type="button"
           onClick={() => setShowDriverZones(v => !v)}
@@ -2577,7 +2446,7 @@ const BusinessManagePage = () => {
             border: 'none',
             color: '#007bff',
             fontWeight: 600,
-            fontSize: 18,
+            fontSize: 15,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -2587,7 +2456,7 @@ const BusinessManagePage = () => {
         >
           <IoMdPeople size={20} />
           {showDriverZones ? 'הסתר ניהול אזורי משלוח לנהגים' : 'ניהול אזורי משלוח לנהגים 🚚'}
-          <span style={{ fontSize: 18 }}>{showDriverZones ? '▲' : '▼'}</span>
+          <span style={{ fontSize: 14 }}>{showDriverZones ? '▲' : '▼'}</span>
         </button>
         
         {showDriverZones && (
@@ -2715,6 +2584,8 @@ const BusinessManagePage = () => {
         )}
       </div>
 
+      </div>
+
         {/* Hero tagline — bottom */}
         <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxSizing: 'border-box', overflowX: 'hidden' }}>
           <button
@@ -2787,6 +2658,164 @@ const BusinessManagePage = () => {
             </div>
           )}
         </div>
+
+
+      {/* Contact info — bottom */}
+      <div style={{ marginTop: 18, width: '100%', maxWidth: '100%', background: '#fff', border: '1px solid #e8ecf1', borderRadius: 14, padding: '14px 12px 8px', boxSizing: 'border-box', overflowX: 'hidden' }}>
+        <button
+          type="button"
+          onClick={() => setShowContact(v => !v)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#007bff',
+            fontWeight: 600,
+            fontSize: 15,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: 8,
+            gap: 6,
+            padding: 0,
+            width: '100%',
+            maxWidth: '100%',
+            flexWrap: 'wrap',
+            boxSizing: 'border-box',
+          }}
+        >
+          {showContact ? 'הסתר פרטי יצירת קשר' : 'הצג פרטי יצירת קשר'}
+          <span style={{ fontSize: 18 }}>{showContact ? '▲' : '▼'}</span>
+        </button>
+        {showContact && (
+          <>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אינסטגרם:
+            <input
+              type="text"
+              name="instagram"
+              value={form.contact.instagram}
+              onChange={handleChange}
+              placeholder="@yourbusiness"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            טלפון:
+            <input
+              type="text"
+              name="phone"
+              value={form.contact.phone}
+              onChange={handleChange}
+              placeholder="04-000-0000"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אתר אינטרנט:
+            <input
+              type="text"
+              name="website"
+              value={form.contact.website}
+              onChange={handleChange}
+              placeholder="https://yourwebsite.com"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            Waze:
+            <input
+              type="text"
+              name="waze"
+              value={form.contact.waze}
+              onChange={handleChange}
+              placeholder="https://waze.com/ul/... או קואורדינטות: 32.0853,34.7818"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            <span style={{ color: '#d32f2f', fontWeight: 600 }}>⭐</span> קואורדינטות מדויקות (Latitude, Longitude):
+            <input
+              type="text"
+              name="coordinates"
+              value={form.contact.coordinates}
+              onChange={handleChange}
+              placeholder="32.0853,34.7818"
+              style={{ 
+                width: '100%', 
+                padding: 10, 
+                borderRadius: 8, 
+                border: form.contact.coordinates ? '2px solid #4caf50' : '1px solid #bbb', 
+                marginTop: 6, 
+                fontSize: 16,
+                backgroundColor: form.contact.coordinates ? '#f1f8f4' : '#fff'
+              }}
+            />
+            <div style={{ fontSize: 11, color: form.contact.coordinates ? '#4caf50' : '#666', marginTop: 4, fontWeight: form.contact.coordinates ? 500 : 400 }}>
+              {form.contact.coordinates ? (
+                <>✅ קואורדינטות מוגדרות: {form.contact.coordinates} - זה יעזור להצגת המיקום במפה</>
+              ) : (
+                <>💡 הזן קואורדינטות מדויקות (lat,lng) למיקום המדויק של העסק. זה נדרש להצגת המיקום במפה. ניתן למצוא ב-Google Maps {'>'} לחץ על המיקום {'>'} העתק קואורדינטות</>
+              )}
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            כתובת לאיסוף (Pickup Address):
+            <input
+              type="text"
+              name="businessAddress"
+              value={form.contact.businessAddress || ''}
+              onChange={handleChange}
+              placeholder="بير الكسور شارع البير 10"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              הכתובת שמוצגת במסך התשלום באפשרות איסוף
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            הערת איסוף (Pickup Note):
+            <input
+              type="text"
+              name="pickupNote"
+              value={form.contact.pickupNote || ''}
+              onChange={handleChange}
+              placeholder="جاهز للاستلام خلال 30 دقيقة."
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              טקסט משני שמוצג מתחת לכתובת האיסוף
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            Google Maps:
+            <input
+              type="text"
+              name="googleMapsUrl"
+              value={form.contact.googleMapsUrl}
+              onChange={handleChange}
+              placeholder="https://maps.app.goo.gl/o3K3yXmw33nby6p27?g_st=ic"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              💡 הזן קישור Google Maps של העסק שלך. ניתן למצוא אותו ב-Google Maps {'>'} שתף {'>'} העתק קישור
+            </div>
+          </label>
+          <label style={{ fontWeight: 500, color: '#444' }}>
+            אימייל:
+            <input
+              type="email"
+              name="email"
+              value={form.contact.email}
+              onChange={handleChange}
+              placeholder="info@yourbusiness.com"
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #bbb', marginTop: 6, fontSize: 16 }}
+            />
+          </label>
+        </div>
+          </>
+        )}
+      </div>
 
 
       {/* Action buttons side by side */}
