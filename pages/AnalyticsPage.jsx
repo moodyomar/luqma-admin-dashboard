@@ -1321,163 +1321,33 @@ const AnalyticsPage = () => {
             )}
           </div>
         )}
-        {/* Daily PDF Export Button */}
-        {timeRange === '1d' && (
+        {/* Daily PDF Export Button — today or yesterday */}
+        {(timeRange === '1d' || timeRange === 'yesterday') && (
           <button
             onClick={async () => {
-              // Generate and download daily PDF report
-              const today = new Date();
-              const todayStr = today.toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: '2-digit', 
-                day: '2-digit' 
-              });
-              
-              // Format date as DD.MM.YY for print
+              const { startDate: reportDay } = resolveAnalyticsPeriod(
+                timeRange,
+                customDateStart,
+                customDateEnd
+              );
               const formatDateShort = (date) => {
                 const day = String(date.getDate()).padStart(2, '0');
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 const year = String(date.getFullYear()).slice(-2);
                 return `${day}.${month}.${year}`;
               };
-              
-              const todayDateStr = formatDateShort(today);
-              
+              const reportDateStr = formatDateShort(reportDay);
+              const reportTitle = timeRange === 'yesterday' ? 'تقرير أمس' : 'تقرير يومي';
+
               // Helper function to check if native printer is available
               const canUseNativePrinter = () =>
                 typeof window !== 'undefined' &&
                 window.PosPrinter &&
                 typeof window.PosPrinter.printText === 'function';
               
-              // Create PDF content (HTML version)
-              const pdfContent = `
-                <!DOCTYPE html>
-                <html dir="rtl" lang="ar">
-                <head>
-                  <meta charset="UTF-8">
-                  <title>تقرير يومي - ${todayStr}</title>
-                  <style>
-                    @page { size: A4; margin: 20mm; }
-                    body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; text-align: right; }
-                    h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
-                    h2 { color: #333; margin-top: 30px; margin-bottom: 15px; }
-                    .header { margin-bottom: 30px; }
-                    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0; }
-                    .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border-right: 4px solid #007bff; }
-                    .stat-label { font-size: 14px; color: #666; margin-bottom: 5px; }
-                    .stat-value { font-size: 24px; font-weight: bold; color: #333; }
-                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                    th, td { padding: 12px; text-align: right; border-bottom: 1px solid #ddd; }
-                    th { background: #007bff; color: white; font-weight: bold; }
-                    .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd; text-align: center; color: #666; }
-                  </style>
-                </head>
-                <body>
-                  <div class="header">
-                    <h1>تقرير يومي - ${todayStr}</h1>
-                    <p>تاريخ التقرير: ${today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  </div>
-                  
-                  <div class="stats-grid">
-                    <div class="stat-card">
-                      <div class="stat-label">إجمالي المبيعات</div>
-                      <div class="stat-value">${analytics.totalSales.toLocaleString('en-US')}₪</div>
-                    </div>
-                    <div class="stat-card">
-                      <div class="stat-label">عدد الطلبات</div>
-                      <div class="stat-value">${analytics.orderCount}</div>
-                    </div>
-                    <div class="stat-card">
-                      <div class="stat-label">متوسط قيمة الطلب</div>
-                      <div class="stat-value">${analytics.avgOrderValue.toFixed(2)}₪</div>
-                    </div>
-                  </div>
-                  
-                  <h2>تفاصيل الطلبات</h2>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>طريقة التوصيل</th>
-                        <th>عدد الطلبات</th>
-                        <th>النسبة</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${Object.entries(analytics.deliveryStats).map(([method, count]) => {
-                        const total = Object.values(analytics.deliveryStats).reduce((a, b) => a + b, 0);
-                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-                        const methodNames = {
-                          'delivery': 'توصيل',
-                          'pickup': 'استلام',
-                          'eat_in': 'اكل بالمطعم',
-                          'unknown': 'غير محدد'
-                        };
-                        return `<tr>
-                          <td>${methodNames[method] || method}</td>
-                          <td>${count}</td>
-                          <td>${percentage}%</td>
-                        </tr>`;
-                      }).join('')}
-                    </tbody>
-                  </table>
-                  
-                  <h2>طرق الدفع</h2>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>طريقة الدفع</th>
-                        <th>عدد الطلبات</th>
-                        <th>المبلغ والنسبة</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${(() => {
-                        // Calculate payment amounts from filtered orders (daily) — revenue only, no delivery fee
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        const filteredOrdersForCalc = orders.filter(order => {
-                          const orderDate = new Date(order.createdAt);
-                          return orderDate >= today && orderDate < tomorrow;
-                        });
-                        
-                        const paymentAmounts = {};
-                        filteredOrdersForCalc.forEach(order => {
-                          const method = order.paymentMethod || 'unknown';
-                          paymentAmounts[method] = (paymentAmounts[method] || 0) + getOrderRevenue(order);
-                        });
-                        
-                        const total = Object.values(analytics.paymentStats).reduce((a, b) => a + b, 0);
-                        const methodNames = {
-                          'cash': 'كاش',
-                          'visa': 'فيزا',
-                          'apple_pay': 'Apple Pay',
-                          'unknown': 'غير محدد'
-                        };
-                        
-                        return Object.entries(analytics.paymentStats).map(([method, count]) => {
-                          const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-                          const amount = paymentAmounts[method] || 0;
-                          return `<tr>
-                            <td>${methodNames[method] || method}</td>
-                            <td>${count}</td>
-                            <td>${amount.toLocaleString('en-US')}₪ - ${percentage}%</td>
-                          </tr>`;
-                        }).join('');
-                      })()}
-                    </tbody>
-                  </table>
-                </body>
-                </html>
-              `;
-              
               // Create text version for silent printing (optimized for thermal printer)
-              // Capture variables from outer scope to avoid closure issues
               const currentAnalytics = analytics;
               const currentOrders = orders;
-              const currentToday = today;
-              const currentTodayDateStr = todayDateStr;
               
               const buildReportText = () => {
                 const lines = [];
@@ -1488,7 +1358,6 @@ const AnalyticsPage = () => {
                 };
                 const formatNumber = (num) => num.toLocaleString('en-US');
 
-                // Cash vs card (visa / Apple / Google Pay)
                 const bucketPayment = (method) => {
                   const m = String(method || 'unknown').toLowerCase();
                   if (m === 'cash') return 'cash';
@@ -1496,13 +1365,13 @@ const AnalyticsPage = () => {
                   return null;
                 };
 
-                const todayForCalc = new Date(currentToday);
-                todayForCalc.setHours(0, 0, 0, 0);
-                const tomorrow = new Date(todayForCalc);
-                tomorrow.setDate(tomorrow.getDate() + 1);
+                const dayStart = new Date(reportDay);
+                dayStart.setHours(0, 0, 0, 0);
+                const dayEnd = new Date(dayStart);
+                dayEnd.setHours(23, 59, 59, 999);
                 const filteredOrdersForCalc = currentOrders.filter((order) => {
                   const orderDate = new Date(order.createdAt);
-                  return orderDate >= todayForCalc && orderDate < tomorrow;
+                  return orderDate >= dayStart && orderDate <= dayEnd;
                 });
 
                 let cashTotal = 0;
@@ -1515,11 +1384,11 @@ const AnalyticsPage = () => {
                 });
 
                 lines.push('================================');
-                lines.push(centerText('تقرير يومي'));
-                lines.push(centerText(currentTodayDateStr));
+                lines.push(centerText(reportTitle));
+                lines.push(centerText(reportDateStr));
                 lines.push('================================');
                 lines.push('');
-                lines.push(`التاريخ: ${currentTodayDateStr}`);
+                lines.push(`التاريخ: ${reportDateStr}`);
                 lines.push('');
                 lines.push(`المبيعات: ${formatNumber(currentAnalytics.totalSales)}₪`);
                 lines.push(`الطلبات: ${currentAnalytics.orderCount}`);
