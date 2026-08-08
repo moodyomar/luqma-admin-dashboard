@@ -39,11 +39,88 @@ function getUserRegistrationDate(user) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+const TIME_RANGE_OPTIONS = [
+  { id: '1d', label: 'اليوم' },
+  { id: 'yesterday', label: 'أمس' },
+  { id: '7d', label: '7 أيام' },
+  { id: 'month', label: 'هذا الشهر' },
+  { id: '30d', label: '30 يوم' },
+  { id: 'custom', label: 'مخصص' },
+];
+
+/** Resolve current + previous comparison windows for analytics filters */
+function resolveAnalyticsPeriod(timeRange, customDateStart, customDateEnd, now = new Date()) {
+  let startDate = new Date(now);
+  let rangeEnd = new Date(now);
+  rangeEnd.setHours(23, 59, 59, 999);
+
+  if (timeRange === 'custom' && customDateStart && customDateEnd) {
+    startDate = new Date(customDateStart);
+    startDate.setHours(0, 0, 0, 0);
+    rangeEnd = new Date(customDateEnd);
+    rangeEnd.setHours(23, 59, 59, 999);
+  } else if (timeRange === '1d') {
+    startDate = new Date(now);
+    startDate.setHours(0, 0, 0, 0);
+  } else if (timeRange === 'yesterday') {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 1);
+    startDate.setHours(0, 0, 0, 0);
+    rangeEnd = new Date(startDate);
+    rangeEnd.setHours(23, 59, 59, 999);
+  } else if (timeRange === 'month') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    startDate.setHours(0, 0, 0, 0);
+  } else if (timeRange === '7d') {
+    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (timeRange === '30d') {
+    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  } else {
+    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  }
+
+  let previousStartDate;
+  let previousRangeEnd;
+
+  if (timeRange === '1d' || timeRange === 'yesterday') {
+    // Previous calendar day before the selected day
+    previousRangeEnd = new Date(startDate);
+    previousRangeEnd.setDate(previousRangeEnd.getDate() - 1);
+    previousRangeEnd.setHours(23, 59, 59, 999);
+    previousStartDate = new Date(previousRangeEnd);
+    previousStartDate.setHours(0, 0, 0, 0);
+  } else if (timeRange === 'month') {
+    // Full previous calendar month
+    previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    previousStartDate.setHours(0, 0, 0, 0);
+    previousRangeEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    previousRangeEnd.setHours(23, 59, 59, 999);
+  } else {
+    const periodLengthMs = Math.max(0, rangeEnd.getTime() - startDate.getTime());
+    previousRangeEnd = new Date(startDate.getTime() - 1);
+    previousStartDate = new Date(previousRangeEnd.getTime() - periodLengthMs);
+  }
+
+  const periodDays = Math.max(
+    1,
+    Math.ceil((rangeEnd.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000))
+  );
+
+  return { startDate, rangeEnd, previousStartDate, previousRangeEnd, periodDays };
+}
+
+function filterOrdersInRange(ordersList, rangeStart, rangeEnd) {
+  return ordersList.filter((order) => {
+    const orderDate = new Date(order.createdAt);
+    return orderDate >= rangeStart && orderDate <= rangeEnd;
+  });
+}
+
 const AnalyticsPage = () => {
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('7d'); // '1d', '7d', '30d', 'custom'
+  const [timeRange, setTimeRange] = useState('7d'); // 1d | yesterday | 7d | month | 30d | custom
   const [customDateStart, setCustomDateStart] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -201,71 +278,11 @@ const AnalyticsPage = () => {
   // Calculate analytics based on time range
   const analytics = useMemo(() => {
     const now = new Date();
-    const timeRanges = {
-      '1d': 1,
-      '7d': 7,
-      '30d': 30
-    };
-    
-    const days = timeRanges[timeRange];
-    
-    // Helper function to filter orders by time range
-    const filterOrdersByRange = (ordersList, rangeStart, rangeEnd = now) => {
-      if (timeRange === '1d') {
-        const today = new Date(rangeEnd);
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return ordersList.filter(order => {
-          const orderDate = new Date(order.createdAt);
-          return orderDate >= today && orderDate < tomorrow;
-        });
-      } else {
-        return ordersList.filter(order => {
-          const orderDate = new Date(order.createdAt);
-          return orderDate >= rangeStart && orderDate <= rangeEnd;
-        });
-      }
-    };
+    const { startDate, rangeEnd, previousStartDate, previousRangeEnd, periodDays } =
+      resolveAnalyticsPeriod(timeRange, customDateStart, customDateEnd, now);
 
-    let startDate;
-    let rangeEnd = new Date();
-    rangeEnd.setHours(23, 59, 59, 999);
-    if (timeRange === 'custom' && customDateStart && customDateEnd) {
-      startDate = new Date(customDateStart);
-      startDate.setHours(0, 0, 0, 0);
-      rangeEnd = new Date(customDateEnd);
-      rangeEnd.setHours(23, 59, 59, 999);
-    } else if (timeRange === '1d') {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-      rangeEnd = new Date(now);
-      rangeEnd.setHours(23, 59, 59, 999);
-    } else {
-      const daysCount = days != null ? days : 30;
-      startDate = new Date(now.getTime() - daysCount * 24 * 60 * 60 * 1000);
-    }
-
-    const filteredOrders = filterOrdersByRange(orders, startDate, timeRange === '1d' ? rangeEnd : rangeEnd);
-
-    // Previous period (same length as current) for comparison
-    let previousStartDate, previousRangeEnd;
-    if (timeRange === '1d') {
-      previousRangeEnd = new Date(startDate);
-      previousRangeEnd.setDate(previousRangeEnd.getDate() - 1);
-      previousRangeEnd.setHours(23, 59, 59, 999);
-      previousStartDate = new Date(previousRangeEnd);
-      previousStartDate.setHours(0, 0, 0, 0);
-    } else if (timeRange === 'custom' && customDateStart && customDateEnd) {
-      const periodLengthMs = rangeEnd.getTime() - startDate.getTime();
-      previousRangeEnd = new Date(startDate.getTime() - 1);
-      previousStartDate = new Date(previousRangeEnd.getTime() - periodLengthMs);
-    } else {
-      const daysCount = days != null ? days : 30;
-      previousRangeEnd = new Date(startDate.getTime() - 1);
-      previousStartDate = new Date(previousRangeEnd.getTime() - daysCount * 24 * 60 * 60 * 1000);
-    }
-    const previousFilteredOrders = filterOrdersByRange(orders, previousStartDate, previousRangeEnd);
+    const filteredOrders = filterOrdersInRange(orders, startDate, rangeEnd);
+    const previousFilteredOrders = filterOrdersInRange(orders, previousStartDate, previousRangeEnd);
 
     // Current period calculations (revenue = cart only, excludes delivery fee)
     const totalSales = filteredOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
@@ -291,10 +308,6 @@ const AnalyticsPage = () => {
           return sum + prepMinutes;
         }, 0) / ordersWithPrepTime.length
       : 0;
-
-    const periodDays = timeRange === 'custom' && customDateStart && customDateEnd
-      ? Math.max(1, Math.ceil((rangeEnd.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)))
-      : (timeRange === '1d' ? 1 : (days != null ? days : 30));
 
     const hoursInPeriod = periodDays * 24;
     const revenuePerHour = totalSales / hoursInPeriod;
@@ -493,6 +506,23 @@ const AnalyticsPage = () => {
       .sort(([a], [b]) => new Date(a) - new Date(b))
       .slice(-periodDays); // Show only the selected number of days
 
+    const formatPeriodDate = (d) => {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}.${month}`;
+    };
+    const formatPeriodRange = (from, to) => {
+      const fromDay = new Date(from);
+      fromDay.setHours(0, 0, 0, 0);
+      const toDay = new Date(to);
+      toDay.setHours(0, 0, 0, 0);
+      if (fromDay.getTime() === toDay.getTime()) return formatPeriodDate(fromDay);
+      return `${formatPeriodDate(fromDay)}–${formatPeriodDate(toDay)}`;
+    };
+
+    const currentLabelStart = startDate;
+    const currentLabelEnd = rangeEnd;
+
     return {
       totalSales,
       avgOrderValue,
@@ -515,50 +545,26 @@ const AnalyticsPage = () => {
       avgOrderValueChange,
       revenuePerHourChange,
       cancellationRateChange,
-      avgPrepTimeChange
+      avgPrepTimeChange,
+      // Comparison windows shown under % badges
+      currentPeriodLabel: formatPeriodRange(currentLabelStart, currentLabelEnd),
+      previousPeriodLabel: formatPeriodRange(previousStartDate, previousRangeEnd),
     };
   }, [orders, timeRange, customDateStart, customDateEnd]);
 
   // Calculate user analytics
   const userAnalytics = useMemo(() => {
     const now = new Date();
-    const timeRanges = { '1d': 1, '7d': 7, '30d': 30 };
-    let startDate;
-    let rangeEnd = new Date(now);
-    rangeEnd.setHours(23, 59, 59, 999);
-    if (timeRange === 'custom' && customDateStart && customDateEnd) {
-      startDate = new Date(customDateStart);
-      startDate.setHours(0, 0, 0, 0);
-      rangeEnd = new Date(customDateEnd);
-      rangeEnd.setHours(23, 59, 59, 999);
-    } else if (timeRange === '1d') {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      const days = timeRanges[timeRange] != null ? timeRanges[timeRange] : 30;
-      startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    }
-    const periodMs = rangeEnd.getTime() - startDate.getTime();
-    const previousRangeEnd = new Date(startDate.getTime() - 1);
-    const previousStartDate = new Date(previousRangeEnd.getTime() - periodMs);
+    const { startDate, rangeEnd, previousStartDate, previousRangeEnd } =
+      resolveAnalyticsPeriod(timeRange, customDateStart, customDateEnd, now);
 
     // Helper function to check if date is within time range
-    const isInTimeRange = (date, rangeStart, rangeEnd = now) => {
+    const isInTimeRange = (date, rangeStart, rangeEndBound = now) => {
       if (!date) return false;
       try {
         const activityDate = new Date(date);
         if (isNaN(activityDate.getTime())) return false; // Invalid date
-        
-        if (timeRange === '1d') {
-          // For "today", compare against current date (rangeEnd/now)
-          const today = new Date(rangeEnd);
-          today.setHours(0, 0, 0, 0);
-          const tomorrow = new Date(today);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          return activityDate >= today && activityDate < tomorrow;
-        }
-        // For other ranges, check if date is within the range
-        return activityDate >= rangeStart && activityDate <= rangeEnd;
+        return activityDate >= rangeStart && activityDate <= rangeEndBound;
       } catch (error) {
         console.warn('Error parsing date in isInTimeRange:', date, error);
         return false;
@@ -615,11 +621,6 @@ const AnalyticsPage = () => {
     const previousTotalUsers = users.filter(user => {
       const userCreatedAt = getUserRegistrationDate(user);
       if (!userCreatedAt) return false;
-      if (timeRange === '1d') {
-        const today = new Date(now);
-        today.setHours(0, 0, 0, 0);
-        return userCreatedAt < today;
-      }
       return userCreatedAt < startDate;
     }).length;
 
@@ -635,11 +636,6 @@ const AnalyticsPage = () => {
       orders
         .filter(order => {
           const orderDate = new Date(order.createdAt);
-          if (timeRange === '1d') {
-            const today = new Date(now);
-            today.setHours(0, 0, 0, 0);
-            return orderDate < today;
-          }
           return orderDate < startDate;
         })
         .map(order => order.phone)
@@ -733,6 +729,19 @@ const AnalyticsPage = () => {
       totalOrdersInPeriod,
       // Top 3 clients by order count in the selected period
       topClients,
+      previousPeriodLabel: (() => {
+        const fmt = (d) => {
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          return `${day}.${month}`;
+        };
+        const from = new Date(previousStartDate);
+        from.setHours(0, 0, 0, 0);
+        const to = new Date(previousRangeEnd);
+        to.setHours(0, 0, 0, 0);
+        if (from.getTime() === to.getTime()) return fmt(from);
+        return `${fmt(from)}–${fmt(to)}`;
+      })(),
     };
   }, [users, orders, timeRange, customDateStart, customDateEnd, authNewUserCounts]);
 
@@ -1190,28 +1199,27 @@ const AnalyticsPage = () => {
         width: '100%',
         boxSizing: 'border-box'
       }}>
-        {['1d', '7d', '30d', 'custom'].map(range => (
+        {TIME_RANGE_OPTIONS.map(({ id, label }) => (
           <button
-            key={range}
-            onClick={() => setTimeRange(range)}
+            key={id}
+            onClick={() => setTimeRange(id)}
             style={{
-              padding: window.innerWidth < 768 ? '6px 12px' : '8px 16px',
-              borderRadius: '20px',
-              border: timeRange === range ? '2px solid #007bff' : '1px solid #ddd',
-              background: timeRange === range ? '#007bff' : 'white',
-              color: timeRange === range ? 'white' : '#333',
-              fontSize: window.innerWidth < 768 ? '12px' : '14px',
+              padding: window.innerWidth < 768 ? '5px 8px' : '7px 12px',
+              borderRadius: '16px',
+              border: timeRange === id ? '2px solid #007bff' : '1px solid #ddd',
+              background: timeRange === id ? '#007bff' : 'white',
+              color: timeRange === id ? 'white' : '#333',
+              fontSize: window.innerWidth < 768 ? '11px' : '13px',
               fontWeight: 'bold',
               cursor: 'pointer',
-              flex: window.innerWidth < 768 ? '1 1 calc(50% - 3px)' : '0 0 auto',
+              flex: window.innerWidth < 768 ? '1 1 calc(33.33% - 4px)' : '0 0 auto',
               minWidth: window.innerWidth < 768 ? '0' : 'auto',
-              maxWidth: window.innerWidth < 768 ? 'calc(50% - 3px)' : 'none',
-              boxSizing: 'border-box'
+              maxWidth: window.innerWidth < 768 ? 'calc(33.33% - 4px)' : 'none',
+              boxSizing: 'border-box',
+              whiteSpace: 'nowrap',
             }}
           >
-            {range === '1d' ? 'اليوم' : 
-             range === '7d' ? '7 أيام' :
-             range === '30d' ? '30 يوم' : 'فترة مخصصة'}
+            {label}
           </button>
         ))}
         {/* Custom date range inputs */}
@@ -2015,9 +2023,10 @@ const AnalyticsPage = () => {
               opacity: 0.95, 
               marginTop: '6px',
               display: 'flex',
+              direction: 'ltr',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '6px',
               background: analytics.salesChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
               padding: '4px 8px',
               borderRadius: '12px',
@@ -2031,8 +2040,9 @@ const AnalyticsPage = () => {
               }}>
                 {Math.abs(analytics.salesChange).toFixed(1)}%
               </span>
-              <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                مقارنة بالفترة السابقة
+              <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25,  textAlign: 'right' }}>
+                <span>مقارنة بــ</span>
+                <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{analytics.previousPeriodLabel}</span>
               </span>
             </div>
           )}
@@ -2074,9 +2084,10 @@ const AnalyticsPage = () => {
               opacity: 0.95, 
               marginTop: '6px',
               display: 'flex',
+              direction: 'ltr',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '6px',
               background: analytics.orderCountChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
               padding: '4px 8px',
               borderRadius: '12px',
@@ -2090,8 +2101,9 @@ const AnalyticsPage = () => {
               }}>
                 {Math.abs(analytics.orderCountChange).toFixed(1)}%
               </span>
-              <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                مقارنة بالفترة السابقة
+              <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25, textAlign: 'right' }}>
+                <span>مقارنة بــ</span>
+                <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{analytics.previousPeriodLabel}</span>
               </span>
             </div>
           )}
@@ -2133,9 +2145,10 @@ const AnalyticsPage = () => {
               opacity: 0.95, 
               marginTop: '6px',
               display: 'flex',
+              direction: 'ltr',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '6px',
               background: analytics.completedOrdersChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
               padding: '4px 8px',
               borderRadius: '12px',
@@ -2149,8 +2162,9 @@ const AnalyticsPage = () => {
               }}>
                 {Math.abs(analytics.completedOrdersChange).toFixed(1)}%
               </span>
-              <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                مقارنة بالفترة السابقة
+              <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25, textAlign: 'right' }}>
+                <span>مقارنة بــ</span>
+                <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{analytics.previousPeriodLabel}</span>
               </span>
             </div>
           )}
@@ -2192,9 +2206,10 @@ const AnalyticsPage = () => {
               opacity: 0.95, 
               marginTop: '6px',
               display: 'flex',
+              direction: 'ltr',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '6px',
               background: analytics.avgOrderValueChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
               padding: '4px 8px',
               borderRadius: '12px',
@@ -2208,8 +2223,9 @@ const AnalyticsPage = () => {
               }}>
                 {Math.abs(analytics.avgOrderValueChange).toFixed(1)}%
               </span>
-              <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                مقارنة بالفترة السابقة
+              <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25, textAlign: 'right' }}>
+                <span>مقارنة بــ</span>
+                <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{analytics.previousPeriodLabel}</span>
               </span>
             </div>
           )}
@@ -2295,9 +2311,10 @@ const AnalyticsPage = () => {
               opacity: 0.95, 
               marginTop: '6px',
               display: 'flex',
+              direction: 'ltr',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '6px',
               background: analytics.cancellationRateChange < 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
               padding: '4px 8px',
               borderRadius: '12px',
@@ -2311,8 +2328,9 @@ const AnalyticsPage = () => {
               }}>
                 {Math.abs(analytics.cancellationRateChange).toFixed(1)}%
               </span>
-              <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                مقارنة بالفترة السابقة
+              <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25,  textAlign: 'right' }}>
+                <span>مقارنة بــ</span>
+                <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{analytics.previousPeriodLabel}</span>
               </span>
             </div>
           )}
@@ -2357,9 +2375,10 @@ const AnalyticsPage = () => {
               opacity: 0.95, 
               marginTop: '6px',
               display: 'flex',
+              direction: 'ltr',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '6px',
               background: analytics.avgPrepTimeChange < 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
               padding: '4px 8px',
               borderRadius: '12px',
@@ -2373,8 +2392,9 @@ const AnalyticsPage = () => {
               }}>
                 {Math.abs(analytics.avgPrepTimeChange).toFixed(1)}%
               </span>
-              <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                مقارنة بالفترة السابقة
+              <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25, textAlign: 'right' }}>
+                <span>مقارنة بــ</span>
+                <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{analytics.previousPeriodLabel}</span>
               </span>
             </div>
           )}
@@ -2417,9 +2437,10 @@ const AnalyticsPage = () => {
               opacity: 0.95, 
               marginTop: '6px',
               display: 'flex',
+              direction: 'ltr',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '6px',
               background: analytics.revenuePerHourChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
               padding: '4px 8px',
               borderRadius: '12px',
@@ -2433,8 +2454,9 @@ const AnalyticsPage = () => {
               }}>
                 {Math.abs(analytics.revenuePerHourChange).toFixed(1)}%
               </span>
-              <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                مقارنة بالفترة السابقة
+              <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25,  textAlign: 'right' }}>
+                <span>مقارنة بــ</span>
+                <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{analytics.previousPeriodLabel}</span>
               </span>
             </div>
           )}
@@ -2965,9 +2987,10 @@ const AnalyticsPage = () => {
                     opacity: 0.95, 
                     marginTop: '6px',
                     display: 'flex',
+                    direction: 'ltr',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '4px',
+                    gap: '6px',
                     background: userAnalytics.activeUsersChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
                     padding: '4px 8px',
                     borderRadius: '12px',
@@ -2981,8 +3004,9 @@ const AnalyticsPage = () => {
                     }}>
                       {Math.abs(userAnalytics.activeUsersChange).toFixed(1)}%
                     </span>
-                    <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                      مقارنة بالفترة السابقة
+                    <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25, textAlign: 'right' }}>
+                      <span>مقارنة بــ</span>
+                      <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{userAnalytics.previousPeriodLabel}</span>
                     </span>
                   </div>
                 )}
@@ -3025,9 +3049,10 @@ const AnalyticsPage = () => {
                     opacity: 0.95, 
                     marginTop: '6px',
                     display: 'flex',
+                    direction: 'ltr',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '4px',
+                    gap: '6px',
                     background: userAnalytics.newUsersChange > 0 ? 'rgba(144, 238, 144, 0.2)' : 'rgba(255, 182, 193, 0.2)',
                     padding: '4px 8px',
                     borderRadius: '12px',
@@ -3041,8 +3066,9 @@ const AnalyticsPage = () => {
                     }}>
                       {Math.abs(userAnalytics.newUsersChange).toFixed(1)}%
                     </span>
-                    <span style={{ fontSize: '10px', opacity: 0.85 }}>
-                      مقارنة بالفترة السابقة
+                    <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25,  textAlign: 'right' }}>
+                      <span>مقارنة بــ</span>
+                      <span style={{ fontSize: '9px', opacity: 0.9, direction: 'ltr', unicodeBidi: 'isolate' }}>{userAnalytics.previousPeriodLabel}</span>
                     </span>
                   </div>
                 )}
