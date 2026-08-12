@@ -148,13 +148,37 @@ const AnalyticsPage = () => {
       try {
         const functions = getFunctions(firebaseApp, region);
         const getCounts = httpsCallable(functions, 'getAuthNewUserCounts');
-        const result = await getCounts({
+
+        // Map yesterday/month to explicit custom dates so older deployed functions
+        // don't treat unknown ranges as 30 days (which inflated "أمس" to ~30d totals).
+        const toYmd = (d) => {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
+        let payload = {
           businessId: activeBusinessId,
           timeRange,
           ...(timeRange === 'custom'
             ? { customDateStart, customDateEnd }
             : {}),
-        });
+        };
+        if (timeRange === 'yesterday' || timeRange === 'month') {
+          const { startDate, rangeEnd } = resolveAnalyticsPeriod(
+            timeRange,
+            customDateStart,
+            customDateEnd
+          );
+          payload = {
+            businessId: activeBusinessId,
+            timeRange: 'custom',
+            customDateStart: toYmd(startDate),
+            customDateEnd: toYmd(rangeEnd),
+          };
+        }
+
+        const result = await getCounts(payload);
         const data = result.data;
         if (
           !cancelled &&
@@ -596,7 +620,7 @@ const AnalyticsPage = () => {
 
     // Previous period calculations (for comparison)
     const previousFilteredOrders = orders.filter(order => {
-      return isInTimeRange(order.createdAt, previousStartDate, startDate);
+      return isInTimeRange(order.createdAt, previousStartDate, previousRangeEnd);
     });
 
     const previousUsersWithOrders = new Set(
@@ -607,14 +631,14 @@ const AnalyticsPage = () => {
 
     const previousActiveUsers = users.filter(user => {
       const hasOrder = previousUsersWithOrders.has(user.phone);
-      const profileUpdated = isInTimeRange(user.updatedAt, previousStartDate, startDate);
-      const pointsUpdated = isInTimeRange(user.lastPointsUpdate, previousStartDate, startDate);
+      const profileUpdated = isInTimeRange(user.updatedAt, previousStartDate, previousRangeEnd);
+      const pointsUpdated = isInTimeRange(user.lastPointsUpdate, previousStartDate, previousRangeEnd);
       return hasOrder || profileUpdated || pointsUpdated;
     });
 
     const previousNewUsers = users.filter(user => {
       const reg = getUserRegistrationDate(user);
-      return reg != null && isInTimeRange(reg, previousStartDate, startDate);
+      return reg != null && isInTimeRange(reg, previousStartDate, previousRangeEnd);
     });
 
     // Calculate total users at the end of previous period (users created before current period start)

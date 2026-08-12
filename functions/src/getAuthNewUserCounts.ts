@@ -3,7 +3,7 @@ import * as admin from "firebase-admin";
 
 interface GetAuthNewUserCountsRequest {
   businessId: string;
-  timeRange: "1d" | "7d" | "30d" | "custom" | string;
+  timeRange: "1d" | "yesterday" | "7d" | "month" | "30d" | "custom" | string;
   customDateStart?: string;
   customDateEnd?: string;
 }
@@ -13,6 +13,7 @@ interface GetAuthNewUserCountsResponse {
   previousNewUsers: number;
 }
 
+/** Match AnalyticsPage resolveAnalyticsPeriod */
 function computeDateBounds(
   timeRange: string,
   customDateStart: string | undefined,
@@ -22,9 +23,9 @@ function computeDateBounds(
   startDate: Date;
   rangeEnd: Date;
   previousStartDate: Date;
+  previousRangeEnd: Date;
 } {
-  const timeRanges: Record<string, number> = { "1d": 1, "7d": 7, "30d": 30 };
-  let startDate: Date;
+  let startDate = new Date(now);
   let rangeEnd = new Date(now);
   rangeEnd.setHours(23, 59, 59, 999);
 
@@ -36,59 +37,54 @@ function computeDateBounds(
   } else if (timeRange === "1d") {
     startDate = new Date(now);
     startDate.setHours(0, 0, 0, 0);
+  } else if (timeRange === "yesterday") {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 1);
+    startDate.setHours(0, 0, 0, 0);
+    rangeEnd = new Date(startDate);
+    rangeEnd.setHours(23, 59, 59, 999);
+  } else if (timeRange === "month") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    startDate.setHours(0, 0, 0, 0);
+  } else if (timeRange === "7d") {
+    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (timeRange === "30d") {
+    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   } else {
-    const days = timeRanges[timeRange] != null ? timeRanges[timeRange] : 30;
-    startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    // Unknown range → last 7 days (safe default), never silently expand to 30
+    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   }
 
-  const periodMs = rangeEnd.getTime() - startDate.getTime();
-  const previousRangeEnd = new Date(startDate.getTime() - 1);
-  const previousStartDate = new Date(previousRangeEnd.getTime() - periodMs);
+  let previousStartDate: Date;
+  let previousRangeEnd: Date;
 
-  return { startDate, rangeEnd, previousStartDate };
+  if (timeRange === "1d" || timeRange === "yesterday") {
+    previousRangeEnd = new Date(startDate);
+    previousRangeEnd.setDate(previousRangeEnd.getDate() - 1);
+    previousRangeEnd.setHours(23, 59, 59, 999);
+    previousStartDate = new Date(previousRangeEnd);
+    previousStartDate.setHours(0, 0, 0, 0);
+  } else if (timeRange === "month") {
+    previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    previousStartDate.setHours(0, 0, 0, 0);
+    previousRangeEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    previousRangeEnd.setHours(23, 59, 59, 999);
+  } else {
+    const periodMs = Math.max(0, rangeEnd.getTime() - startDate.getTime());
+    previousRangeEnd = new Date(startDate.getTime() - 1);
+    previousStartDate = new Date(previousRangeEnd.getTime() - periodMs);
+  }
+
+  return { startDate, rangeEnd, previousStartDate, previousRangeEnd };
 }
 
-function isInCurrentRange(
-  created: Date,
-  rangeStart: Date,
-  rangeEnd: Date,
-  timeRange: string
-): boolean {
+function isInRange(created: Date, rangeStart: Date, rangeEnd: Date): boolean {
   if (Number.isNaN(created.getTime())) {
     return false;
-  }
-  if (timeRange === "1d") {
-    const today = new Date(rangeEnd);
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return created >= today && created < tomorrow;
   }
   return (
     created.getTime() >= rangeStart.getTime() &&
     created.getTime() <= rangeEnd.getTime()
-  );
-}
-
-/** Previous period: calendar yesterday for 1d; else [previousStartDate, startDate] inclusive (matches AnalyticsPage). */
-function isInPreviousRange(
-  created: Date,
-  previousStartDate: Date,
-  startDate: Date,
-  timeRange: string
-): boolean {
-  if (Number.isNaN(created.getTime())) {
-    return false;
-  }
-  if (timeRange === "1d") {
-    const endYesterday = new Date(startDate.getTime() - 1);
-    const startYesterday = new Date(endYesterday);
-    startYesterday.setHours(0, 0, 0, 0);
-    return created >= startYesterday && created <= endYesterday;
-  }
-  return (
-    created.getTime() >= previousStartDate.getTime() &&
-    created.getTime() <= startDate.getTime()
   );
 }
 
@@ -140,12 +136,13 @@ export const getAuthNewUserCounts = functions.https.onCall(
 
     const timeRange = data.timeRange || "7d";
     const now = new Date();
-    const { startDate, rangeEnd, previousStartDate } = computeDateBounds(
-      timeRange,
-      data.customDateStart,
-      data.customDateEnd,
-      now
-    );
+    const { startDate, rangeEnd, previousStartDate, previousRangeEnd } =
+      computeDateBounds(
+        timeRange,
+        data.customDateStart,
+        data.customDateEnd,
+        now
+      );
 
     const usersSnap = await admin.firestore().collection("users").get();
     const customerUids = new Set(usersSnap.docs.map((d) => d.id));
@@ -161,10 +158,10 @@ export const getAuthNewUserCounts = functions.https.onCall(
           continue;
         }
         const created = new Date(user.metadata.creationTime);
-        if (isInCurrentRange(created, startDate, rangeEnd, timeRange)) {
+        if (isInRange(created, startDate, rangeEnd)) {
           newUsers++;
         }
-        if (isInPreviousRange(created, previousStartDate, startDate, timeRange)) {
+        if (isInRange(created, previousStartDate, previousRangeEnd)) {
           previousNewUsers++;
         }
       }
