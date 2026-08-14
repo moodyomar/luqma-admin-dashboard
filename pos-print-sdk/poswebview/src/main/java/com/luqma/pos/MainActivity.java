@@ -699,9 +699,9 @@ public class MainActivity extends AppCompatActivity {
                 android.util.Log.i("POS", "🖼️ Printing beautiful order receipt with logo & Arabic");
                 
                 // Check if footer is already in the text (added by JavaScript from receiptStyle)
-                // Footer typically contains "Thank you" or "شكراً"
-                boolean hasFooter = text.contains("Thank you") || text.contains("شكراً") || 
-                                   text.contains("شكرا") || text.trim().endsWith("App");
+                // Footer typically contains "Thank you", "شكراً", or Hebrew "תודה"
+                boolean hasFooter = text.contains("Thank you") || text.contains("شكراً") ||
+                    text.contains("شكرا") || text.contains("תודה") || text.trim().endsWith("App");
                 
                 // Build clean receipt - add footer only if not already present
                 String fullText = text;

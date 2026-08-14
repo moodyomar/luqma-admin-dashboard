@@ -1,5 +1,6 @@
 // pages/OrdersPage.jsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import brandConfig from '../constants/brandConfig';
 import { formatPrice } from '../utils/formatPrice';
 import { db } from '../firebase/firebaseConfig';
@@ -351,6 +352,125 @@ const formatFutureOrderMeta = (deliveryDateTime) => {
   return { dateStr, timeStr, relativeLabel, scheduled };
 };
 
+const RECEIPT_LANG_STORAGE_KEY = 'posReceiptLang';
+
+const pickLocalizedText = (field, lang, fallback = '') => {
+  if (field == null) return fallback;
+  if (typeof field === 'string') return field;
+  if (typeof field === 'object') {
+    const preferred = lang === 'he' ? field.he : field.ar;
+    if (preferred != null && String(preferred).trim()) return String(preferred).trim();
+    if (field.ar != null && String(field.ar).trim()) return String(field.ar).trim();
+    if (field.he != null && String(field.he).trim()) return String(field.he).trim();
+    if (field.en != null && String(field.en).trim()) return String(field.en).trim();
+    const first = Object.values(field).find((v) => typeof v === 'string' && v.trim());
+    return first ? String(first).trim() : fallback;
+  }
+  return fallback;
+};
+
+const RECEIPT_I18N = {
+  ar: {
+    orderNumber: (id) => `طلب رقم #${id}`,
+    customerInfo: '--- معلومات العميل ---',
+    name: 'الاسم',
+    phone: 'الهاتف',
+    deliveryDetails: '--- تفاصيل التوصيل ---',
+    orderTypeDelivery: 'نوع الطلب: توصيل للمنزل',
+    orderTypeEatIn: 'نوع الطلب: أكل بالمطعم',
+    orderTypePickup: 'نوع الطلب: استلام من المطعم',
+    address: 'العنوان',
+    notSpecified: 'غير محدد',
+    tableNumber: 'رقم الطاولة',
+    numberOfPeople: 'عدد الأشخاص',
+    paymentMethod: 'طريقة الدفع',
+    paymentCash: 'نقداً (كاش)',
+    paymentOnline: 'مدفوع اونلاين',
+    paymentAwaiting: 'بأنتظار الدفع',
+    productCount: 'عدد المنتجات',
+    productsDetails: '--- تفاصيل المنتجات ---',
+    productFallback: (i) => `منتج ${i}`,
+    quantity: 'الكمية',
+    extras: 'إضافات',
+    specialNote: 'ملاحظة خاصة',
+    customerNote: '--- ملاحظة العميل ---',
+    dayNames: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+    futureOrder: (day) => `⚠️ طلب مستقبلي ليوم ${day}`,
+    date: 'تاريخ',
+    time: 'الساعه',
+    beforeDiscount: 'المبلغ قبل الخصم',
+    coupon: 'كوبون',
+    points: 'نقاط',
+    totalAmount: 'المبلغ الإجمالي',
+    footerDefault: 'شكراً لاستخدامكم تطبيق {brandName}',
+    orderNumberMarker: 'طلب رقم',
+    extrasMarker: 'إضافات',
+    totalMarker: 'المبلغ الإجمالي',
+    chooseLangTitle: 'لغة الإيصال',
+    chooseLangHint: 'اختر لغة الطباعة لهذه الفاتورة',
+    langAr: 'عربي',
+    langHe: 'עברית',
+    cancel: 'إلغاء',
+  },
+  he: {
+    orderNumber: (id) => `הזמנה מספר #${id}`,
+    customerInfo: '--- פרטי לקוח ---',
+    name: 'שם',
+    phone: 'טלפון',
+    deliveryDetails: '--- פרטי משלוח ---',
+    orderTypeDelivery: 'סוג הזמנה: משלוח',
+    orderTypeEatIn: 'סוג הזמנה: ישיבה במסעדה',
+    orderTypePickup: 'סוג הזמנה: איסוף עצמי',
+    address: 'כתובת',
+    notSpecified: 'לא צוין',
+    tableNumber: 'מספר שולחן',
+    numberOfPeople: 'מספר אנשים',
+    paymentMethod: 'אמצעי תשלום',
+    paymentCash: 'מזומן',
+    paymentOnline: 'שולם אונליין',
+    paymentAwaiting: 'ממתין לתשלום',
+    productCount: 'מספר מוצרים',
+    productsDetails: '--- פרטי מוצרים ---',
+    productFallback: (i) => `מוצר ${i}`,
+    quantity: 'כמות',
+    extras: 'תוספות',
+    specialNote: 'הערה מיוחדת',
+    customerNote: '--- הערת לקוח ---',
+    dayNames: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'],
+    futureOrder: (day) => `⚠️ הזמנה עתידית ליום ${day}`,
+    date: 'תאריך',
+    time: 'שעה',
+    beforeDiscount: 'סכום לפני הנחה',
+    coupon: 'קופון',
+    points: 'נקודות',
+    totalAmount: 'סה״כ לתשלום',
+    footerDefault: 'תודה שהשתמשתם באפליקציית {brandName}',
+    orderNumberMarker: 'הזמנה מספר',
+    extrasMarker: 'תוספות',
+    totalMarker: 'סה״כ לתשלום',
+    chooseLangTitle: 'שפת החשבונית',
+    chooseLangHint: 'בחר שפת הדפסה לחשבונית זו',
+    langAr: 'عربي',
+    langHe: 'עברית',
+    cancel: 'ביטול',
+  },
+};
+
+const getStoredReceiptLang = () => {
+  try {
+    const v = localStorage.getItem(RECEIPT_LANG_STORAGE_KEY);
+    return v === 'he' ? 'he' : 'ar';
+  } catch (_) {
+    return 'ar';
+  }
+};
+
+const storeReceiptLang = (lang) => {
+  try {
+    localStorage.setItem(RECEIPT_LANG_STORAGE_KEY, lang === 'he' ? 'he' : 'ar');
+  } catch (_) {}
+};
+
 const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId, receiptStyle }) => {
 
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
@@ -369,6 +489,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   const [showSuggestAlternativesModal, setShowSuggestAlternativesModal] = useState(false);
   const [alternativeSlots, setAlternativeSlots] = useState([{ date: '', time: '12:00' }]);
   const [reservationActionLoading, setReservationActionLoading] = useState(false);
+  const [showPrintLangModal, setShowPrintLangModal] = useState(false);
+  const [pendingPrintOrder, setPendingPrintOrder] = useState(null);
 
   const driverPopoverRef = useRef(null);
   const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
@@ -464,24 +586,25 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     fetchPrepOptions();
   }, []);
 
-  const buildReceiptHtml = (order) => {
+  const buildReceiptHtml = (order, lang = 'ar') => {
+    const t = RECEIPT_I18N[lang === 'he' ? 'he' : 'ar'];
     const orderId = getReadableOrderNumber(order);
     const driver = order.deliveryMethod === 'delivery' && order.assignedDriverName
-      ? `السائق: ${order.assignedDriverName}` : null;
+      ? `${lang === 'he' ? 'נהג' : 'السائق'}: ${order.assignedDriverName}` : null;
     const addressBlock = order.deliveryMethod === 'delivery'
-      ? `العنوان: ${order.address || 'غير محدد'}`
+      ? `${t.address}: ${order.address || t.notSpecified}`
       : order.deliveryMethod === 'eat_in' && order.tableNumber
-        ? `رقم الطاولة: ${order.tableNumber}${order.numberOfPeople ? ` (${order.numberOfPeople} أشخاص)` : ''}`
-        : 'نوع الطلب: استلام من المطعم';
+        ? `${t.tableNumber}: ${order.tableNumber}${order.numberOfPeople ? ` (${order.numberOfPeople})` : ''}`
+        : t.orderTypePickup;
 
     const items = (order.cart || []).map((item, index) => {
-      const name = item.name?.ar || item.name || '';
+      const name = pickLocalizedText(item.name, lang, t.productFallback(index + 1));
       const qty = item.quantity || 1;
       const size = item.optionsText ? ` (${item.optionsText})` : '';
       const extras = Array.isArray(item.selectedExtras)
         ? item.selectedExtras
             .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
-            .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : ''))
+            .map(extra => (typeof extra === 'object' ? pickLocalizedText(extra.label, lang, '') : ''))
             .filter(Boolean)
         : [];
 
@@ -492,9 +615,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             <span>× ${qty}</span>
           </div>
           ${extras.length
-            ? `<div class="item-extras item-extras-label">إضافات:</div>${extras.map((e) => `<div class="item-extras">   • ${e}</div>`).join('')}`
+            ? `<div class="item-extras item-extras-label">${t.extras}:</div>${extras.map((e) => `<div class="item-extras">   • ${e}</div>`).join('')}`
             : ''}
-          ${item.note ? `<div class="item-note">ملاحظة: ${item.note}</div>` : ''}
+          ${item.note ? `<div class="item-note">${t.specialNote}: ${item.note}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -503,33 +626,34 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
     const customerSectionHtml = `
       <div class="section">
-        <div>الاسم: ${order.name || 'غير محدد'}</div>
-        <div>الهاتف: ${formatPhoneDisplay(order.phone) || 'غير محدد'}</div>
+        <div>${t.name}: ${order.name || t.notSpecified}</div>
+        <div>${t.phone}: ${formatPhoneDisplay(order.phone) || t.notSpecified}</div>
         <div>${driver || ''}</div>
         <div>${addressBlock}</div>
       </div>`;
 
     const deliverySectionHtml = `
       <div class="section">
-        <div>طريقة التوصيل: ${deliveryString}</div>
-        ${order.deliveryMethod === 'eat_in' && order.numberOfPeople ? `<div>عدد الأشخاص: ${order.numberOfPeople}</div>` : ''}
-        <div>الدفع: ${(order.reservationStatus && order.reservationStatus !== 'reservation_paid')
-          ? 'بأنتظار الدفع'
-          : (paymentString === 'اونلاين' ? 'مدفوع عبر الإنترنت' : paymentString)}</div>
-        <div>عدد المنتجات: ${order.cart?.length || 0}</div>
+        <div>${order.deliveryMethod === 'delivery' ? t.orderTypeDelivery : order.deliveryMethod === 'eat_in' ? t.orderTypeEatIn : t.orderTypePickup}</div>
+        ${order.deliveryMethod === 'eat_in' && order.numberOfPeople ? `<div>${t.numberOfPeople}: ${order.numberOfPeople}</div>` : ''}
+        <div>${t.paymentMethod}: ${(order.reservationStatus && order.reservationStatus !== 'reservation_paid')
+          ? t.paymentAwaiting
+          : (order.paymentMethod === 'cash' ? t.paymentCash : t.paymentOnline)}</div>
+        <div>${t.productCount}: ${order.cart?.length || 0}</div>
       </div>`;
 
     const itemsSectionHtml = `
       <div class="section">
-        <div class="section-title">تفاصيل الطلب</div>
-        ${items || '<div>لا توجد منتجات</div>'}
+        <div class="section-title">${t.productsDetails.replace(/^-+\s*|\s*-+$/g, '').trim()}</div>
+        ${items || `<div>${t.notSpecified}</div>`}
       </div>`;
 
     const noteSectionHtml = order.note ? `
         <div class="section">
-          <div class="section-title">ملاحظة الزبون</div>
+          <div class="section-title">${t.customerNote.replace(/^-+\s*|\s*-+$/g, '').trim()}</div>
           <div>${order.note}</div>
         </div>` : '';
+
 
     const futureOrderHtml = !order.deliveryDateTime ? '' : (() => {
       try {
@@ -551,17 +675,16 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             const hours = String(deliveryDate.getHours()).padStart(2, '0');
             const minutes = String(deliveryDate.getMinutes()).padStart(2, '0');
 
-            const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-            const dayName = dayNames[deliveryDate.getDay()];
+            const dayName = t.dayNames[deliveryDate.getDay()];
 
             const dateStr = `${day}-${month}-${year}`;
             const timeStr = `${hours}:${minutes}`;
 
             return `
         <div class="section" style="background-color: #fff3cd; padding: 8px; border-radius: 4px; border: 1px solid #ffc107; margin-bottom: 10px;">
-          <div class="section-title" style="color: #856404;">⚠️ طلب مستقبلي ليوم ${dayName}</div>
-          <div style="color: #856404;">تاريخ: ${dateStr}</div>
-          <div style="color: #856404;">الساعه: ${timeStr}</div>
+          <div class="section-title" style="color: #856404;">${t.futureOrder(dayName)}</div>
+          <div style="color: #856404;">${t.date}: ${dateStr}</div>
+          <div style="color: #856404;">${t.time}: ${timeStr}</div>
         </div>`;
           }
         }
@@ -582,26 +705,26 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     const discountBreakdown = getOrderDiscountBreakdown(order);
     const totalSectionHtml = discountBreakdown.hasDiscounts
       ? `<div class="section">
-          <div>المبلغ قبل الخصم: ₪${discountBreakdown.beforeDiscount.toFixed(2)}</div>
+          <div>${t.beforeDiscount}: ₪${discountBreakdown.beforeDiscount.toFixed(2)}</div>
           ${
             discountBreakdown.couponDiscount > 0.005
-              ? `<div style="color:#c62828;">كوبون${
+              ? `<div style="color:#c62828;">${t.coupon}${
                   discountBreakdown.couponCode ? ` ${discountBreakdown.couponCode}` : ''
                 }: -₪${discountBreakdown.couponDiscount.toFixed(2)}</div>`
               : ''
           }
           ${
             discountBreakdown.pointsDiscount > 0.005
-              ? `<div style="color:#c62828;">نقاط: -₪${discountBreakdown.pointsDiscount.toFixed(2)}</div>`
+              ? `<div style="color:#c62828;">${t.points}: -₪${discountBreakdown.pointsDiscount.toFixed(2)}</div>`
               : ''
           }
           <div style="font-weight:bold; margin-top:6px; border:2px solid #000; padding:6px; text-align:center;">
-            المبلغ الإجمالي: ₪${discountBreakdown.finalPrice.toFixed(2)}
+            ${t.totalAmount}: ₪${discountBreakdown.finalPrice.toFixed(2)}
           </div>
         </div>`
       : `<div class="section">
           <div style="font-weight:bold; border:2px solid #000; padding:6px; text-align:center;">
-            المبلغ الإجمالي: ₪${receiptCartSubtotal.toFixed(2)}
+            ${t.totalAmount}: ₪${receiptCartSubtotal.toFixed(2)}
           </div>
         </div>`;
 
@@ -610,13 +733,13 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       : `${customerSectionHtml}${deliverySectionHtml}${itemsSectionHtml}${noteSectionHtml}`;
 
     return `
-  <html lang="ar" dir="rtl">
+  <html lang="${lang === 'he' ? 'he' : 'ar'}" dir="rtl">
     <head>
       <meta charset="UTF-8" />
-      <title>إيصال الطلب</title>
+      <title>${t.orderNumber(orderId)}</title>
       <style>
         @page { size: 58mm auto; margin: 4mm; }
-        body { font-family: 'Cairo', 'Tahoma', sans-serif; margin: 0; padding: 0 4mm; direction: rtl; text-align: right; font-size: 13px; }
+        body { font-family: 'Cairo', 'Tahoma', 'Arial Hebrew', sans-serif; margin: 0; padding: 0 4mm; direction: rtl; text-align: right; font-size: 13px; }
         .header { text-align: center; margin-bottom: 10px; }
         .header h1 { font-size: 16px; margin: 4px 0; }
         .section { margin-bottom: 10px; }
@@ -631,13 +754,13 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     </head>
     <body>
       <div class="header">
-        <h1>طلب #${orderId}</h1>
+        <h1>${t.orderNumber(orderId)}</h1>
         <div>${order.date || ''}</div>
       </div>
       ${mainSectionsHtml}
       ${futureOrderHtml}
       ${totalSectionHtml}
-      <div class="footer">شكراً لاستخدامكم تطبيق ${brandConfig.name || 'لقمة'}</div>
+      <div class="footer">${(t.footerDefault).replace('{brandName}', brandConfig.name || 'Luqma')}</div>
     </body>
   </html>
 `;
@@ -648,10 +771,32 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     window.PosPrinter &&
     typeof window.PosPrinter.printText === 'function';
 
-  const handlePrint = async (order) => {
-    console.log('🖨️ Print requested for order:', order.id);
+  const openPrintLangPicker = (orderToPrint) => {
+    setPendingPrintOrder(orderToPrint || order);
+    setShowPrintLangModal(true);
+  };
+
+  const handlePrint = async (orderToPrint, options = {}) => {
+    // Manual print: ask Arabic / Hebrew. Auto-print: use last chosen language.
+    if (!options.skipPrompt) {
+      openPrintLangPicker(orderToPrint);
+      return;
+    }
+    await executePrint(orderToPrint, getStoredReceiptLang());
+  };
+
+  const confirmPrintLanguage = async (lang) => {
+    const orderToPrint = pendingPrintOrder || order;
+    storeReceiptLang(lang);
+    setShowPrintLangModal(false);
+    setPendingPrintOrder(null);
+    await executePrint(orderToPrint, lang);
+  };
+
+  const executePrint = async (orderToPrint, lang = 'ar') => {
+    console.log('🖨️ Print requested for order:', orderToPrint.id, 'lang:', lang);
     
-    const receiptText = buildReceiptText(order, receiptStyle);
+    const receiptText = buildReceiptText(orderToPrint, receiptStyle, lang);
     const receiptStyleJson = receiptStyle ? JSON.stringify(receiptStyle) : null;
     
     // Try native POS printer first (silent printing)
@@ -662,7 +807,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         console.log('Print result:', result);
         
         if (result && result.includes('success')) {
-          toast.success('✅ تمت الطباعة بنجاح', {
+          toast.success(lang === 'he' ? '✅ הודפס בהצלחה' : '✅ تمت الطباعة بنجاح', {
             duration: 2000,
             position: 'top-center',
             style: {
@@ -674,7 +819,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           return;
         } else if (result && result.includes('error')) {
           console.error('Native print error:', result);
-          toast.error('❌ خطأ في الطباعة: ' + result, {
+          toast.error((lang === 'he' ? '❌ שגיאת הדפסה: ' : '❌ خطأ في الطباعة: ') + result, {
             duration: 3000,
             position: 'top-center',
           });
@@ -682,7 +827,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         }
       } catch (err) {
         console.error('Native POS print failed:', err);
-        toast.error('❌ فشل الاتصال بالطابعة', {
+        toast.error(lang === 'he' ? '❌ כשל בחיבור למדפסת' : '❌ فشل الاتصال بالطابعة', {
           duration: 3000,
           position: 'top-center',
         });
@@ -692,10 +837,10 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
     // Fallback to browser print dialog
     console.log('⚠️ Using fallback browser print');
-    const receiptHtml = buildReceiptHtml(order);
+    const receiptHtml = buildReceiptHtml(orderToPrint, lang);
     const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (!printWindow) {
-      toast.error('الرجاء السماح بفتح النوافذ المنبثقة للطباعة.', {
+      toast.error(lang === 'he' ? 'אנא אפשר חלונות קופצים להדפסה.' : 'الرجاء السماح بفتح النوافذ المنبثقة للطباعة.', {
         duration: 4000,
         position: 'top-center',
       });
@@ -710,7 +855,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         printWindow.print();
       } catch (err) {
         console.error('Print error', err);
-        toast.error('تعذر إرسال أمر الطباعة. الرجاء إعادة المحاولة.', {
+        toast.error(lang === 'he' ? 'לא ניתן לשלוח להדפסה. נסה שוב.' : 'تعذر إرسال أمر الطباعة. الرجاء إعادة المحاولة.', {
           duration: 3000,
           position: 'top-center',
         });
@@ -735,7 +880,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
     try {
       console.log('🖨️ Silent print for order:', orderData.id);
-      const receiptText = buildReceiptText(orderData, receiptStyle);
+      const lang = getStoredReceiptLang();
+      const receiptText = buildReceiptText(orderData, receiptStyle, lang);
       const receiptStyleJson = receiptStyle ? JSON.stringify(receiptStyle) : null;
       const result = await window.PosPrinter.printText(receiptText, receiptStyleJson || '');
       
@@ -751,7 +897,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     }
   };
 
-  const buildReceiptText = (order, receiptStyle = null) => {
+  const buildReceiptText = (order, receiptStyle = null, lang = 'ar') => {
+    const t = RECEIPT_I18N[lang === 'he' ? 'he' : 'ar'];
     const shortId = getReadableOrderNumber(order);
     const lines = [];
     const money = (value) => {
@@ -760,13 +907,11 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       return `₪${num.toFixed(2)}`;
     };
     
-    // Helper to replace {brandName} placeholder
     const replaceBrandName = (text) => {
       if (!text) return '';
       return text.replace(/{brandName}/g, brandConfig.name || 'Luqma');
     };
     
-    // Word wrap function for receipt (384px width, ~32 chars per line for Arabic - very conservative)
     const wrapText = (text, maxChars = 32, indent = '') => {
       if (!text || typeof text !== 'string') return [text || ''];
       const trimmedText = text.trim();
@@ -774,10 +919,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         return [trimmedText];
       }
       
-      console.log('🔄 Wrapping text:', trimmedText, 'Length:', trimmedText.length, 'Max:', maxChars);
-      
       const wrappedLines = [];
-      // Split by ' + ' pattern (this preserves the separator)
       const parts = trimmedText.split(/(\s*\+\s*)/);
       let currentLine = '';
       
@@ -786,31 +928,25 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         
         const testLine = currentLine + part;
         
-        // If adding this part exceeds max length and we have content, wrap
         if (testLine.length > maxChars && currentLine.trim().length > 0) {
           wrappedLines.push(currentLine.trimEnd());
-          // Start new line with indent
           currentLine = indent + part.trimStart();
         } else {
           currentLine = testLine;
         }
       });
       
-      // Add the last line
       if (currentLine.trim()) {
         wrappedLines.push(currentLine.trimEnd());
       }
       
-      // Final safety: force break any remaining long lines
       const finalLines = [];
       wrappedLines.forEach(line => {
         if (line.length <= maxChars) {
           finalLines.push(line);
         } else {
-          // Break at word boundaries
           let remaining = line;
           while (remaining.length > maxChars) {
-            // Look for break point (space or +)
             let breakPoint = maxChars;
             for (let i = maxChars; i >= Math.max(0, maxChars - 15); i--) {
               if (remaining[i] === ' ' || remaining[i] === '+') {
@@ -828,12 +964,10 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         }
       });
       
-      console.log('✅ Wrapped into', finalLines.length, 'lines:', finalLines);
       return finalLines.filter(line => line && line.length > 0);
     };
 
-    // Order header (no solid line under logo — logo is drawn in POS bitmap header only)
-    lines.push(`طلب رقم #${shortId}`);
+    lines.push(t.orderNumber(shortId));
     if (order.date) lines.push(order.date);
     lines.push('- - - - - - - - - - - - - - - -');
 
@@ -842,42 +976,44 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
     const pushCustomerSection = () => {
       lines.push('');
-      lines.push('--- معلومات العميل ---');
-      if (order.name) lines.push(`الاسم: ${order.name}`);
-      if (order.phone) lines.push(`الهاتف: ${formatPhoneDisplay(order.phone)}`);
+      lines.push(t.customerInfo);
+      if (order.name) lines.push(`${t.name}: ${order.name}`);
+      if (order.phone) lines.push(`${t.phone}: ${formatPhoneDisplay(order.phone)}`);
       lines.push(dashedSep);
     };
 
     const pushDeliverySection = () => {
       lines.push('');
-      lines.push('--- تفاصيل التوصيل ---');
+      lines.push(t.deliveryDetails);
       if (order.deliveryMethod === 'delivery') {
-        lines.push(`نوع الطلب: توصيل للمنزل`);
-        const addressText = `العنوان: ${order.address || 'غير محدد'}`;
+        lines.push(t.orderTypeDelivery);
+        const addressText = `${t.address}: ${order.address || t.notSpecified}`;
         wrapText(addressText, 38).forEach(line => lines.push(line));
       } else if (order.deliveryMethod === 'eat_in') {
-        lines.push(`نوع الطلب: أكل بالمطعم`);
-        if (order.tableNumber) lines.push(`رقم الطاولة: ${order.tableNumber}`);
-        if (order.numberOfPeople) lines.push(`عدد الأشخاص: ${order.numberOfPeople}`);
+        lines.push(t.orderTypeEatIn);
+        if (order.tableNumber) lines.push(`${t.tableNumber}: ${order.tableNumber}`);
+        if (order.numberOfPeople) lines.push(`${t.numberOfPeople}: ${order.numberOfPeople}`);
       } else {
-        lines.push(`نوع الطلب: استلام من المطعم`);
+        lines.push(t.orderTypePickup);
       }
       if (order.paymentMethod) {
         const isAwaiting = order.reservationStatus && order.reservationStatus !== 'reservation_paid';
-        const paymentLabel = isAwaiting ? 'بأنتظار الدفع' : (order.paymentMethod === 'cash' ? 'نقداً (كاش)' : 'مدفوع اونلاين');
-        lines.push(`طريقة الدفع: ${paymentLabel}`);
+        const paymentLabel = isAwaiting
+          ? t.paymentAwaiting
+          : (order.paymentMethod === 'cash' ? t.paymentCash : t.paymentOnline);
+        lines.push(`${t.paymentMethod}: ${paymentLabel}`);
       }
-      lines.push(`عدد المنتجات: ${order.cart?.length || 0}`);
+      lines.push(`${t.productCount}: ${order.cart?.length || 0}`);
       lines.push(dashedSep);
     };
 
     const pushProductsSection = () => {
       lines.push('');
-      lines.push('--- تفاصيل المنتجات ---');
+      lines.push(t.productsDetails);
       lines.push('');
 
       (order.cart || []).forEach((item, index) => {
-        const name = item.name?.ar || item.name || `منتج ${index + 1}`;
+        const name = pickLocalizedText(item.name, lang, t.productFallback(index + 1));
         const qty = item.quantity || 1;
         const price = money(item.totalPrice || item.price || 0);
         const options = item.optionsText ? ` (${item.optionsText})` : '';
@@ -885,15 +1021,15 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         const itemLine = `${index + 1}. ${name}${options}`;
         const wrappedItemLine = wrapText(itemLine, 38);
         wrappedItemLine.forEach(line => lines.push(line));
-        lines.push(`   الكمية: ${qty} × ${price}`);
+        lines.push(`   ${t.quantity}: ${qty} × ${price}`);
 
         if (Array.isArray(item.selectedExtras) && item.selectedExtras.length) {
           const extras = item.selectedExtras
             .filter(extra => extra?.handlingAs !== 'ingredients' || extra?.ingredientAction === 'without')
-            .map(extra => (typeof extra === 'object' ? (extra.label?.ar || extra.label || '') : extra))
+            .map(extra => (typeof extra === 'object' ? pickLocalizedText(extra.label, lang, '') : extra))
             .filter(Boolean);
           if (extras.length) {
-            lines.push('   إضافات:');
+            lines.push(`   ${t.extras}:`);
             extras.forEach((label) => {
               wrapText(`   • ${label}`, 35, '   ').forEach((line) => lines.push(line));
             });
@@ -901,7 +1037,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         }
 
         if (item.note) {
-          const noteText = `   ملاحظة خاصة: ${item.note}`;
+          const noteText = `   ${t.specialNote}: ${item.note}`;
           const wrappedNote = wrapText(noteText, 38, '   ');
           wrappedNote.forEach(line => lines.push(line));
         }
@@ -910,7 +1046,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       });
 
       if (order.note) {
-        lines.push('--- ملاحظة العميل ---');
+        lines.push(t.customerNote);
         const wrappedCustomerNote = wrapText(order.note, 38);
         wrappedCustomerNote.forEach(line => lines.push(line));
         lines.push('');
@@ -928,11 +1064,9 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       pushProductsSection();
     }
 
-    // Future Order Indicator - Show if order is scheduled for future (Arabic format, before total)
     if (order.deliveryDateTime) {
       try {
         let deliveryDate;
-        // Handle Firestore Timestamp
         if (order.deliveryDateTime.toDate && typeof order.deliveryDateTime.toDate === 'function') {
           deliveryDate = order.deliveryDateTime.toDate();
         } else if (order.deliveryDateTime instanceof Date) {
@@ -944,24 +1078,21 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         if (!isNaN(deliveryDate.getTime())) {
           const now = new Date();
           if (deliveryDate > now) {
-            // Format date and time in Arabic format (DD-MM-YYYY HH:MM)
             const year = deliveryDate.getFullYear();
             const month = String(deliveryDate.getMonth() + 1).padStart(2, '0');
             const day = String(deliveryDate.getDate()).padStart(2, '0');
             const hours = String(deliveryDate.getHours()).padStart(2, '0');
             const minutes = String(deliveryDate.getMinutes()).padStart(2, '0');
             
-            // Get Arabic day name
-            const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-            const dayName = dayNames[deliveryDate.getDay()];
+            const dayName = t.dayNames[deliveryDate.getDay()];
             
             const dateStr = `${day}-${month}-${year}`;
             const timeStr = `${hours}:${minutes}`;
             
             lines.push('');
-            lines.push(`⚠️ طلب مستقبلي ليوم ${dayName}`);
-            lines.push(`تاريخ: ${dateStr}`);
-            lines.push(`الساعه: ${timeStr}`);
+            lines.push(t.futureOrder(dayName));
+            lines.push(`${t.date}: ${dateStr}`);
+            lines.push(`${t.time}: ${timeStr}`);
             lines.push('- - - - - - - - - - - - - - - -');
           }
         }
@@ -970,8 +1101,6 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       }
     }
 
-    // Calculate total excluding delivery fee
-    // Delivery fee should not appear on printed receipt
     const discountBreakdown = getOrderDiscountBreakdown(order);
     let cartSubtotal = 0;
     if (order.cart && Array.isArray(order.cart)) {
@@ -984,47 +1113,48 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
 
     lines.push('================================');
     if (discountBreakdown.hasDiscounts) {
-      lines.push(`المبلغ قبل الخصم: ${money(discountBreakdown.beforeDiscount)}`);
+      lines.push(`${t.beforeDiscount}: ${money(discountBreakdown.beforeDiscount)}`);
       if (discountBreakdown.couponDiscount > 0.005) {
         const couponLabel = discountBreakdown.couponCode
-          ? `كوبون ${discountBreakdown.couponCode}`
-          : 'كوبون';
+          ? `${t.coupon} ${discountBreakdown.couponCode}`
+          : t.coupon;
         lines.push(`${couponLabel}: -${money(discountBreakdown.couponDiscount)}`);
       }
       if (discountBreakdown.pointsDiscount > 0.005) {
-        lines.push(`نقاط: -${money(discountBreakdown.pointsDiscount)}`);
+        lines.push(`${t.points}: -${money(discountBreakdown.pointsDiscount)}`);
       }
-      // Use المبلغ الإجمالي so H10 borders THIS line — always the paid/final amount after discounts
-      lines.push(`المبلغ الإجمالي: ${money(discountBreakdown.finalPrice)}`);
+      lines.push(`${t.totalAmount}: ${money(discountBreakdown.finalPrice)}`);
     } else {
       const receiptTotal = cartSubtotal;
-      lines.push(`المبلغ الإجمالي: ${money(receiptTotal)}`);
+      lines.push(`${t.totalAmount}: ${money(receiptTotal)}`);
     }
     lines.push('================================');
     
-    // Footer text from receiptStyle (if available)
     if (receiptStyle) {
       const footerEn = receiptStyle.footerTextEn || 'Thank you for using {brandName} App';
-      const footerAr = receiptStyle.footerTextAr || 'شكراً لاستخدامكم تطبيق {brandName}';
+      const footerLocalized = lang === 'he'
+        ? (receiptStyle.footerTextHe || t.footerDefault)
+        : (receiptStyle.footerTextAr || t.footerDefault);
       lines.push(replaceBrandName(footerEn));
-      lines.push(replaceBrandName(footerAr));
+      lines.push(replaceBrandName(footerLocalized));
+    } else {
+      lines.push(replaceBrandName(t.footerDefault));
     }
-    // If no receiptStyle provided, Java/Android will add footer from strings.xml
 
-    // When titlesBoldOnly: prefix non-title lines with \u200B so Java draws them with normal weight
     if (receiptStyle && receiptStyle.titlesBoldOnly) {
       const isTitleLine = (line, index) => {
-        const t = (line || '').trim();
-        if (t.length === 0) return false; // empty stays as-is (Java uses emptyGap)
-        if (/^=+$/.test(t.replace(/\s/g, ''))) return true;
-        if (/^-+$/.test(t.replace(/\s/g, '')) || t.startsWith('- - -')) return true;
-        if (/^--- .+ ---$/.test(t)) return true;
-        if (line.includes('طلب رقم')) return true;
-        if (index === 1 && lines[0] && lines[0].includes('طلب رقم')) return true;
-        if (/^\d+\.\s/.test(t)) return true;
-        if (t.startsWith('إضافات') || t.includes('إضافات:')) return true;
-        if (line.includes('المبلغ الإجمالي') || line.includes('المبلغ النهائي') || line.includes('Total Amount')) return true;
-        if (index >= lines.length - 2) return true; // footer
+        const raw = (line || '').trim();
+        const cleaned = raw.replace(/^\u200B+/, '');
+        if (cleaned.length === 0) return false;
+        if (/^=+$/.test(cleaned.replace(/\s/g, ''))) return true;
+        if (/^-+$/.test(cleaned.replace(/\s/g, '')) || cleaned.startsWith('- - -')) return true;
+        if (/^--- .+ ---$/.test(cleaned)) return true;
+        if (cleaned.includes(t.orderNumberMarker)) return true;
+        if (index === 1 && lines[0] && lines[0].includes(t.orderNumberMarker)) return true;
+        if (/^\d+\.\s/.test(cleaned)) return true;
+        if (cleaned.startsWith(t.extrasMarker) || cleaned.includes(`${t.extrasMarker}:`)) return true;
+        if (cleaned.includes(t.totalMarker) || cleaned.includes('Total Amount')) return true;
+        if (index >= lines.length - 2) return true;
         return false;
       };
       for (let i = 0; i < lines.length; i++) {
@@ -1032,6 +1162,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       }
     }
 
+    console.log('📄 Receipt text generated, length:', lines.join('\n').length, 'lang:', lang);
     return lines.join('\n');
   };
 
@@ -1071,7 +1202,7 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
       // Tries native POS printer first (silent), falls back to browser print dialog if needed
       // Small delay to ensure UI updates first
       setTimeout(async () => {
-        await handlePrint(updatedOrder);
+        await handlePrint(updatedOrder, { skipPrompt: true });
       }, 300);
       
       toast.success('✅ تم قبول الطلب وتمت الطباعة تلقائياً', {
@@ -1349,9 +1480,105 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
           <span className="order-id">#{getReadableOrderNumber(order)}</span>
         </div>
         <div className="print-row">
-          <button className="printingBtn" onClick={() => handlePrint(order)}>🖨️</button>
+          <button className="printingBtn" onClick={() => openPrintLangPicker(order)}>🖨️</button>
         </div>
       </div>
+
+      {showPrintLangModal && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            background: 'rgba(0,0,0,0.45)',
+            zIndex: 100000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            boxSizing: 'border-box',
+          }}
+          onClick={() => {
+            setShowPrintLangModal(false);
+            setPendingPrintOrder(null);
+          }}
+        >
+          <div
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              padding: '20px 18px',
+              width: '100%',
+              maxWidth: 340,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>لغة الإيصال / שפת החשבונית</div>
+            <div style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.4 }}>
+              اختر لغة الطباعة · בחר שפת הדפסה
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <button
+                type="button"
+                onClick={() => confirmPrintLanguage('ar')}
+                style={{
+                  flex: 1,
+                  padding: '14px 10px',
+                  borderRadius: 12,
+                  border: getStoredReceiptLang() === 'ar' ? '2px solid #007bff' : '1px solid #ddd',
+                  background: getStoredReceiptLang() === 'ar' ? '#e7f1ff' : '#f8f9fa',
+                  fontWeight: 700,
+                  fontSize: 16,
+                  cursor: 'pointer',
+                }}
+              >
+                عربي
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmPrintLanguage('he')}
+                style={{
+                  flex: 1,
+                  padding: '14px 10px',
+                  borderRadius: 12,
+                  border: getStoredReceiptLang() === 'he' ? '2px solid #007bff' : '1px solid #ddd',
+                  background: getStoredReceiptLang() === 'he' ? '#e7f1ff' : '#f8f9fa',
+                  fontWeight: 700,
+                  fontSize: 16,
+                  cursor: 'pointer',
+                }}
+              >
+                עברית
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowPrintLangModal(false);
+                setPendingPrintOrder(null);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#888',
+                fontSize: 14,
+                cursor: 'pointer',
+                padding: 8,
+              }}
+            >
+              إلغاء / ביטול
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* New Order Badge */}
       {isNewOrder && (
