@@ -134,6 +134,7 @@ const AnalyticsPage = () => {
   });
   const [showUserAnalytics, setShowUserAnalytics] = useState(false); // Collapsed by default
   const [showLiveStatus, setShowLiveStatus] = useState(false); // Collapsed by default
+  const [showNewUsersTable, setShowNewUsersTable] = useState(false);
   /** From Cloud Function: Auth metadata.creationTime, scoped to users/{uid} docs (same as total users). */
   const [authNewUserCounts, setAuthNewUserCounts] = useState(null);
   const navigate = useNavigate();
@@ -618,6 +619,47 @@ const AnalyticsPage = () => {
       return reg != null && isInTimeRange(reg, startDate, rangeEnd);
     });
 
+    const formatPhoneShort = (phone) => {
+      if (!phone) return '—';
+      const s = String(phone).trim();
+      if (s.startsWith('+972')) return `0${s.slice(4)}`;
+      return s;
+    };
+    const formatRegDate = (d) => {
+      if (!d) return '—';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = String(d.getFullYear()).slice(-2);
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${day}.${month}.${year} ${hours}:${minutes}`;
+    };
+
+    const newUsersList = newUsers
+      .map((user) => {
+        const registeredAt = getUserRegistrationDate(user);
+        const name =
+          user.name ||
+          user.displayName ||
+          user.fullName ||
+          user.userName ||
+          'بدون اسم';
+        return {
+          id: user.id,
+          name: String(name).trim() || 'بدون اسم',
+          phone: formatPhoneShort(user.phone),
+          phoneRaw: user.phone || '',
+          registeredAt,
+          registeredAtLabel: formatRegDate(registeredAt),
+        };
+      })
+      .sort((a, b) => {
+        const ta = a.registeredAt ? a.registeredAt.getTime() : 0;
+        const tb = b.registeredAt ? b.registeredAt.getTime() : 0;
+        return tb - ta;
+      })
+      .slice(0, 20);
+
     // Previous period calculations (for comparison)
     const previousFilteredOrders = orders.filter(order => {
       return isInTimeRange(order.createdAt, previousStartDate, previousRangeEnd);
@@ -742,7 +784,8 @@ const AnalyticsPage = () => {
       activeUsers: activeUsers.length,
       newUsers: newUsersForCard,
       totalActiveUsers: allOrderUserPhones.size,
-      newUsersList: newUsers.slice(0, 10),
+      newUsersList,
+      newUsersTotalInPeriod: newUsers.length,
       // Percentage changes
       totalUsersChange,
       activeUsersChange,
@@ -2795,7 +2838,27 @@ const AnalyticsPage = () => {
             gap: '10px'
           }}>
             <span>👥</span>
-            <span>إحصائيات المستخدمين</span>
+            <span>
+              إحصائيات المستخدمين
+              <span style={{ fontWeight: 600, color: '#666', fontSize: '0.85em' }}>
+                ({(() => {
+                  if (timeRange === '1d') return 'اليوم فقط';
+                  if (timeRange === 'yesterday') return 'يوم امس فقط';
+                  if (timeRange === '7d') return 'اخر 7 ايام';
+                  if (timeRange === 'month') return 'الشهر الحالي';
+                  if (timeRange === '30d') return 'اخر 30 يوم';
+                  if (timeRange === 'custom' && customDateStart && customDateEnd) {
+                    const fmt = (d) => {
+                      const day = String(d.getDate()).padStart(2, '0');
+                      const month = String(d.getMonth() + 1).padStart(2, '0');
+                      return `${day}.${month}`;
+                    };
+                    return `${fmt(new Date(customDateStart))}–${fmt(new Date(customDateEnd))}`;
+                  }
+                  return 'مخصص';
+                })()})
+              </span>
+            </span>
           </h2>
           <span style={{ 
             fontSize: '20px', 
@@ -3002,6 +3065,110 @@ const AnalyticsPage = () => {
                   ({userAnalytics.totalOrdersInPeriod} طلب / {userAnalytics.activeUsers} مستخدم نشط)
                 </div>
               </div>
+            </div>
+
+            {/* New users — collapsible name/phone list for selected period */}
+            <div style={{ marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => setShowNewUsersTable((v) => !v)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 10,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: '1px solid #e8ecf1',
+                  background: showNewUsersTable ? '#f0f4ff' : '#fafbfc',
+                  cursor: 'pointer',
+                  textAlign: 'right',
+                }}
+              >
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#1a1a2e' }}>
+                  أسماء المستخدمين الجدد
+                  <span style={{ fontWeight: 500, color: '#666', marginRight: 8, fontSize: 12 }}>
+                    ({Math.min(20, userAnalytics.newUsersTotalInPeriod || 0)}
+                    {(userAnalytics.newUsersTotalInPeriod || 0) > 20
+                      ? ` من ${userAnalytics.newUsersTotalInPeriod}`
+                      : ''}
+                    )
+                  </span>
+                </span>
+                <span style={{ color: '#007bff', fontSize: 14 }}>
+                  {showNewUsersTable ? '▲' : '▼'}
+                </span>
+              </button>
+
+              {showNewUsersTable && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    border: '1px solid #e8ecf1',
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    background: '#fff',
+                  }}
+                >
+                  {(userAnalytics.newUsersList || []).length === 0 ? (
+                    <div style={{ padding: 16, textAlign: 'center', color: '#888', fontSize: 13 }}>
+                      لا يوجد مستخدمون جدد في الفترة المحددة
+                    </div>
+                  ) : (
+                    <div style={{ maxHeight: 320, overflowY: 'auto', overflowX: 'auto' }}>
+                      <table
+                        style={{
+                          width: '100%',
+                          borderCollapse: 'collapse',
+                          fontSize: window.innerWidth < 768 ? 12 : 13,
+                          direction: 'rtl',
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ background: '#f5f7fb', position: 'sticky', top: 0 }}>
+                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#555', borderBottom: '1px solid #e8ecf1' }}>#</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#555', borderBottom: '1px solid #e8ecf1' }}>الاسم</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#555', borderBottom: '1px solid #e8ecf1' }}>الهاتف</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#555', borderBottom: '1px solid #e8ecf1', whiteSpace: 'nowrap' }}>التسجيل</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(userAnalytics.newUsersList || []).map((u, idx) => (
+                            <tr
+                              key={u.id || `${u.phone}-${idx}`}
+                              style={{
+                                background: idx % 2 === 0 ? '#fff' : '#fafbfc',
+                                borderBottom: '1px solid #f0f0f0',
+                              }}
+                            >
+                              <td style={{ padding: '10px 12px', color: '#999' }}>{idx + 1}</td>
+                              <td style={{ padding: '10px 12px', fontWeight: 600, color: '#222' }}>{u.name}</td>
+                              <td style={{ padding: '10px 12px', direction: 'ltr', textAlign: 'right', fontFamily: 'monospace', color: '#333' }}>
+                                {u.phoneRaw ? (
+                                  <a href={`tel:${u.phoneRaw}`} style={{ color: '#007bff', textDecoration: 'none' }}>
+                                    {u.phone}
+                                  </a>
+                                ) : (
+                                  u.phone
+                                )}
+                              </td>
+                              <td style={{ padding: '10px 12px', color: '#666', whiteSpace: 'nowrap', direction: 'ltr', textAlign: 'right' }}>
+                                {u.registeredAtLabel}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {(userAnalytics.newUsersTotalInPeriod || 0) > 20 && (
+                    <div style={{ padding: '8px 12px', fontSize: 11, color: '#888', textAlign: 'center', borderTop: '1px solid #f0f0f0' }}>
+                      يتم عرض أحدث 20 مستخدم فقط
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
