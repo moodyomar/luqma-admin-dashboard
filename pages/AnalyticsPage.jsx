@@ -135,6 +135,9 @@ const AnalyticsPage = () => {
   const [showUserAnalytics, setShowUserAnalytics] = useState(false); // Collapsed by default
   const [showLiveStatus, setShowLiveStatus] = useState(false); // Collapsed by default
   const [showNewUsersTable, setShowNewUsersTable] = useState(false);
+  /** Trend chart range independent of main analytics filters */
+  const [trendRange, setTrendRange] = useState('3m'); // 3m | 6m | 1y
+  const [trendHoverIndex, setTrendHoverIndex] = useState(null);
   /** From Cloud Function: Auth metadata.creationTime, scoped to users/{uid} docs (same as total users). */
   const [authNewUserCounts, setAuthNewUserCounts] = useState(null);
   const navigate = useNavigate();
@@ -811,6 +814,64 @@ const AnalyticsPage = () => {
       })(),
     };
   }, [users, orders, timeRange, customDateStart, customDateEnd, authNewUserCounts]);
+
+  // Monthly sales + orders + new users trend (own range: 3m / 6m / 1y)
+  const salesOrdersTrend = useMemo(() => {
+    const ARABIC_MONTHS = [
+      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+    ];
+    const monthsCount = trendRange === '1y' ? 12 : trendRange === '6m' ? 6 : 3;
+    const now = new Date();
+    const buckets = [];
+    for (let i = monthsCount - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      d.setHours(0, 0, 0, 0);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      buckets.push({
+        key,
+        year: d.getFullYear(),
+        monthIndex: d.getMonth(),
+        label: `${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`,
+        shortLabel: ARABIC_MONTHS[d.getMonth()],
+        start: d,
+        end,
+        sales: 0,
+        orders: 0,
+        newUsers: 0,
+      });
+    }
+    const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));
+    orders.forEach((order) => {
+      if (!order?.createdAt) return;
+      const status = order.status || '';
+      if (status === 'cancelled' || status === 'canceled') return;
+      const created = new Date(order.createdAt);
+      if (Number.isNaN(created.getTime())) return;
+      const key = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}`;
+      const bucket = byKey[key];
+      if (!bucket) return;
+      if (created < bucket.start || created > bucket.end) return;
+      bucket.sales += getOrderRevenue(order);
+      bucket.orders += 1;
+    });
+    users.forEach((user) => {
+      const reg = getUserRegistrationDate(user);
+      if (!reg) return;
+      const key = `${reg.getFullYear()}-${String(reg.getMonth() + 1).padStart(2, '0')}`;
+      const bucket = byKey[key];
+      if (!bucket) return;
+      if (reg < bucket.start || reg > bucket.end) return;
+      bucket.newUsers += 1;
+    });
+    const maxSales = Math.max(1, ...buckets.map((b) => b.sales));
+    const maxOrders = Math.max(...buckets.map((b) => b.orders), 0);
+    const maxNewUsers = Math.max(...buckets.map((b) => b.newUsers), 0);
+    // Shared right-axis scale for order/user counts
+    const maxCount = Math.max(1, maxOrders, maxNewUsers);
+    return { buckets, maxSales, maxOrders, maxNewUsers, maxCount, monthsCount };
+  }, [orders, users, trendRange]);
 
   const getCustomRangeReportText = (startDate, endDate) => {
     const formatDateShort = (date) => {
@@ -2667,9 +2728,336 @@ const AnalyticsPage = () => {
         </div>
       </div>
 
-      {/* Top 3 clients — above user analytics */}
+      {/* Sales & orders trend — above top 3 clients */}
       <div style={{
         marginTop: '40px',
+        marginBottom: '20px',
+        background: 'white',
+        borderRadius: '15px',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        border: '1px solid #eee',
+        overflow: 'hidden',
+        padding: window.innerWidth < 768 ? '16px' : '22px 25px',
+      }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: window.innerWidth < 768 ? 'column' : 'row',
+          flexWrap: window.innerWidth < 768 ? 'wrap' : 'nowrap',
+          alignItems: window.innerWidth < 768 ? 'stretch' : 'center',
+          justifyContent: 'space-between',
+          gap: window.innerWidth < 768 ? '8px' : '12px',
+          marginBottom: window.innerWidth < 768 ? '12px' : '18px',
+        }}>
+          <h2 style={{
+            margin: 0,
+            color: '#333',
+            fontSize: window.innerWidth < 768 ? '13px' : '20px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: window.innerWidth < 768 ? '4px' : '10px',
+            flex: window.innerWidth < 768 ? 'none' : 1,
+            minWidth: 0,
+            lineHeight: 1.3,
+          }}>
+            <span style={{ flexShrink: 0, fontSize: window.innerWidth < 768 ? '14px' : undefined }}>📈</span>
+            <span style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: window.innerWidth < 768 ? 'nowrap' : 'normal',
+            }}>
+              اتجاه المبيعات والطلبات والمستخدمين
+            </span>
+          </h2>
+          <div style={{
+            display: 'flex',
+            gap: window.innerWidth < 768 ? '5px' : '8px',
+            flexWrap: 'nowrap',
+            flexShrink: 0,
+            justifyContent: window.innerWidth < 768 ? 'flex-end' : undefined,
+            alignSelf: window.innerWidth < 768 ? 'flex-start' : undefined,
+            width: 'auto',
+            maxWidth: '100%',
+          }}>
+            {[
+              { id: '3m', label: '3 أشهر' },
+              { id: '6m', label: '6 أشهر' },
+              { id: '1y', label: 'سنة' },
+            ].map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                className="analytics-trend-chip"
+                onClick={() => {
+                  setTrendRange(id);
+                  setTrendHoverIndex(null);
+                }}
+                style={{
+                  background: trendRange === id
+                    ? 'linear-gradient(135deg, #f77f00 0%, #fcbf49 100%)'
+                    : '#f8f9fa',
+                  color: trendRange === id ? 'white' : '#444',
+                  border: trendRange === id ? '1px solid transparent' : '1px solid #ddd',
+                  boxShadow: trendRange === id ? '0 1px 4px rgba(247,127,0,0.3)' : 'none',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {(() => {
+          const { buckets, maxSales, maxCount } = salesOrdersTrend;
+          const isMobile = window.innerWidth < 768;
+          const W = isMobile ? 340 : 720;
+          const H = isMobile ? 220 : 280;
+          const pad = { top: 20, right: 48, bottom: 44, left: 56 };
+          const plotW = W - pad.left - pad.right;
+          const plotH = H - pad.top - pad.bottom;
+          const n = buckets.length;
+          const xAt = (i) => pad.left + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+          const ySales = (v) => pad.top + plotH - (v / maxSales) * plotH;
+          const yCount = (v) => pad.top + plotH - (v / maxCount) * plotH;
+          const salesPath = buckets
+            .map((b, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${ySales(b.sales).toFixed(1)}`)
+            .join(' ');
+          const ordersPath = buckets
+            .map((b, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${yCount(b.orders).toFixed(1)}`)
+            .join(' ');
+          const usersPath = buckets
+            .map((b, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${yCount(b.newUsers).toFixed(1)}`)
+            .join(' ');
+          const salesTicks = [0, 0.5, 1].map((t) => Math.round(maxSales * t));
+          const countTicks = [0, 0.5, 1].map((t) => Math.round(maxCount * t));
+          const formatSalesAxis = (v) => {
+            if (v >= 1000) return `${Math.round(v / 1000)}k`;
+            return String(v);
+          };
+          const hover = trendHoverIndex != null ? buckets[trendHoverIndex] : null;
+          const hoverX = trendHoverIndex != null ? xAt(trendHoverIndex) : 0;
+          const colW = n <= 1 ? plotW : plotW / (n - 1);
+          const USERS_COLOR = '#28a745';
+
+          return (
+            <>
+              <div
+                style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }}
+                onMouseLeave={() => setTrendHoverIndex(null)}
+              >
+                <svg
+                  viewBox={`0 0 ${W} ${H}`}
+                  width="100%"
+                  height={isMobile ? 220 : 280}
+                  style={{ display: 'block', minWidth: isMobile ? 320 : undefined }}
+                  role="img"
+                  aria-label="اتجاه المبيعات والطلبات والمستخدمين"
+                >
+                  {/* grid */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+                    const y = pad.top + plotH * (1 - t);
+                    return (
+                      <line
+                        key={`g-${t}`}
+                        x1={pad.left}
+                        y1={y}
+                        x2={W - pad.right}
+                        y2={y}
+                        stroke="#e9ecef"
+                        strokeDasharray="4 4"
+                      />
+                    );
+                  })}
+
+                  {/* left axis — sales */}
+                  {salesTicks.map((v) => (
+                    <text
+                      key={`s-${v}`}
+                      x={pad.left - 8}
+                      y={ySales(v) + 4}
+                      textAnchor="end"
+                      fill="#f77f00"
+                      fontSize="11"
+                    >
+                      {formatSalesAxis(v)}
+                    </text>
+                  ))}
+
+                  {/* right axis — orders / users count */}
+                  {countTicks.map((v) => (
+                    <text
+                      key={`c-${v}`}
+                      x={W - pad.right + 8}
+                      y={yCount(v) + 4}
+                      textAnchor="start"
+                      fill="#6c757d"
+                      fontSize="11"
+                    >
+                      {v}
+                    </text>
+                  ))}
+
+                  {/* sales line */}
+                  <path d={salesPath} fill="none" stroke="#f77f00" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                  {/* orders line */}
+                  <path d={ordersPath} fill="none" stroke="#007bff" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                  {/* new users line */}
+                  <path d={usersPath} fill="none" stroke={USERS_COLOR} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+
+                  {/* hover guide line */}
+                  {hover && (
+                    <line
+                      x1={hoverX}
+                      y1={pad.top}
+                      x2={hoverX}
+                      y2={pad.top + plotH}
+                      stroke="#adb5bd"
+                      strokeWidth="1.5"
+                    />
+                  )}
+
+                  {/* points + labels */}
+                  {buckets.map((b, i) => {
+                    const active = trendHoverIndex === i;
+                    return (
+                      <g key={b.key}>
+                        <circle
+                          cx={xAt(i)}
+                          cy={ySales(b.sales)}
+                          r={active ? 7 : 5}
+                          fill={active ? '#f77f00' : '#fff'}
+                          stroke="#f77f00"
+                          strokeWidth="2.5"
+                        />
+                        <circle
+                          cx={xAt(i)}
+                          cy={yCount(b.orders)}
+                          r={active ? 7 : 5}
+                          fill={active ? '#007bff' : '#fff'}
+                          stroke="#007bff"
+                          strokeWidth="2.5"
+                        />
+                        <circle
+                          cx={xAt(i)}
+                          cy={yCount(b.newUsers)}
+                          r={active ? 7 : 5}
+                          fill={active ? USERS_COLOR : '#fff'}
+                          stroke={USERS_COLOR}
+                          strokeWidth="2.5"
+                        />
+                        {active && (
+                          <>
+                            <circle cx={xAt(i)} cy={ySales(b.sales)} r="3" fill="#fff" />
+                            <circle cx={xAt(i)} cy={yCount(b.orders)} r="3" fill="#fff" />
+                            <circle cx={xAt(i)} cy={yCount(b.newUsers)} r="3" fill="#fff" />
+                          </>
+                        )}
+                        <text
+                          x={xAt(i)}
+                          y={H - 14}
+                          textAnchor="middle"
+                          fill={active ? '#222' : '#666'}
+                          fontWeight={active ? 700 : 400}
+                          fontSize={isMobile || n > 8 ? '10' : '11'}
+                        >
+                          {n > 6 ? b.shortLabel.slice(0, 3) : b.shortLabel}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* invisible hit zones for easy hover */}
+                  {buckets.map((b, i) => {
+                    const cx = xAt(i);
+                    const half = Math.max(colW / 2, 18);
+                    return (
+                      <rect
+                        key={`hit-${b.key}`}
+                        x={cx - half}
+                        y={pad.top}
+                        width={half * 2}
+                        height={plotH}
+                        fill="transparent"
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={() => setTrendHoverIndex(i)}
+                        onFocus={() => setTrendHoverIndex(i)}
+                        onMouseMove={() => setTrendHoverIndex(i)}
+                      />
+                    );
+                  })}
+                </svg>
+
+                {hover && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: `${(pad.top / H) * 100}%`,
+                      left: `${(hoverX / W) * 100}%`,
+                      transform: trendHoverIndex >= n / 2
+                        ? 'translate(-110%, 8px)'
+                        : 'translate(12px, 8px)',
+                      background: 'rgba(33, 37, 41, 0.94)',
+                      color: '#fff',
+                      borderRadius: 10,
+                      padding: '10px 14px',
+                      minWidth: 160,
+                      boxShadow: '0 6px 18px rgba(0,0,0,0.25)',
+                      pointerEvents: 'none',
+                      zIndex: 5,
+                      direction: 'rtl',
+                      textAlign: 'right',
+                      fontSize: 13,
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 14 }}>
+                      {hover.label}
+                    </div>
+                    <div style={{ color: '#fcbf49', fontWeight: 600 }}>
+                      المبيعات : {Math.round(hover.sales).toLocaleString('en-US')}₪
+                    </div>
+                    <div style={{ color: '#74c0fc', fontWeight: 600 }}>
+                      الطلبات : {hover.orders.toLocaleString('en-US')}
+                    </div>
+                    <div style={{ color: '#8ce99a', fontWeight: 600 }}>
+                      مستخدمين جدد : {hover.newUsers.toLocaleString('en-US')}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: isMobile ? '8px' : '22px',
+                marginTop: '8px',
+                flexWrap: 'nowrap',
+                fontSize: isMobile ? '11px' : '13px',
+                color: '#444',
+                whiteSpace: 'nowrap',
+              }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', flexShrink: 0 }}>
+                  <span style={{ width: isMobile ? 8 : 10, height: isMobile ? 8 : 10, borderRadius: '50%', background: '#f77f00', display: 'inline-block', flexShrink: 0 }} />
+                  {isMobile ? 'مبيعات' : 'المبيعات (₪)'}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', flexShrink: 0 }}>
+                  <span style={{ width: isMobile ? 8 : 10, height: isMobile ? 8 : 10, borderRadius: '50%', background: '#007bff', display: 'inline-block', flexShrink: 0 }} />
+                  طلبات
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', flexShrink: 0 }}>
+                  <span style={{ width: isMobile ? 8 : 10, height: isMobile ? 8 : 10, borderRadius: '50%', background: '#28a745', display: 'inline-block', flexShrink: 0 }} />
+                  {isMobile ? 'مستخدمين' : 'مستخدمين جدد'}
+                </span>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
+      {/* Top 3 clients — above user analytics */}
+      <div style={{
+        marginTop: '20px',
         marginBottom: '20px',
         background: 'white',
         borderRadius: '15px',
@@ -2688,14 +3076,14 @@ const AnalyticsPage = () => {
           gap: '10px',
         }}>
           <span>🏆</span>
-          <span>أفضل 3 عملاء</span>
+          <span style={{fontSize: '16px'}}>أفضل 3 عملاء</span>
           <span style={{
             fontSize: '13px',
             fontWeight: '500',
             color: '#888',
             marginRight: 'auto',
           }}>
-            حسب عدد الطلبات في الفترة المحددة
+            حسب طلبات بالفترة المحددة
           </span>
         </h2>
 
@@ -3177,6 +3565,39 @@ const AnalyticsPage = () => {
       {/* Mobile-specific styles to override POS CSS */}
       <style>
         {`
+          /* Compact trend range chips (override POS giant touch buttons) */
+          button.analytics-trend-chip {
+            font-family: inherit !important;
+            font-weight: 600 !important;
+            font-size: 13px !important;
+            padding: 7px 14px !important;
+            min-height: 0 !important;
+            min-width: 0 !important;
+            height: auto !important;
+            width: auto !important;
+            max-width: none !important;
+            border-radius: 999px !important;
+            line-height: 1.35 !important;
+            flex: none !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0 !important;
+            box-sizing: border-box !important;
+            white-space: nowrap !important;
+            transform: none !important;
+            touch-action: manipulation;
+          }
+
+          @media (max-width: 767px) {
+            button.analytics-trend-chip {
+              font-size: 12px !important;
+              padding: 5px 11px !important;
+              min-height: 0 !important;
+              min-width: 0 !important;
+            }
+          }
+
           /* Hide معدل الإلغاء and الإيرادات في الساعة on mobile and POS (show only on desktop) */
           @media (max-width: 1023px) {
             .analytics-desktop-only {
