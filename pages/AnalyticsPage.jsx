@@ -1486,11 +1486,10 @@ const AnalyticsPage = () => {
                 };
                 const formatNumber = (num) => num.toLocaleString('en-US');
 
+                // Everything that isn't cash is card-based, so totals always match المبيعات
                 const bucketPayment = (method) => {
-                  const m = String(method || 'unknown').toLowerCase();
-                  if (m === 'cash') return 'cash';
-                  if (m === 'visa' || m === 'apple_pay' || m === 'apple_google' || m === 'card') return 'visa';
-                  return null;
+                  const m = String(method || '').toLowerCase();
+                  return m === 'cash' ? 'cash' : 'visa';
                 };
 
                 const dayStart = new Date(reportDay);
