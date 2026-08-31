@@ -1,12 +1,86 @@
 import OptionsEditor from './OptionsEditor';
-import { FiTrash2, FiEye, FiEyeOff, FiCopy, FiChevronDown, FiChevronUp, FiImage } from 'react-icons/fi';
-import { useState } from 'react';
+import { FiTrash2, FiEye, FiEyeOff, FiCopy, FiChevronDown, FiChevronUp, FiImage, FiTag, FiMoreVertical } from 'react-icons/fi';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Timestamp } from 'firebase/firestore';
 import HideMealModal from './HideMealModal';
+import QuickPriceModal from './QuickPriceModal';
+import { formatMealPriceLabel } from '../../utils/mealPricing';
+
+/** Row inside the mobile "⋯" actions menu (overrides the global touch-button sizing). */
+const menuItemStyle = (color) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  width: '100%',
+  minWidth: 0,
+  minHeight: 0,
+  padding: '11px 14px',
+  border: 'none',
+  borderRadius: 0,
+  background: '#fff',
+  color,
+  fontSize: 14,
+  fontWeight: 600,
+  cursor: 'pointer',
+  boxShadow: 'none',
+  textAlign: 'right',
+  whiteSpace: 'nowrap',
+});
 
 const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onToggle, allMealsInCategory, allMealsData, dragHandle, onMoveCategory, categories, onChangeInstant, onDuplicate, onHideUntilTomorrow, onMarkUnavailable, supermarketMode = false }) => {
   const [imagesExpanded, setImagesExpanded] = useState(false);
   const [showHideModal, setShowHideModal] = useState(false);
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [actionsMenuPos, setActionsMenuPos] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const actionsMenuRef = useRef(null);
+  const actionsButtonRef = useRef(null);
+
+  // The card header clips overflow, so the menu is portaled to <body> and
+  // anchored to the button's viewport position instead.
+  const openActionsMenu = () => {
+    const rect = actionsButtonRef.current?.getBoundingClientRect();
+    if (rect) {
+      const menuWidth = 180;
+      setActionsMenuPos({
+        top: rect.bottom + 6,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+        width: menuWidth,
+      });
+    }
+    setShowActionsMenu(true);
+  };
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!showActionsMenu) return;
+    const handleOutside = (e) => {
+      if (
+        !actionsMenuRef.current?.contains(e.target) &&
+        !actionsButtonRef.current?.contains(e.target)
+      ) {
+        setShowActionsMenu(false);
+      }
+    };
+    const close = () => setShowActionsMenu(false);
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [showActionsMenu]);
 
   const handleFieldChange = (field, lang, value) => {
     const updated = { ...meal };
@@ -136,7 +210,7 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             )}
             <span style={{ fontSize: 18, color: '#888' }}>{expanded ? '⌃' : '⌄'}</span>
           </div>
-          <span style={{ color: '#666', fontSize: 13 }}>₪{meal.price || '0'}</span>
+          <span style={{ color: '#666', fontSize: 13 }}>₪{formatMealPriceLabel(meal)}</span>
         </div>
         {/* Drag and hide (eye) buttons grouped on the left (RTL) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -175,14 +249,78 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           >
             {meal.available === false || meal.unavailable === true ? <FiEyeOff size={16} /> : <FiEye size={16} />}
           </button>
-          <button
-            className="icon-square-btn"
-            onClick={() => onDuplicate && onDuplicate(meal, index)}
-            title="שכפל מנה"
-            style={{ color: '#007bff', flexShrink: 0 }}
-          >
-            <FiCopy size={16} />
-          </button>
+          {isMobile ? (
+            <div style={{ flexShrink: 0 }}>
+              <button
+                ref={actionsButtonRef}
+                className="icon-square-btn"
+                onClick={() => (showActionsMenu ? setShowActionsMenu(false) : openActionsMenu())}
+                title="خيارات إضافية | אפשרויות"
+                style={{ color: '#555', flexShrink: 0 }}
+              >
+                <FiMoreVertical size={16} />
+              </button>
+              {showActionsMenu && actionsMenuPos && createPortal(
+                <div
+                  ref={actionsMenuRef}
+                  style={{
+                    position: 'fixed',
+                    top: actionsMenuPos.top,
+                    left: actionsMenuPos.left,
+                    width: actionsMenuPos.width,
+                    background: '#fff',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 10,
+                    boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
+                    zIndex: 10002,
+                    overflow: 'hidden',
+                    direction: 'rtl',
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      setShowPriceModal(true);
+                    }}
+                    style={menuItemStyle('#f57c00')}
+                  >
+                    <FiTag size={16} />
+                    <span>تعديل الأسعار</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      onDuplicate && onDuplicate(meal, index);
+                    }}
+                    style={{ ...menuItemStyle('#007bff'), borderTop: '1px solid #f0f0f0' }}
+                  >
+                    <FiCopy size={16} />
+                    <span>نسخ المنتج</span>
+                  </button>
+                </div>,
+                document.body,
+              )}
+            </div>
+          ) : (
+            <>
+              <button
+                className="icon-square-btn"
+                onClick={() => onDuplicate && onDuplicate(meal, index)}
+                title="שכפל מנה"
+                style={{ color: '#007bff', flexShrink: 0 }}
+              >
+                <FiCopy size={16} />
+              </button>
+              <button
+                className="icon-square-btn"
+                onClick={() => setShowPriceModal(true)}
+                title="تعديل الأسعار | עדכון מחירים"
+                style={{ color: '#f57c00', flexShrink: 0 }}
+              >
+                <FiTag size={16} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -406,6 +544,20 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
           />
         </div>
       )}
+
+      {/* Quick price editor */}
+      <QuickPriceModal
+        visible={showPriceModal}
+        meal={meal}
+        onClose={() => setShowPriceModal(false)}
+        onSave={(updated) => {
+          if (onChangeInstant) {
+            onChangeInstant(categoryId, index, updated);
+          } else {
+            onChange(updated);
+          }
+        }}
+      />
 
       {/* Hide Meal Modal */}
       <HideMealModal
