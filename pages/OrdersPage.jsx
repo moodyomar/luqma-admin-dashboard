@@ -4,12 +4,13 @@ import { createPortal } from 'react-dom';
 import brandConfig from '../constants/brandConfig';
 import { formatPrice } from '../utils/formatPrice';
 import { db } from '../firebase/firebaseConfig';
-import { collection, onSnapshot, doc, updateDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from '../src/contexts/AuthContext';
+import { canAccessAdvancedSettings } from '../src/utils/advancedSettingsAccess';
 import './styles.css';
 import './pos-terminal.css';
-import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle, IoMdPrint } from 'react-icons/io';
+import { IoMdCheckmark, IoMdCheckmarkCircleOutline, IoMdClose, IoMdRestaurant, IoMdBicycle, IoMdPrint, IoMdTrash } from 'react-icons/io';
 import QuickMealsManager from '../src/components/QuickMealsManager';
 
 // —— Quick working hours (same shape as BusinessManagePage) ——
@@ -471,7 +472,7 @@ const storeReceiptLang = (lang) => {
   } catch (_) {}
 };
 
-const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId, receiptStyle }) => {
+const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBusinessId, receiptStyle, canDeleteOrders }) => {
 
   const deliveryString = order.deliveryMethod === 'delivery' ? 'توصيل للبيت' : 
                         order.deliveryMethod === 'eat_in' ? 'اكل بالمطعم' : 'استلام بالمحل'
@@ -491,6 +492,8 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
   const [reservationActionLoading, setReservationActionLoading] = useState(false);
   const [showPrintLangModal, setShowPrintLangModal] = useState(false);
   const [pendingPrintOrder, setPendingPrintOrder] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingOrder, setDeletingOrder] = useState(false);
 
   const driverPopoverRef = useRef(null);
   const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
@@ -2432,6 +2435,120 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         </div>
       )}
 
+      {/* Advanced users only — permanent order delete */}
+      {canDeleteOrders && (
+        <div style={{ marginTop: 16, borderTop: '1px dashed #e0e0e0', paddingTop: 12 }}>
+          {!showDeleteConfirm ? (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={deletingOrder}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                width: '100%',
+                padding: '10px 16px',
+                borderRadius: 8,
+                border: '1px solid #f5c6cb',
+                background: '#fff5f5',
+                color: '#c62828',
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: 'pointer',
+                minHeight: 0,
+                minWidth: 0,
+              }}
+            >
+              <IoMdTrash size={18} />
+              حذف الطلب نهائياً (متقدم)
+            </button>
+          ) : (
+            <div
+              style={{
+                background: '#fff5f5',
+                border: '1px solid #f5c6cb',
+                borderRadius: 10,
+                padding: 12,
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontWeight: 700, color: '#c62828', marginBottom: 6, fontSize: 14 }}>
+                تأكيد الحذف النهائي؟
+              </div>
+              <div style={{ fontSize: 12, color: '#666', marginBottom: 12, lineHeight: 1.5 }}>
+                سيتم حذف الطلب من النظام نهائياً ولا يمكن التراجع.
+                {order.name || order.phone ? (
+                  <div style={{ marginTop: 4 }}>
+                    {order.name ? `${order.name} · ` : ''}
+                    {order.phone || ''}
+                    {order.total != null ? ` · ${order.total}₪` : ''}
+                  </div>
+                ) : null}
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  disabled={deletingOrder}
+                  onClick={async () => {
+                    const orderId = order.id || order.uid;
+                    if (!orderId || !activeBusinessId) {
+                      toast.error('تعذر تحديد الطلب');
+                      return;
+                    }
+                    setDeletingOrder(true);
+                    try {
+                      await deleteDoc(doc(db, 'menus', activeBusinessId, 'orders', orderId));
+                      toast.success('تم حذف الطلب');
+                      setShowDeleteConfirm(false);
+                    } catch (err) {
+                      console.error('Delete order failed:', err);
+                      toast.error('فشل حذف الطلب');
+                    } finally {
+                      setDeletingOrder(false);
+                    }
+                  }}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: '#dc3545',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    cursor: deletingOrder ? 'wait' : 'pointer',
+                    minHeight: 0,
+                    minWidth: 0,
+                  }}
+                >
+                  {deletingOrder ? 'جاري الحذف...' : 'نعم، احذف'}
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingOrder}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 8,
+                    border: '1px solid #ccc',
+                    background: '#fff',
+                    color: '#333',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    minHeight: 0,
+                    minWidth: 0,
+                  }}
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 });
@@ -2473,7 +2590,8 @@ const OrdersPage = () => {
   workingHoursLiveRef.current = workingHoursLive;
   featuresLiveRef.current = featuresLive;
   const [receiptStyle, setReceiptStyle] = useState(null); // Receipt style from Firebase config
-  const { activeBusinessId } = useAuth();
+  const { activeBusinessId, user } = useAuth();
+  const canDeleteOrders = canAccessAdvancedSettings(user);
 
   const storeStatusModalDirty = useMemo(() => {
     const whEqual =
@@ -3303,7 +3421,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {newOrders.map((order, index) => (
-              <OrderCard key={`new-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} />
+              <OrderCard key={`new-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} canDeleteOrders={canDeleteOrders} />
             ))}
           </div>
         )
@@ -3313,7 +3431,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {activeOrders.map((order, index) => (
-              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} />
+              <OrderCard key={`active-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} canDeleteOrders={canDeleteOrders} />
             ))}
           </div>
         )
@@ -3323,7 +3441,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {sortedFutureOrders.map((order, index) => (
-              <OrderCard key={`future-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} />
+              <OrderCard key={`future-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} canDeleteOrders={canDeleteOrders} />
             ))}
           </div>
         )
@@ -3333,7 +3451,7 @@ const OrdersPage = () => {
         ) : (
           <div className="orders-grid">
             {pastOrders.map((order, index) => (
-              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} />
+              <OrderCard key={`past-${order.uid || order.id}-${index}`} order={order} orderTimers={orderTimers} startTimerForOrder={startTimerForOrder} activeBusinessId={activeBusinessId} receiptStyle={receiptStyle} canDeleteOrders={canDeleteOrders} />
             ))}
           </div>
         )
