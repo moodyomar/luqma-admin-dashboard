@@ -1149,14 +1149,14 @@ const BusinessManagePage = () => {
           </label>
 
           {!form.workingHours.perDayEnabled ? (
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%', direction: 'rtl' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת סגירה</label>
+                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>يفتح الساعه</label>
                 <input
                   type="time"
-                  name="close"
+                  name="open"
                   dir="ltr"
-                  value={form.workingHours.close}
+                  value={form.workingHours.open}
                   onChange={handleChange}
                   style={{
                     height: 44,
@@ -1173,12 +1173,12 @@ const BusinessManagePage = () => {
                 />
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>שעת פתיחה</label>
+                <label style={{ fontSize: 13, color: '#888', fontWeight: 500, marginRight: 2, marginBottom: 2, minHeight: '20px', display: 'flex', alignItems: 'center' }}>يسكر الساعه</label>
                 <input
                   type="time"
-                  name="open"
+                  name="close"
                   dir="ltr"
-                  value={form.workingHours.open}
+                  value={form.workingHours.close}
                   onChange={handleChange}
                   style={{
                     height: 44,
