@@ -184,6 +184,18 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
                   </span>
                 );
               })()}
+            {meal.onSale === true && (
+              <span style={{
+                fontSize: 10,
+                background: '#e53935',
+                color: 'white',
+                padding: '2px 6px',
+                borderRadius: 4,
+                fontWeight: 600,
+              }} title="במבצע | على العرض">
+                מבצע
+              </span>
+            )}
             {meal.unavailable === true && (
               <span style={{ 
                 fontSize: 10, 
@@ -405,9 +417,10 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
             <input
               type="text"
               className="meal-settings-price-input"
-              placeholder="המחיר | السعر"
+              placeholder={meal?.onSale ? 'מחיר מבצע (הנמוך) | سعر العرض (الأقل)' : 'המחיר | السعر'}
               value={meal?.price || ''}
               onChange={(e) => handleFieldChange('price', null, e.target.value)}
+              title={meal?.onSale ? 'המחיר שהלקוח משלם עכשיו (חייב להיות נמוך מהמחיר הישן)' : undefined}
             />
             {/* Row 2: Description (AR/HE) */}
             <input
@@ -424,6 +437,107 @@ const MealCard = ({ meal, categoryId, index, onChange, onDelete, expanded, onTog
               value={meal?.description?.he || ''}
               onChange={(e) => handleFieldChange('description', 'he', e.target.value)}
             />
+            {/* Sale / deals */}
+            <div
+              style={{
+                gridColumn: '1 / -1',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: meal?.onSale ? '1px solid #ffcdd2' : '1px solid #e8e8e8',
+                background: meal?.onSale ? '#fff5f5' : '#fafafa',
+                direction: 'rtl',
+              }}
+            >
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#333',
+                  margin: 0,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={meal?.onSale === true}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    const updated = { ...meal, onSale: checked };
+                    if (checked) {
+                      // Keep current price as the OLD (list) price; admin lowers `price` for the sale
+                      if (meal?.price !== '' && meal?.price != null && !meal?.compareAtPrice) {
+                        updated.compareAtPrice = meal.price;
+                      }
+                    } else if (!checked) {
+                      // Restore list price if we had one
+                      if (meal?.compareAtPrice != null && meal.compareAtPrice !== '') {
+                        updated.price = meal.compareAtPrice;
+                      }
+                      delete updated.compareAtPrice;
+                    }
+                    onChange(updated);
+                  }}
+                  style={{ width: 16, height: 16, cursor: 'pointer' }}
+                />
+                <span>במבצע | على العرض</span>
+              </label>
+              {meal?.onSale === true && (
+                <input
+                  type="text"
+                  className="meal-settings-price-input"
+                  placeholder="מחיר ישן (גבוה יותר) | السعر القديم (الأعلى)"
+                  value={meal?.compareAtPrice ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    const updated = { ...meal };
+                    if (value === '') {
+                      delete updated.compareAtPrice;
+                    } else {
+                      updated.compareAtPrice = value;
+                    }
+                    onChange(updated);
+                  }}
+                  onBlur={() => {
+                    // Normalize: price = sale (lower), compareAtPrice = old (higher)
+                    const sell = Number(meal?.price);
+                    const list = Number(meal?.compareAtPrice);
+                    if (
+                      meal?.onSale &&
+                      Number.isFinite(sell) &&
+                      Number.isFinite(list) &&
+                      sell !== list
+                    ) {
+                      const low = Math.min(sell, list);
+                      const high = Math.max(sell, list);
+                      if (low !== sell || high !== list) {
+                        onChange({
+                          ...meal,
+                          onSale: true,
+                          price: low,
+                          compareAtPrice: high,
+                        });
+                      }
+                    }
+                  }}
+                  style={{ minWidth: 160, flex: '1 1 160px' }}
+                  title="המחיר המקורי שיוצג עם קו חוצה — חייב להיות גבוה ממחיר המבצע"
+                />
+              )}
+              {meal?.onSale === true && (
+                <span style={{ fontSize: 11, color: '#888', lineHeight: 1.35, width: '100%' }}>
+                  מחיר מבצע = השדה למעלה (למשל 89). מחיר ישן = השדה הוורוד (למשל 99). באפליקציה: 99̶ ו־89.
+                  <br />
+                  سعر العرض = الحقل فوق (مثلاً 89). السعر القديم = الحقل الوردي (مثلاً 99). في التطبيق: 99̶ و 89.
+                </span>
+              )}
+            </div>
             {/* Row 3: Preorder Hours */}
             <input
               type="number"

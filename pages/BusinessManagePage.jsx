@@ -139,7 +139,9 @@ const BusinessManagePage = () => {
       showPrices: false,
       showSplash: false,
       supermarketMode: false,
+      enableMinOrder: false,
     },
+    minOrderAmount: '',
     loyalty: DEFAULT_LOYALTY,
     referral: DEFAULT_REFERRAL,
     luckyWheel: DEFAULT_LUCKY_WHEEL,
@@ -248,8 +250,15 @@ const BusinessManagePage = () => {
           showPrices: existingFeatures.showPrices ?? false,
           showSplash: existingFeatures.showSplash ?? false,
           supermarketMode: existingFeatures.supermarketMode ?? false,
+          enableMinOrder: existingFeatures.enableMinOrder ?? false,
         };
         console.log('Final processed features for form:', features);
+
+        const minOrderRaw = data.config?.minOrderAmount;
+        const minOrderAmount =
+          minOrderRaw != null && minOrderRaw !== '' && Number(minOrderRaw) > 0
+            ? String(minOrderRaw)
+            : '';
 
         const loyaltyConfig = {
           enabled: typeof data.config?.loyalty?.enabled === 'boolean'
@@ -305,6 +314,7 @@ const BusinessManagePage = () => {
           deliveryCities,
           storeStatusMode,
           features,
+          minOrderAmount,
           loyalty: loyaltyConfig,
           referral: referralConfig,
           luckyWheel: luckyWheelConfig,
@@ -361,8 +371,15 @@ const BusinessManagePage = () => {
         features: updatedFeatures
       }));
       
-      // Auto-save to Firebase immediately
-      saveFeatureToFirebase(updatedFeatures);
+      // Auto-save to Firebase immediately (min-order also writes amount)
+      if (featureName === 'enableMinOrder') {
+        saveMinOrderConfig(updatedFeatures, form.minOrderAmount);
+      } else {
+        saveFeatureToFirebase(updatedFeatures);
+      }
+    } else if (name === 'minOrderAmount') {
+      setForm((prev) => ({ ...prev, minOrderAmount: value }));
+      saveMinOrderConfig(form.features, value);
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
@@ -630,17 +647,28 @@ const BusinessManagePage = () => {
   };
 
   // Auto-save features to Firebase
-  const saveFeatureToFirebase = async (features) => {
+  const saveFeatureToFirebase = async (features, extra = {}) => {
     try {
-      console.log('🔄 Auto-saving features to Firebase:', features);
+      console.log('🔄 Auto-saving features to Firebase:', features, extra);
       const ref = doc(db, 'menus', activeBusinessId);
       await updateDoc(ref, {
         'config.features': features,
+        ...extra,
       });
       console.log('✅ Features auto-saved successfully!');
     } catch (error) {
       console.error('❌ Error auto-saving features:', error);
     }
+  };
+
+  const saveMinOrderConfig = async (features, minOrderAmountValue) => {
+    const parsed = Number(minOrderAmountValue);
+    const amount =
+      features.enableMinOrder && Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    await saveFeatureToFirebase(
+      { ...features, enableMinOrder: !!features.enableMinOrder },
+      { 'config.minOrderAmount': amount },
+    );
   };
 
   const handleSave = async () => {
@@ -657,7 +685,14 @@ const BusinessManagePage = () => {
       const featuresToSave = {
         ...form.features,
         supermarketMode: !!remoteFeatures.supermarketMode,
+        enableMinOrder: !!form.features.enableMinOrder,
       };
+
+      const minOrderParsed = Number(form.minOrderAmount);
+      const minOrderToSave =
+        form.features.enableMinOrder && Number.isFinite(minOrderParsed) && minOrderParsed > 0
+          ? minOrderParsed
+          : 0;
       
       const updateData = {
         'config.deliveryFee': deleteField(),
@@ -670,6 +705,7 @@ const BusinessManagePage = () => {
         // Capacity UI removed; keep 0 so menu-app dine-in logic does not block on stale values
         'config.tablesCapacity': 0,
         'config.features': featuresToSave,
+        'config.minOrderAmount': minOrderToSave,
         'config.heroTagline': form.heroTagline,
         'config.loyalty': {
           enabled: !!form.loyalty.enabled,
@@ -1999,6 +2035,55 @@ const BusinessManagePage = () => {
                     אכילה במקום
                   </span>
                 </label>
+
+                <div
+                  style={{
+                    marginTop: 4,
+                    paddingTop: 10,
+                    borderTop: '1px solid #f0f0f0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      name="feature_enableMinOrder"
+                      checked={!!form.features.enableMinOrder}
+                      onChange={handleChange}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>
+                      סכום הזמנה מינימלי | حد أدنى للطلب
+                    </span>
+                  </label>
+                  <div style={{ fontSize: 11, color: '#666', lineHeight: 1.4, marginRight: 24 }}>
+                    כשפעיל, הלקוח רואה באפליקציה כמה חסר עד המינימום ולא יכול להמשיך לתשלום מתחתיו.
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 24 }}>
+                    <span style={{ fontSize: 13, color: '#555' }}>₪</span>
+                    <input
+                      type="number"
+                      name="minOrderAmount"
+                      min="0"
+                      step="1"
+                      disabled={!form.features.enableMinOrder}
+                      value={form.minOrderAmount}
+                      onChange={handleChange}
+                      placeholder="לדוג׳ 50"
+                      style={{
+                        width: 120,
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        border: '1px solid #ccc',
+                        fontSize: 14,
+                        background: form.features.enableMinOrder ? '#fff' : '#f5f5f5',
+                      }}
+                    />
+                    <span style={{ fontSize: 12, color: '#888' }}>מינימום לתשלום (לפני דמי משלוח)</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
