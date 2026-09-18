@@ -55,10 +55,12 @@ service cloud.firestore {
     // menus/.../couponUserUsage/{usageId} id is {auth.uid}_{couponDocId}. Do not use regex with uid:
     // Firebase Auth uids can contain characters that are RE2 metacharacters (e.g. "."), which breaks matches().
     function isOwnCouponUsageId(usageId) {
-      let parts = usageId.split('_');
+      // Doc id is {auth.uid}_{couponId}. Prefix match — do NOT split on "_":
+      // Auth uids (and coupon ids) may contain underscores, which broke parts[0] == uid.
       return isAuthed() &&
-        parts.size() >= 2 &&
-        parts[0] == request.auth.uid;
+        usageId.size() > request.auth.uid.size() &&
+        usageId[0:request.auth.uid.size()] == request.auth.uid &&
+        usageId[request.auth.uid.size():request.auth.uid.size()+1] == '_';
     }
 
     // ========================================

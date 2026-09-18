@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { db, firebaseApp } from '../firebase/firebaseConfig';
 import { doc, getDoc, updateDoc, collection, getDocs, query, where, deleteField } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -182,6 +182,24 @@ const BusinessManagePage = () => {
   });
   const [sendingNotification, setSendingNotification] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+
+  const filteredNotificationUsers = useMemo(() => {
+    const q = userSearchQuery.trim().toLowerCase();
+    if (!q) return allUsers;
+    const digits = q.replace(/\D/g, '');
+    return allUsers.filter((user) => {
+      const name = String(user.name || user.displayName || '').toLowerCase();
+      const email = String(user.email || '').toLowerCase();
+      const phone = String(user.phone || '');
+      const phoneDigits = phone.replace(/\D/g, '');
+      if (name.includes(q) || email.includes(q) || phone.toLowerCase().includes(q)) {
+        return true;
+      }
+      if (digits && phoneDigits.includes(digits)) return true;
+      return false;
+    });
+  }, [allUsers, userSearchQuery]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1785,7 +1803,14 @@ const BusinessManagePage = () => {
                       name="targetAudience"
                       value="all"
                       checked={notificationForm.targetAudience === 'all'}
-                      onChange={(e) => setNotificationForm(prev => ({ ...prev, targetAudience: e.target.value, selectedUsers: [] }))}
+                      onChange={(e) => {
+                        setUserSearchQuery('');
+                        setNotificationForm((prev) => ({
+                          ...prev,
+                          targetAudience: e.target.value,
+                          selectedUsers: [],
+                        }));
+                      }}
                       style={{ width: 16, height: 16, cursor: 'pointer' }}
                     />
                     <span style={{ fontSize: 14 }}>כל המשתמשים</span>
@@ -1797,7 +1822,13 @@ const BusinessManagePage = () => {
                       name="targetAudience"
                       value="specific"
                       checked={notificationForm.targetAudience === 'specific'}
-                      onChange={(e) => setNotificationForm(prev => ({ ...prev, targetAudience: e.target.value }))}
+                      onChange={(e) => {
+                        setUserSearchQuery('');
+                        setNotificationForm((prev) => ({
+                          ...prev,
+                          targetAudience: e.target.value,
+                        }));
+                      }}
                       style={{ width: 16, height: 16, cursor: 'pointer' }}
                     />
                     <span style={{ fontSize: 14 }}>משתמשים ספציפיים</span>
@@ -1809,8 +1840,29 @@ const BusinessManagePage = () => {
               {notificationForm.targetAudience === 'specific' && (
                 <div>
                   <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: '#333', textAlign: 'right' }}>
-                    בחר משתמשים ({notificationForm.selectedUsers.length} נבחרו)
+                    בחר משתמשים ({notificationForm.selectedUsers.length} נבחרו
+                    {userSearchQuery.trim()
+                      ? ` · מציג ${filteredNotificationUsers.length} מתוך ${allUsers.length}`
+                      : ''})
                   </label>
+                  <input
+                    type="search"
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    placeholder="חיפוש לפי שם או טלפון..."
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '10px 12px',
+                      marginBottom: 8,
+                      border: '2px solid #e0e0e0',
+                      borderRadius: 8,
+                      fontSize: 14,
+                      direction: 'rtl',
+                      textAlign: 'right',
+                      outline: 'none',
+                    }}
+                  />
                   <div style={{ 
                     maxHeight: 200, 
                     overflowY: 'auto', 
@@ -1823,8 +1875,12 @@ const BusinessManagePage = () => {
                       <div style={{ textAlign: 'center', padding: 16, color: '#666', fontSize: 13 }}>
                         טוען משתמשים...
                       </div>
+                    ) : filteredNotificationUsers.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: 16, color: '#666', fontSize: 13 }}>
+                        לא נמצאו משתמשים התואמים לחיפוש
+                      </div>
                     ) : (
-                      allUsers.map(user => (
+                      filteredNotificationUsers.map(user => (
                         <label key={user.id} style={{ 
                           display: 'flex', 
                           alignItems: 'center', 
@@ -1855,7 +1911,10 @@ const BusinessManagePage = () => {
                             style={{ width: 16, height: 16, cursor: 'pointer' }}
                           />
                           <span style={{ fontSize: 14, color: '#333', flex: 1 }}>
-                            {user.name || user.phone || user.email || user.displayName || user.id}
+                            {user.name || user.displayName || 'ללא שם'}
+                            {user.phone ? (
+                              <span style={{ color: '#666', fontSize: 12 }}> · {user.phone}</span>
+                            ) : null}
                           </span>
                         </label>
                       ))

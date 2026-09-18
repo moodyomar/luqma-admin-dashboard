@@ -171,10 +171,14 @@ export const spinLuckyWheel = onCall(adminSpaCallableOpts, async (request) => {
     }
     const userData = userSnap.data() || {};
     const points = Number(userData.points) || 0;
-    if (points < config.spinCostPoints) {
+    // First spin ever is free (never spun + free-spin not already consumed).
+    const useFreeSpin =
+      userData.luckyWheelFreeSpinUsed !== true && !userData.lastLuckyWheelSpinAt;
+    const costPoints = useFreeSpin ? 0 : config.spinCostPoints;
+    if (points < costPoints) {
       throw new HttpsError(
         "failed-precondition",
-        `Need ${config.spinCostPoints} points (have ${points}).`
+        `Need ${costPoints} points (have ${points}).`
       );
     }
 
@@ -216,7 +220,6 @@ export const spinLuckyWheel = onCall(adminSpaCallableOpts, async (request) => {
     }
 
     const spinRef = userRef.collection("wheelSpins").doc();
-    const costPoints = config.spinCostPoints;
     const newPoints = points - costPoints;
 
     let pointsAwarded = 0;
@@ -224,12 +227,16 @@ export const spinLuckyWheel = onCall(adminSpaCallableOpts, async (request) => {
     let couponCode: string | null = null;
     let prizeSummary: Record<string, unknown> = { type: won.type };
 
-    // Deduct spin cost
-    tx.update(userRef, {
+    // Deduct spin cost (0 on free welcome spin) and mark free spin consumed when used
+    const userUpdate: Record<string, unknown> = {
       points: newPoints,
       lastPointsUpdate: admin.firestore.FieldValue.serverTimestamp(),
       lastLuckyWheelSpinAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+    if (useFreeSpin) {
+      userUpdate.luckyWheelFreeSpinUsed = true;
+    }
+    tx.update(userRef, userUpdate);
 
     // Grant prize
     if (won.type === SEGMENT_TYPES.POINTS && (won.points || 0) > 0) {
@@ -346,6 +353,7 @@ export const spinLuckyWheel = onCall(adminSpaCallableOpts, async (request) => {
       type: won.type,
       label: won.label || null,
       costPoints,
+      usedFreeSpin: useFreeSpin,
       pointsRemaining: newPoints + pointsAwarded,
       pointsAwarded,
       couponId,
