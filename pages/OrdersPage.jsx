@@ -181,6 +181,17 @@ const isReservationAwaitingPayment = (order) =>
 const isReservationFullyComplete = (order) =>
   order.reservationStatus === 'reservation_paid' && !!order.tableNumber;
 
+/** True when order may be closed/served — payment must exist (no walk-out unpaid). */
+const isOrderPaid = (order) => {
+  if (!order) return false;
+  if (order.reservationStatus) {
+    return order.reservationStatus === 'reservation_paid';
+  }
+  const method = order.paymentMethod;
+  if (!method || method === 'pending' || method === 'awaiting') return false;
+  return true;
+};
+
 const pluralizeAr = (value, singular, plural) => (value === 1 ? singular : plural);
 const formatNumber = (value) => new Intl.NumberFormat('en-US').format(value ?? 0);
 
@@ -1286,6 +1297,72 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
     }
   };
 
+  /** Guest showed up before the scheduled eat-in time */
+  const handleMarkCustomerArrived = async () => {
+    setLoading(true);
+    try {
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
+      await updateDoc(ref, {
+        customerArrived: true,
+        customerArrivedAt: new Date().toISOString(),
+      });
+      toast.success('تم تسجيل وصول الزبون', { position: 'top-center' });
+    } catch (err) {
+      console.error('Error marking arrived:', err);
+      toast.error('خطأ في تسجيل الوصول: ' + (err.message || ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /** Record cash payment at the restaurant — required before marking order done */
+  const handleConfirmCashPayment = async () => {
+    if (!window.confirm('تأكيد استلام الدفع نقداً من الزبون؟')) return;
+    setLoading(true);
+    try {
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
+      const updates = {
+        paymentMethod: 'cash',
+        paidAt: new Date().toISOString(),
+        paidInRestaurant: true,
+      };
+      if (order.reservationStatus && order.reservationStatus !== 'reservation_paid') {
+        updates.reservationStatus = 'reservation_paid';
+        updates.reservationConfirmedAt =
+          order.reservationConfirmedAt || new Date().toISOString();
+      }
+      await updateDoc(ref, updates);
+      toast.success('تم تسجيل الدفع نقداً', { position: 'top-center' });
+    } catch (err) {
+      console.error('Error confirming cash payment:', err);
+      toast.error('خطأ في تسجيل الدفع: ' + (err.message || ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completeEatInOrder = async () => {
+    if (!isOrderPaid(order)) {
+      toast.error('لا يمكن إكمال الطلب قبل الدفع — سجّل الدفع أولاً', {
+        position: 'top-center',
+        duration: 3500,
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      const ref = doc(db, 'menus', activeBusinessId, 'orders', order.id);
+      await updateDoc(ref, {
+        status: 'delivered',
+        deliveredAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      alert('שגיאה בעדכון ההזמנה.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // --- Reservation request actions (reservationStatus === 'reservation_request') ---
   const handleConfirmReservation = async () => {
     setReservationActionLoading(true);
@@ -1621,6 +1698,40 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
             }}>
               <span>⏰</span>
               <span>طلب مستقبلي</span>
+            </div>
+          )}
+          {order.customerArrived && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: '#e3f2fd',
+              border: '1px solid #2196f3',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              color: '#1565c0'
+            }}>
+              <span>🚶</span>
+              <span>وصل الزبون</span>
+            </div>
+          )}
+          {!isOrderPaid(order) && order.deliveryMethod === 'eat_in' && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: '#fff3e0',
+              border: '1px solid #ff9800',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              color: '#e65100'
+            }}>
+              <span>💳</span>
+              <span>بانتظار الدفع</span>
             </div>
           )}
         </div>
@@ -2227,25 +2338,76 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
                         طاولة {order.tableNumber} معينة • في انتظار الدفع
                       </div>
                     )}
-                    <button 
+                    {order.customerArrived && (
+                      <div style={{ fontSize: 13, color: '#1565c0', marginBottom: 4, fontWeight: 600 }}>
+                        🚶 الزبون وصل قبل الموعد
+                        {order.customerArrivedAt
+                          ? ` · ${new Date(order.customerArrivedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`
+                          : ''}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+                      {!order.customerArrived && (
+                        <button
+                          onClick={handleMarkCustomerArrived}
+                          disabled={loading}
+                          style={{
+                            fontWeight: 600,
+                            padding: '10px 20px',
+                            borderRadius: 8,
+                            background: '#2196f3',
+                            color: '#fff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 15,
+                          }}
+                        >
+                          وصل الزبون
+                        </button>
+                      )}
+                      {!isOrderPaid(order) && (
+                        <button
+                          onClick={handleConfirmCashPayment}
+                          disabled={loading}
+                          style={{
+                            fontWeight: 600,
+                            padding: '10px 20px',
+                            borderRadius: 8,
+                            background: '#ff9800',
+                            color: '#fff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 15,
+                          }}
+                        >
+                          تأكيد الدفع (كاش)
+                        </button>
+                      )}
+                      <button
                       onClick={() => {
                         setSelectedTableNumber(order.tableNumber || '');
                         setShowTableAssignment(true);
                       }}
                       disabled={loading}
-                      style={{ 
-                        fontWeight: 600, 
-                        padding: '10px 20px', 
-                        borderRadius: 8, 
-                        background: '#17a2b8', 
-                        color: '#fff', 
-                        border: 'none', 
-                        cursor: 'pointer', 
-                        fontSize: 16 
+                      style={{
+                        fontWeight: 600,
+                        padding: '10px 20px',
+                        borderRadius: 8,
+                        background: '#17a2b8',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: 16
                       }}
                     >
                       {order.tableNumber ? 'تغيير الطاولة' : 'تأكيد الحجز وتعيين الطاولة'}
                     </button>
+                    </div>
+                    {!isOrderPaid(order) && (
+                      <div style={{ fontSize: 12, color: '#c62828', textAlign: 'center', maxWidth: 340 }}>
+                        لا يمكن إكمال الطلب أو تسجيله كمُنجز قبل الدفع
+                      </div>
+                    )}
                   </>
                 )
               ) : (
@@ -2302,7 +2464,43 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
         );
       })()}
       {order.status === 'preparing' && (
-        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 10 }}>
+          {order.deliveryMethod === 'eat_in' && !order.customerArrived && (
+            <button
+              onClick={handleMarkCustomerArrived}
+              disabled={loading}
+              style={{
+                fontWeight: 600,
+                padding: '10px 20px',
+                borderRadius: 8,
+                background: '#2196f3',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 16,
+              }}
+            >
+              وصل الزبون
+            </button>
+          )}
+          {order.deliveryMethod === 'eat_in' && !isOrderPaid(order) && (
+            <button
+              onClick={handleConfirmCashPayment}
+              disabled={loading}
+              style={{
+                fontWeight: 600,
+                padding: '10px 20px',
+                borderRadius: 8,
+                background: '#ff9800',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 16,
+              }}
+            >
+              تأكيد الدفع (كاش)
+            </button>
+          )}
           <button onClick={handleOrderReady} disabled={loading} style={{ fontWeight: 600, padding: '10px 28px', borderRadius: 8, background: '#34C759', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center' }}>
             <IoMdRestaurant style={{ marginLeft: 8 }} />
             الطلب جاهز
@@ -2336,34 +2534,42 @@ const OrderCard = React.memo(({ order, orderTimers, startTimerForOrder, activeBu
               }}>
                 {order.tableNumber ? `الطلب جاهز للطاولة ${order.tableNumber} 🔔` : 'الطلب جاهز للتقديم 🔔'}
               </div>
+              {!isOrderPaid(order) && (
+                <button
+                  onClick={handleConfirmCashPayment}
+                  disabled={loading}
+                  style={{
+                    fontWeight: 700,
+                    padding: '10px 20px',
+                    borderRadius: 8,
+                    background: '#ff9800',
+                    color: '#fff',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 15,
+                    marginRight: 10,
+                  }}
+                >
+                  تأكيد الدفع (كاش)
+                </button>
+              )}
               <button
-                onClick={async () => {
-                  setLoading(true);
-                  try {
-                    const ref = doc(db, 'menus', brandConfig.id, 'orders', order.id);
-                    await updateDoc(ref, {
-                      status: 'delivered',
-                      deliveredAt: new Date().toISOString(),
-                    });
-                  } catch (err) {
-                    alert('שגיאה בעדכון ההזמנה.');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                disabled={loading}
+                onClick={completeEatInOrder}
+                disabled={loading || !isOrderPaid(order)}
+                title={!isOrderPaid(order) ? 'يجب تسجيل الدفع أولاً' : undefined}
                 style={{
                   fontWeight: 700,
                   padding: '10px 24px',
                   borderRadius: 8,
-                  background: '#34C759',
+                  background: isOrderPaid(order) ? '#34C759' : '#9e9e9e',
                   color: '#fff',
                   border: 'none',
-                  cursor: 'pointer',
+                  cursor: isOrderPaid(order) ? 'pointer' : 'not-allowed',
                   fontSize: 16,
                   marginRight: 10,
                   display: 'flex',
                   alignItems: 'center',
+                  opacity: isOrderPaid(order) ? 1 : 0.7,
                 }}
               >
                 تم التوصيل للطاولة
